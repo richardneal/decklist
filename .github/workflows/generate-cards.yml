@@ -14,3 +14,4 @@ jobs:
       - name: Run shell script
         run: ./generatecards.sh
         working-directory: ./js/cards/
+      - uses: stefanzweifel/git-auto-commit-action@v4
