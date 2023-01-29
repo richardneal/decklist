@@ -1,0 +1,16 @@
+name: Generate Cards
+on:
+  schedule:
+    - cron: "0 0 * * *"
+jobs:
+  generate-cards:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      - name: Install terser
+        run: npm i terser -g
+      - name: CD
+        run: cd /js/cards/
+      - name: Run shell script
+        run: ./generatecards.sh
