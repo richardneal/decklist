@@ -12,6 +12,6 @@ jobs:
       - name: Install terser
         run: npm i terser -g
       - name: CD
-        run: cd /js/cards/
+        run: cd ./js/cards/
       - name: Run shell script
         run: ./generatecards.sh
