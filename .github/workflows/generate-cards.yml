@@ -15,3 +15,5 @@ jobs:
         run: ./generatecards.sh
         working-directory: ./js/cards/
       - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Update card list
