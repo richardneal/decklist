@@ -85,6 +85,7 @@ function parseGET() {
     'eventlocation',
     'deckname',
     'deckdesigner',
+    'deckimport',
     'deckmain',
     'deckside'
   ];
@@ -1040,7 +1041,8 @@ function validateInput(parsedLists) {
     'eventdate': [],
     'eventlocation': [],
     'deckmain': [],
-    'deckside': []
+    'deckside': [],
+    'deckimport': []
   };
   const maindeck = parsedLists['main'],
     maindeck_count = Decklist.count(maindeck),
@@ -1073,6 +1075,10 @@ function validateInput(parsedLists) {
   else {
     if (DCI.isValid($('#dcinumber').val()) === -1)  { validate.dcinumber.push({ warning: 'nocheck' });}
     if (DCI.wasChanged($('#dcinumber').val()))      { validate.dcinumber.push({ warning: 'changed' });}
+  }
+
+  if ($('#deckimport').val() !== '' && MTGGoldfish.isGoldfish($('#deckimport').val())) {
+    MTGGoldfish.getDecklist($('#deckimport').val());
   }
 
   // check event name (non-blank)
