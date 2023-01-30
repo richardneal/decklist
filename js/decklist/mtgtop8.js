@@ -1,14 +1,15 @@
-/* exported MTGGoldfish */
+/* exported MTGTop8 */
 
-var MTGGoldfish = {
-    pattern: new URLPattern('https://www.mtggoldfish.com/deck/:id#*'),
+var MTGTop8 = {
+    pattern: new URLPattern('https://www.mtgtop8.com/event?*'),
     corsURL: 'https://cors-anywhere.herokuapp.com/',
-    decklistURL: 'https://www.mtggoldfish.com/deck/download/',
-    isGoldfish: function(url) {
+    decklistURL: 'https://www.mtgtop8.com/mtgo?d=',
+    isTop8: function(url) {
         return this.pattern.test(url);
     },
     getDecklist: function(url) {
-        id = this.pattern.exec(url).pathname.groups.id;
+        searchParams = new URLSearchParams(url);
+        id = searchParams.get('d');
         $.ajax({
             url: this.corsURL + this.decklistURL + id,
             headers: {
@@ -18,7 +19,7 @@ var MTGGoldfish = {
             method: 'GET',
             dataType: 'text',
             success: function(result){
-                split = result.split('\r\n\r\n');
+                split = result.split('\r\nSideboard\r\n');
                 $("#deckmain").html(split[0]);
                 $("#deckside").html(split[1]);
             }

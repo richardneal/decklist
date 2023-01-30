@@ -1077,8 +1077,10 @@ function validateInput(parsedLists) {
     if (DCI.wasChanged($('#dcinumber').val()))      { validate.dcinumber.push({ warning: 'changed' });}
   }
 
-  if ($('#deckimport').val() !== '' && MTGGoldfish.isGoldfish($('#deckimport').val())) {
-    MTGGoldfish.getDecklist($('#deckimport').val());
+  if ($('#deckimport').val() !== '') {
+    if (MTGGoldfish.isGoldfish($('#deckimport').val())) { MTGGoldfish.getDecklist($('#deckimport').val()); }
+    else if (MTGTop8.isTop8($('#deckimport').val())) { MTGTop8.getDecklist($('#deckimport').val()); }
+    else { validate.deckimport.push({ warning: 'badurl' }); }
   }
 
   // check event name (non-blank)
@@ -1277,6 +1279,10 @@ function statusAndTooltips(valid) {
           notifications.push(prop, ['Most sideboards consist of exactly 15 cards', validType]);
         } else if (validationObject['error'] === 'toolarge') {
           notifications.push(prop, ['Sideboards may not consist of more than 15 cards', validType]);
+        }
+      } else if (prop === 'deckimport') {
+        if (validationObject['warning'] === 'badurl') {
+          notifications.push(prop, ['Invalid deck import URL', validType]);
         }
       }
     }
