@@ -9,18 +9,14 @@ var MTGGoldfish = {
     },
     getDecklist: function(url) {
         id = this.pattern.exec(url).pathname.groups.id;
-        $.ajax({
-            url: this.corsURL + this.decklistURL + id,
-            dataType: 'json',
-            headers: {
-              'x-requested-with': 'xhr' 
-            },
-            method: 'GET',
-            success: function(result){
-                split = result.split('\r\n\r\n');
+        fetch(this.corsURL + this.decklistURL + id)
+            .then((response) => response.text())
+            .then((data) => {
+                split = data.split('\r\n\r\n');
                 $('#deckmain').html(split[0]);
                 $('#deckside').html(split[1]);
-            }
-          });
+            }).catch((error) => {
+                console.error(error);
+            });
     }
   };

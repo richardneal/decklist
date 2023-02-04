@@ -10,18 +10,14 @@ var MTGTop8 = {
     getDecklist: function(url) {
         searchParams = new URLSearchParams(url);
         id = searchParams.get('d');
-        $.ajax({
-            url: this.corsURL + this.decklistURL + id,
-            dataType: 'json',
-            headers: {
-              'x-requested-with': 'xhr' 
-            },
-            method: 'GET',
-            success: function(result){
-                split = result.split('\r\nSideboard\r\n');
+        fetch(this.corsURL + this.decklistURL + id)
+            .then((response) => response.text())
+            .then((data) => {
+                split = data.split('\r\nSideboard\r\n');
                 $('#deckmain').html(split[0]);
                 $('#deckside').html(split[1]);
-            }
-          });
+            }).catch((error) => {
+                console.error(error);
+            });
     }
   };
