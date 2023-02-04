@@ -2,7 +2,7 @@
 
 var MTGGoldfish = {
     pattern: new URLPattern('https://www.mtggoldfish.com/deck/:id#*'),
-    corsURL: 'https://cors-anywhere.herokuapp.com/',
+    corsURL: 'https://crimson-snowflake-9022.fly.dev/',
     decklistURL: 'https://www.mtggoldfish.com/deck/download/',
     isGoldfish: function(url) {
         return this.pattern.test(url);

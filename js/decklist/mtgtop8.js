@@ -2,7 +2,7 @@
 
 var MTGTop8 = {
     pattern: new URLPattern('https://www.mtgtop8.com/event?*'),
-    corsURL: 'https://cors-anywhere.herokuapp.com/',
+    corsURL: 'https://crimson-snowflake-9022.fly.dev/',
     decklistURL: 'https://www.mtgtop8.com/mtgo?d=',
     isTop8: function(url) {
         return this.pattern.test(url);
