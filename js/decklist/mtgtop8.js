@@ -13,8 +13,7 @@ var MTGTop8 = {
         $.ajax({
             url: this.corsURL + this.decklistURL + id,
             headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Content-Type':'text/plain'
+                'X-Requested-With': '*'
             },
             method: 'GET',
             dataType: 'text',
