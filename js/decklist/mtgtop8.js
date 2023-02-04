@@ -12,15 +12,15 @@ var MTGTop8 = {
         id = searchParams.get('d');
         $.ajax({
             url: this.corsURL + this.decklistURL + id,
+            dataType: 'json',
             headers: {
-                'X-Requested-With': '*'
+              'x-requested-with': 'xhr' 
             },
             method: 'GET',
-            dataType: 'text',
             success: function(result){
                 split = result.split('\r\nSideboard\r\n');
-                $("#deckmain").html(split[0]);
-                $("#deckside").html(split[1]);
+                $('#deckmain').html(split[0]);
+                $('#deckside').html(split[1]);
             }
           });
     }

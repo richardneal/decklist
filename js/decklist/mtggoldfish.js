@@ -11,15 +11,15 @@ var MTGGoldfish = {
         id = this.pattern.exec(url).pathname.groups.id;
         $.ajax({
             url: this.corsURL + this.decklistURL + id,
+            dataType: 'json',
             headers: {
-                'X-Requested-With': '*'
+              'x-requested-with': 'xhr' 
             },
             method: 'GET',
-            dataType: 'text',
             success: function(result){
                 split = result.split('\r\n\r\n');
-                $("#deckmain").html(split[0]);
-                $("#deckside").html(split[1]);
+                $('#deckmain').html(split[0]);
+                $('#deckside').html(split[1]);
             }
           });
     }
