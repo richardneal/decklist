@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "decklist-import-api",
+  "account_id": "f81e0f0d52bb815d2073e9e646641867",
+  "main": "index.mjs",
+  "compatibility_date": "2026-09-16",
+  "workers_dev": false,
+  "routes": [{ "pattern": "deck-import.nealston.com", "custom_domain": true }],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://decklist.nealston.com,https://richardneal.github.io,https://nealston.com,https://www.nealston.com,http://localhost:8000,http://127.0.0.1:8000"
+  },
+  "ratelimits": [{
+    "name": "IMPORT_LIMITER",
+    "namespace_id": "1001",
+    "simple": { "limit": 20, "period": 60 }
+  }]
+}

@@ -1,28 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Documentation & FAQ - MTG Decklist Generator | decklist.xyz</title>
+  <title>Documentation & FAQ - MTG Decklist Generator | decklist.nealston.com</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Complete documentation and frequently asked questions for decklist.xyz - the free MTG tournament registration sheet generator. Learn how to use all features and formats.">
+  <meta name="description" content="Complete documentation and frequently asked questions for decklist.nealston.com - the free MTG tournament registration sheet generator. Learn how to use all features and formats.">
   <meta name="keywords" content="MTG decklist help, decklist generator tutorial, MTGO format, MTG Goldfish format, tournament registration help, WotC decklist guide">
-  <meta name="author" content="decklist.xyz">
+  <meta name="author" content="decklist.nealston.com">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://decklist.xyz/docs.html">
+  <link rel="canonical" href="https://decklist.nealston.com/docs.html">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://decklist.xyz/docs.html">
+  <meta property="og:url" content="https://decklist.nealston.com/docs.html">
   <meta property="og:title" content="Documentation & FAQ - MTG Decklist Generator">
-  <meta property="og:description" content="Complete documentation and frequently asked questions for decklist.xyz - the free MTG tournament registration sheet generator.">
-  <meta property="og:image" content="https://decklist.xyz/images/logos/mtg.jpg">
+  <meta property="og:description" content="Complete documentation and frequently asked questions for decklist.nealston.com - the free MTG tournament registration sheet generator.">
+  <meta property="og:image" content="https://decklist.nealston.com/images/logos/mtg.jpg">
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://decklist.xyz/docs.html">
+  <meta property="twitter:url" content="https://decklist.nealston.com/docs.html">
   <meta property="twitter:title" content="Documentation & FAQ - MTG Decklist Generator">
-  <meta property="twitter:description" content="Complete documentation and frequently asked questions for decklist.xyz.">
-  <meta property="twitter:image" content="https://decklist.xyz/images/logos/mtg.jpg">
+  <meta property="twitter:description" content="Complete documentation and frequently asked questions for decklist.nealston.com.">
+  <meta property="twitter:image" content="https://decklist.nealston.com/images/logos/mtg.jpg">
 
   <!-- FAQ Schema for Rich Snippets -->
   <script type="application/ld+json">
@@ -83,7 +83,7 @@
         "name": "Is this decklist generator free to use?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes, decklist.xyz is completely free to use. Generate unlimited tournament registration sheets for Magic: The Gathering events without any cost or registration required."
+          "text": "Yes, decklist.nealston.com is completely free to use. Generate unlimited tournament registration sheets for Magic: The Gathering events without any cost or registration required."
         }
       }
     ]
@@ -163,7 +163,7 @@
       <div class="navbar-brand">
         <div class="brand-icon" id="rarityIcon"></div>
         <a href="/" style="text-decoration: none; color: inherit;">
-          <span class="brand-text">decklist<span class="brand-highlight">.xyz</span></span>
+          <span class="brand-text">decklist<span class="brand-highlight">.nealston.com</span></span>
         </a>
       </div>
       <h1>FREE MTG TOURNAMENT DECKLIST GENERATOR</h1>
@@ -189,7 +189,7 @@
       <!-- Getting Started Section -->
       <section id="getting-started" class="docs-section">
         <h2>Getting Started</h2>
-        <p>Welcome to decklist.xyz! This free tool helps you generate professional tournament registration sheets for Magic: The Gathering events in seconds.</p>
+        <p>Welcome to decklist.nealston.com! This free tool helps you generate professional tournament registration sheets for Magic: The Gathering events in seconds.</p>
 
         <div class="docs-subsection">
           <h3>Quick Start Guide</h3>
@@ -239,12 +239,12 @@
 
         <div class="faq-item">
           <h3>Is this decklist generator free to use?</h3>
-          <p>Yes, decklist.xyz is completely free to use. Generate unlimited tournament registration sheets for Magic: The Gathering events without any cost or registration required.</p>
+          <p>Yes, decklist.nealston.com is completely free to use. Generate unlimited tournament registration sheets for Magic: The Gathering events without any cost or registration required.</p>
         </div>
 
         <div class="faq-item">
           <h3>Do I need to create an account?</h3>
-          <p>No! decklist.xyz works entirely in your browser without any registration. Your deck information never leaves your computer unless you choose to share a permalink.</p>
+          <p>No! decklist.nealston.com works entirely in your browser without any registration. Pasted decks are processed in your browser. Importing a link sends the deck source and ID to our import API; sharing a permalink includes your entered deck information in the link.</p>
         </div>
       </section>
 
@@ -289,7 +289,7 @@ Sideboard
         <p>You can create custom URLs that pre-fill the decklist generator with specific information. This is perfect for:</p>
         <ul>
           <li>Tournament organizers pre-filling event information</li>
-          <li>Deck building websites integrating with decklist.xyz</li>
+          <li>Deck building websites integrating with decklist.nealston.com</li>
           <li>Sharing pre-configured decklists with friends</li>
         </ul>
 
@@ -314,6 +314,7 @@ Sideboard
           <ul>
             <li><strong>deckname</strong> - Deck name/archetype (e.g., "RUG Twin")</li>
             <li><strong>deckdesigner</strong> - Designer's name</li>
+            <li><strong>deckimport</strong> - URL-encoded MTGGoldfish or MTGTop8 deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
             <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
             <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
           </ul>
@@ -326,25 +327,25 @@ Sideboard
             <li><strong>disableediting</strong> - Prevent users from editing pre-filled fields</li>
           </ul>
 
-          <p><strong>Store Logo:</strong> Tournament stores and organizers can contact us at <a href="mailto:info@decklist.xyz">info@decklist.xyz</a> to add their custom logo to the available options.</p>
+          <p><strong>Store Logo:</strong> Use the custom logo upload option on the generator to add your store or event logo.</p>
         </div>
 
         <div class="docs-subsection">
           <h3>Examples</h3>
 
           <h4>Tournament Organizer - Unregistered Player</h4>
-          <pre><code>https://decklist.xyz/?eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center</code></pre>
+          <pre><code>https://decklist.nealston.com/?eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center</code></pre>
 
           <h4>Tournament Organizer - Pre-registered Player</h4>
-          <pre><code>https://decklist.xyz/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center</code></pre>
+          <pre><code>https://decklist.nealston.com/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center</code></pre>
 
           <h4>Deck Building Website Integration</h4>
           <p>Pre-fill with a complete decklist (example shortened for readability):</p>
-          <pre><code>https://decklist.xyz/?deckmain=4%20Lightning%20Bolt%0A4%20Brainstorm%0A20%20Island&deckside=3%20Negate%0A2%20Dispel</code></pre>
+          <pre><code>https://decklist.nealston.com/?deckmain=4%20Lightning%20Bolt%0A4%20Brainstorm%0A20%20Island&deckside=3%20Negate%0A2%20Dispel</code></pre>
 
           <h4>Complete Example</h4>
           <p>Everything together - personal info, event details, and full decklist:</p>
-          <pre><code>https://decklist.xyz/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center&deckname=Miracles&deckdesigner=CubeApril&deckmain=4%20Brainstorm%0A4%20Force%20of%20Will%0A4%20Island</code></pre>
+          <pre><code>https://decklist.nealston.com/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center&deckname=Miracles&deckdesigner=CubeApril&deckmain=4%20Brainstorm%0A4%20Force%20of%20Will%0A4%20Island</code></pre>
 
           <p><strong>Important:</strong> When creating links, replace spaces with <code>%20</code> and use <code>%0A</code> for line breaks in deck lists.</p>
         </div>
@@ -355,7 +356,7 @@ Sideboard
     <div class="footer">
       Magic: The Gathering Decklist Generator.
       <br>
-      Contact: <a href="mailto:info@decklist.xyz">info@decklist.xyz</a>
+      Based on <a href="https://github.com/DarioFT/decklist">Dario’s decklist</a> and <a href="https://github.com/april/decklist">April King’s original</a>.
       <br><br>
       © 1993-<span id="current-year"></span> Wizards of the Coast, Magic: The Gathering, and their logos are trademarks of Wizards of the Coast LLC, a subsidiary of Hasbro, Inc. All rights reserved.
       <br>

@@ -17,6 +17,7 @@ This fork includes additional features and improvements aimed at providing a mor
 - **Save/Load Functionality**: Save your decklist locally and load it anytime
 - **Clear All**: Quick reset button to start fresh
 - **Card Autocomplete**: Smart card name suggestions as you type (supports 2+ character searches)
+- **Import by URL**: Paste an MTGGoldfish deck URL or an MTGTop8 event URL containing a deck ID, then click **Import Deck**. Downloads use a dedicated Cloudflare Worker at `https://deck-import.nealston.com/api/import`; if it is unavailable, paste the exported deck text instead. See [Worker setup](worker/README.md).
 - **Multiple Format Support**: Import from MTGO, MTG Goldfish, Tappedout, MWS, MTG Salvation, and Deckbox
 
 ### Deck Organization
@@ -84,3 +85,17 @@ _Everything all together:_
 ```
 https://www.decklist.xyz/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center&deckname=Miracles&deckdesigner=CubeApril&deckmain=2%09Arid%20Mesa%0A4%09Brainstorm%0A1%09Council%27s%20Judgment%0A4%09Counterbalance%0A2%09Counterspell%0A2%09Entreat%20the%20Angels%0A4%09Flooded%20Strand%0A4%09Force%20of%20Will%0A4%09Island%0A3%09Jace%2C%20the%20Mind%20Sculptor%0A2%09Plains%0A2%09Polluted%20Delta%0A4%09Ponder%0A2%09Scalding%20Tarn%0A4%09Sensei%27s%20Divining%20Top%0A3%09Snapcaster%20Mage%0A4%09Swords%20to%20Plowshares%0A4%09Terminus%0A3%09Tundra%0A2%09Volcanic%20Island&deckside=1%09Council%27s%20Judgment%0A1%09Counterspell%0A1%09Disenchant%0A3%09Flusterstorm%0A1%09Keranos%2C%20God%20of%20Storms%0A1%09Path%20to%20Exile%0A1%09Pyroblast%0A2%09Red%20Elemental%20Blast%0A2%09Rest%20in%20Peace%0A1%09Supreme%20Verdict%0A1%09Surgical%20Extraction%0A
 ```
+
+### Import regression tests
+
+Run `node --test tests/*.test.*` to check URL validation, export parsing, and download failures.
+
+### Import directly from a link
+
+Use `deckimport` to automatically import an MTGGoldfish or MTGTop8 deck on page load:
+
+```text
+https://decklist.nealston.com/?deckimport=https%3A%2F%2Fwww.mtggoldfish.com%2Fdeck%2F6837920
+```
+
+Encode the entire source URL with `encodeURIComponent`, especially MTGTop8 URLs containing `&`. Event and personal-information parameters can be combined with `deckimport`. Explicit `deckmain` or `deckside` parameters take precedence and suppress automatic importing. Invalid links display an error; you can edit the link and retry with **Import Deck**.

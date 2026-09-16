@@ -206,6 +206,7 @@ function parseGET() {
     'eventlocation',
     'deckname',
     'deckdesigner',
+    'deckimport',
     'deckmain',
     'deckside',
     'deckname', 
@@ -1187,7 +1188,7 @@ function generatePermalinkSync(includeBlank = false) {
 // Async version with URL shortening (for copying to clipboard)
 async function generatePermalink(includeBlank = false) {
   // Always use production URL for sharing, even on localhost
-  let rv = 'https://decklist.xyz/';
+  let rv = 'https://decklist.nealston.com/';
 
   const logo = ($._GET && $._GET['logo']) ? $._GET['logo'] : 'mtg';
 
@@ -2069,7 +2070,7 @@ function initDeckManagement() {
     }
 
     // Clear all input fields
-    $('#firstname, #lastname, #event, #eventdate, #eventlocation, #deckname, #deckdesigner, #deckmain, #deckside').val('');
+    $('#firstname, #lastname, #event, #eventdate, #eventlocation, #deckname, #deckdesigner, #deckimport, #deckmain, #deckside').val('');
     $('#separate-basic-lands').prop('checked', false);
 
     // Reset to default sort order

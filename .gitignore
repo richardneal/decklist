@@ -11,3 +11,11 @@ node_modules/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Cloudflare local state and secrets
+.wrangler/
+.dev.vars*
+.env*
+
+# Generated static deployment
+hosting/dist/
