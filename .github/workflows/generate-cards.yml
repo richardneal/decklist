@@ -35,7 +35,7 @@ jobs:
         run: python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 
       - name: Commit refreshed card data
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: refresh card data"
           file_pattern: js/cards/decklist-cards-min.js js/cards/decklist-cards-min.js.map
