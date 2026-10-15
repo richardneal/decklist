@@ -43,3 +43,14 @@ jobs:
           commit_message: "chore: refresh card data"
           branch: gh-pages
           file_pattern: js/cards/decklist-cards-min.js js/cards/decklist-cards-min.js.map
+
+      - name: Install deployment dependencies
+        run: npm ci --prefix worker
+
+      - name: Build static site
+        run: node hosting/build.mjs
+
+      - name: Deploy to Cloudflare
+        run: worker/node_modules/.bin/wrangler deploy --config hosting/wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
