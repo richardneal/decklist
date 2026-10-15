@@ -1,8 +1,15 @@
-name: Generate Cards
+name: Refresh card data
+
 on:
   schedule:
-    - cron: "0 0 * * *"
+    # Refresh daily, away from the top of the hour when GitHub schedules are busiest.
+    - cron: "17 4 * * *"
   workflow_dispatch:
+
+concurrency:
+  group: refresh-card-data
+  cancel-in-progress: false
+
 jobs:
   generate-cards:
     runs-on: ubuntu-latest
@@ -10,12 +17,25 @@ jobs:
       contents: write
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
-      - name: Install terser
-        run: npm i terser -g
-      - name: Run shell script
-        run: ./generatecards.sh
-        working-directory: ./js/cards/
-      - uses: stefanzweifel/git-auto-commit-action@v5
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          commit_message: 💬 Update card list
+          node-version: 22
+
+      - name: Install minifier
+        run: npm install --global terser@5
+
+      - name: Download and generate card data
+        run: ./generatecards.sh
+        working-directory: js/cards
+
+      - name: Validate card filtering
+        run: python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
+
+      - name: Commit refreshed card data
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: refresh card data"
+          file_pattern: js/cards/decklist-cards-min.js js/cards/decklist-cards-min.js.map

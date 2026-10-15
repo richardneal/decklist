@@ -19,3 +19,6 @@ Thumbs.db
 
 # Generated static deployment
 hosting/dist/
+
+# Python test bytecode
+__pycache__/

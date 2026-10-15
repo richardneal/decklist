@@ -41,6 +41,11 @@ jsonfh = open("AtomicCards.json", "r")
 # Load all the cards into a giant dictionary
 cards = json.load(jsonfh)
 
+# Atomic cards list their printing sets, but do not carry isOnlineOnly.
+with open("SetList.json", "r") as setfh:
+    online_sets = {item["code"] for item in json.load(setfh)["data"]
+                   if item.get("isOnlineOnly", False)}
+
 # Gotta store these cards in a dictionary
 ocards = {}
 
@@ -51,6 +56,12 @@ for card in cards["data"].values():
         face = card[0]
     else:
         face = card[0] if card[0]['side'] == 'a' else card[1]
+
+    # Rebalanced Arena cards can share a paper set code with the original.
+    # Keep cards with any paper (or unknown) printing; do not filter by legality.
+    printings = face.get("printings", [])
+    if face["name"].startswith("A-") or (printings and all(code in online_sets for code in printings)):
+        continue
 
     is_flip = face["layout"] in ("transform", "modal_dfc", "adventure")
 
