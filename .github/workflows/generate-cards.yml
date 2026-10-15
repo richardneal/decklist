@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          # The site and generated data are published from this branch.
+          ref: gh-pages
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -38,4 +41,5 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: refresh card data"
+          branch: gh-pages
           file_pattern: js/cards/decklist-cards-min.js js/cards/decklist-cards-min.js.map
