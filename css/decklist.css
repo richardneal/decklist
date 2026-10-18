@@ -186,7 +186,12 @@ body {
   fill: var(--bg-primary);
 }
 
-.brand-icon .bi-front {
+.brand-icon .bi-gap {
+  fill: var(--bg-primary);
+  stroke: var(--bg-primary);
+}
+
+.brand-icon .bi-rules {
   stroke: var(--bg-primary);
 }
 
