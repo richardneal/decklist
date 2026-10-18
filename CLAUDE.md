@@ -6,13 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 decklist.xyz is a static website that generates Magic: The Gathering tournament registration sheets and decklists. It's a fork of the original [decklist.org](https://github.com/april/decklist) project by April King, enhanced with additional features and improvements.
 
-The application runs entirely client-side using vanilla JavaScript, jQuery, and jsPDF. No build process is required for the main application.
+The application runs entirely client-side using vanilla JavaScript, jQuery, and jsPDF. No build process is required to work on it — open `index.html` directly. Deployment adds two small Node pieces: `hosting/` (stages the static files and ships them to Cloudflare) and `worker/` (the Cloudflare Worker backing deck imports).
 
 ## Architecture
 
 ### Core JavaScript Modules
 
-The application is split into three main JavaScript modules in `js/decklist/`:
+The application is split into four main JavaScript modules in `js/decklist/`, all loaded by `index.html`:
 
 1. **decklist.js** - Core decklist parsing and manipulation
    - `Decklist.parse(deckmain, deckside)` - Parses various deck formats (MTGO, MWS, MTG Goldfish, Tappedout, etc.) into structured card objects
@@ -35,6 +35,14 @@ The application is split into three main JavaScript modules in `js/decklist/`:
    - `DCI.getTenDigit(number)` - Converts to 10-digit format
    - Uses prime number checksums for validation
 
+4. **deckimport.js** - MTGGoldfish / MTGTop8 deck importing
+   - `DeckImport.downloadURL(value)` - Normalizes a deck URL to its canonical export URL; returns `null` for any other host, a URL carrying credentials or an explicit port, a non-http(s) scheme, or a missing/non-numeric deck ID
+   - `DeckImport.split(text)` - Splits export text into `{main, side}`; throws if the response looks like HTML (a login or error page) or if any line is not quantity-prefixed
+   - `DeckImport.load(value)` - Fetches through the import Worker with a 20s `AbortSignal.timeout`, then splits the result
+   - `DeckImport.importFromParameters(params)` - Honors the `deckimport` URL parameter; an embedded `deckmain`/`deckside` takes precedence
+   - `DeckImport.apiURL` points at the deployed Worker; set it to `http://localhost:8787/api/import` to test against `npm run dev --prefix worker`
+   - Drives `#deckimport`, `#deckimport-button` and `#deckimport-status`, and keeps an undo of the replaced deck text
+
 ### Card Data System
 
 Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript object. The card database structure:
@@ -51,14 +59,16 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
 The application supports extensive URL parameter support for pre-filling forms:
 - Personal: `firstname`, `lastname`, `dcinumber`
 - Event: `event`, `eventdate`, `eventlocation`
-- Deck: `deckname`, `deckdesigner`, `deckmain`, `deckside`, `decksort`
+- Deck: `deckname`, `deckdesigner`, `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish or MTGTop8 deck URL; ignored when `deckmain`/`deckside` are present)
 - Display: `decksheet` (wotc/scg), `logo`, `disableediting`
 
 Use `%0A` for newlines in deck data, `%20` for spaces.
 
 ## Card Data Regeneration
 
-The card database is automatically updated daily via GitHub Actions workflow (`.github/workflows/generate-cards.yml`).
+The card database is refreshed daily by the **Refresh card data** workflow (`.github/workflows/generate-cards.yml`), on cron `17 4 * * *` or manual dispatch.
+
+GitHub only runs scheduled workflows from the default branch, so the workflow lives on `main` and checks out `ref: main`. The site and the generated card data are published from that one branch.
 
 ### Manual Card Data Update
 
@@ -80,7 +90,7 @@ This script:
 - terser (install globally: `npm i terser -g`)
 - curl and unzip
 
-The workflow auto-commits changes with message "💬 Update card list".
+After generating the data the workflow runs the Python test gate (see Automated Tests), auto-commits `js/cards/decklist-cards-min.js` and its `.map` to `main` with the message `chore: refresh card data`, then builds and deploys the site to Cloudflare.
 
 ## Development Workflow
 
@@ -92,6 +102,25 @@ Since this is a static site:
 3. Refresh the browser (hard refresh: Ctrl+F5 / Cmd+Shift+R)
 
 For iframe preview testing, the app uses `srcdoc` attribute to render the decklist preview inline.
+
+### Automated Tests
+
+Three suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+
+```bash
+npm ci --prefix worker
+```
+
+Then, from the repository root:
+
+```bash
+node --test tests/*.test.*
+python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
+```
+
+- `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection and export splitting
+- `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, and failure handling
+- `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved. This is the gate the card-refresh workflow runs before committing.
 
 ### Common Modifications
 
@@ -111,7 +140,35 @@ For iframe preview testing, the app uses `srcdoc` attribute to render the deckli
 
 ## Deployment
 
-The site is hosted on GitHub Pages from the `gh-pages` branch. Any commits to this branch automatically deploy.
+The site is served by **Cloudflare Workers Static Assets**, not GitHub Pages. Two separate Workers are involved:
+
+- `nealston-decklist` — the static site at `decklist.nealston.com`, configured in `hosting/wrangler.jsonc`
+- `decklist-import-api` — the import API at `deck-import.nealston.com`, source in `worker/index.mjs`, configured in `worker/wrangler.jsonc`
+
+### Site
+
+`.github/workflows/deploy-site.yml` deploys on every push to `main`, and on manual dispatch. It runs `npm ci --prefix worker`, `node hosting/build.mjs`, then `wrangler deploy --config hosting/wrangler.jsonc` using the `CLOUDFLARE_API_TOKEN` secret. The daily card refresh ends with those same build-and-deploy steps.
+
+`hosting/build.mjs` stages the public files into the git-ignored `hosting/dist/`: `index.html`, `docs.html`, `robots.txt`, `sitemap.xml`, `llms.txt`, `LICENSE`, `css/`, `images/` and `js/`. It filters out `*.py`, `*.sh` and `*.map`, so the card generator scripts and source maps never ship.
+
+To deploy the site by hand:
+
+```bash
+npm ci --prefix worker
+node hosting/build.mjs
+worker/node_modules/.bin/wrangler deploy --config hosting/wrangler.jsonc --dry-run
+worker/node_modules/.bin/wrangler deploy --config hosting/wrangler.jsonc
+```
+
+### Import API
+
+The import Worker is deployed separately — pushing to `main` does **not** update it:
+
+```bash
+npm run deploy --prefix worker
+```
+
+It exposes `GET /api/import?source=mtggoldfish&id=123` (or `source=mtgtop8`), fetches only fixed export URLs, rejects redirects and HTML, caches successes for five minutes, and rate-limits to 20 requests per minute per IP per location. Its CORS allowlist is the `ALLOWED_ORIGINS` var in `worker/wrangler.jsonc` — add an origin there if you host the frontend elsewhere. Also available: `npm run dev --prefix worker` (local server on :8787) and `npm run check --prefix worker` (dry-run deploy).
 
 ## Important Notes
 
