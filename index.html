@@ -76,8 +76,7 @@
     .navbar{background:var(--bg-primary);box-shadow:var(--shadow-md);border-bottom:2px solid var(--accent-color)}
     .navbar-container{max-width:1400px;margin:0 auto;padding:16px 40px;display:flex;align-items:center;justify-content:space-between;gap:20px}
     .navbar-brand{display:flex;align-items:center;gap:12px;font-size:28px;font-weight:700;color:var(--text-primary);letter-spacing:-.5px}
-    .brand-icon{width:24px;height:24px;border-radius:50%;box-shadow:1px 1px 2px rgba(0,0,0,.8);animation:pulse 2s ease-in-out infinite;flex-shrink:0}
-    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+    .brand-icon{width:24px;height:24px;color:var(--accent-color);flex-shrink:0}
     .brand-text{color:var(--accent-color);background:linear-gradient(135deg,var(--accent-color) 0%,var(--accent-hover) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:700}
     .brand-highlight{color:var(--accent-color);font-weight:800;-webkit-text-fill-color:var(--accent-color)}
     .navbar-container h1{font-size:14px;color:var(--text-secondary);font-weight:500;letter-spacing:.3px;text-transform:uppercase;margin:0;padding:0;flex:1;text-align:left;line-height:1.4}
@@ -124,10 +123,16 @@
   <nav class="navbar">
     <div class="navbar-container">
       <div class="navbar-brand">
-        <div class="brand-icon" id="rarityIcon"></div>
+        <svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+            <rect x="7.5" y="5" width="9" height="13.5" rx="2" transform="rotate(24 12 22)"></rect>
+            <rect x="7.5" y="5" width="9" height="13.5" rx="2" transform="rotate(-24 12 22)"></rect>
+          </g>
+          <rect x="7.5" y="5" width="9" height="13.5" rx="2" fill="currentColor"></rect>
+        </svg>
         <span class="brand-text">decklist</span>
       </div>
-      <h1>Tournament-ready decklists</h1>
+      <h1>No more decklist problems</h1>
       <div class="navbar-links">
         <a href="docs.html">Docs & FAQ</a>
       </div>

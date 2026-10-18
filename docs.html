@@ -127,29 +127,6 @@
         localStorage.setItem('darkMode', isDark);
       });
 
-      // Initialize random rarity icon
-      const rarities = ['common', 'uncommon', 'rare', 'mythic'];
-      const randomRarity = rarities[Math.floor(Math.random() * rarities.length)];
-      const iconElement = document.getElementById('rarityIcon');
-
-      if (iconElement) {
-        iconElement.classList.add(randomRarity);
-
-        // Add click handler to cycle through rarities
-        iconElement.addEventListener('click', function() {
-          const currentRarity = rarities.find(r => iconElement.classList.contains(r));
-          const currentIndex = rarities.indexOf(currentRarity);
-          const nextIndex = (currentIndex + 1) % rarities.length;
-
-          // Remove current rarity class and add next one
-          iconElement.classList.remove(currentRarity);
-          iconElement.classList.add(rarities[nextIndex]);
-        });
-
-        // Make it look clickable
-        iconElement.style.cursor = 'pointer';
-      }
-
       // Update year
       document.getElementById('current-year').textContent = new Date().getFullYear();
     });
@@ -161,7 +138,13 @@
   <nav class="navbar">
     <div class="navbar-container">
       <div class="navbar-brand">
-        <div class="brand-icon" id="rarityIcon"></div>
+        <svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+            <rect x="7.5" y="5" width="9" height="13.5" rx="2" transform="rotate(24 12 22)"></rect>
+            <rect x="7.5" y="5" width="9" height="13.5" rx="2" transform="rotate(-24 12 22)"></rect>
+          </g>
+          <rect x="7.5" y="5" width="9" height="13.5" rx="2" fill="currentColor"></rect>
+        </svg>
         <a href="/" style="text-decoration: none; color: inherit;">
           <span class="brand-text">decklist<span class="brand-highlight">.nealston.com</span></span>
         </a>
