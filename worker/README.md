@@ -18,7 +18,7 @@ npm run deploy
 
 Use the account for `richard@nealston.com` that owns the active `nealston.com` Cloudflare zone. If multiple accounts are available, set `account_id` in `wrangler.jsonc` to that account's ID. Deployment creates the custom domain and manages its DNS/certificate through Cloudflare. Do not replace an existing subdomain service without checking it first.
 
-Set `ALLOWED_ORIGINS` to the exact origins hosting your frontend (no trailing slash or path). The current list supports `decklist.nealston.com`, `richardneal.github.io`, `nealston.com`, `www.nealston.com`, and local HTTP development on port 8000. Add another origin if you host the fork elsewhere. The original author's `decklist.xyz` domain is not assumed to belong to this fork.
+Set `ALLOWED_ORIGINS` to the exact origins hosting your frontend (no trailing slash or path). The current list supports `decklist.nealston.com`, `nealston.com`, `www.nealston.com`, and local HTTP development on port 8000. Add another origin if you host the fork elsewhere. `richardneal.github.io` was dropped when GitHub Pages was disabled for the repository; the site is served only from Cloudflare. The original author's `decklist.xyz` domain is not assumed to belong to this fork.
 
 The browser endpoint is configured in `js/decklist/deckimport.js` as `DeckImport.apiURL`. Deploy the Worker before publishing that frontend change. Upstream anti-bot restrictions may still prevent downloads; the API reports failures and the UI offers manual paste as a fallback.
 
