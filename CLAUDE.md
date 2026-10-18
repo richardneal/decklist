@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-decklist.xyz is a static website that generates Magic: The Gathering tournament registration sheets and decklists. It's a fork of the original [decklist.org](https://github.com/april/decklist) project by April King, enhanced with additional features and improvements.
+decklist.nealston.com is a static website that generates Magic: The Gathering tournament registration sheets and decklists. It's a fork of the original [decklist.org](https://github.com/april/decklist) project by April King, enhanced with additional features and improvements.
 
 The application runs entirely client-side using vanilla JavaScript, jQuery, and jsPDF. No build process is required to work on it — open `index.html` directly. Deployment adds two small Node pieces: `hosting/` (stages the static files and ships them to Cloudflare) and `worker/` (the Cloudflare Worker backing deck imports).
 
@@ -32,8 +32,10 @@ The application is split into four main JavaScript modules in `js/decklist/`, al
 
 3. **dci.js** - DCI number validation utilities
    - `DCI.isValid(number)` - Validates DCI numbers using checksum algorithm
-   - `DCI.getTenDigit(number)` - Converts to 10-digit format
+   - `DCI.getTenDigit(number)` / `DCI.getEightDigit(number)` - Convert between formats
+   - `DCI.getTenIfValid(number)` - Returns the 10-digit form when valid, otherwise the input
    - Uses prime number checksums for validation
+   - **Currently dormant**: there is no `#dcinumber` input in `index.html`, the `dcinumber` entry is commented out of `parseGET()`, and the PDF's DCI block is commented out. The module is still loaded, so wiring it back up means restoring the field, the parameter, and that PDF block together.
 
 4. **deckimport.js** - MTGGoldfish / MTGTop8 deck importing
    - `DeckImport.downloadURL(value)` - Normalizes a deck URL to its canonical export URL; returns `null` for any other host, a URL carrying credentials or an explicit port, a non-http(s) scheme, or a missing/non-numeric deck ID
@@ -41,7 +43,7 @@ The application is split into four main JavaScript modules in `js/decklist/`, al
    - `DeckImport.load(value)` - Fetches through the import Worker with a 20s `AbortSignal.timeout`, then splits the result
    - `DeckImport.importFromParameters(params)` - Honors the `deckimport` URL parameter; an embedded `deckmain`/`deckside` takes precedence
    - `DeckImport.apiURL` points at the deployed Worker; set it to `http://localhost:8787/api/import` to test against `npm run dev --prefix worker`
-   - Drives `#deckimport`, `#deckimport-button` and `#deckimport-status`, and keeps an undo of the replaced deck text
+   - Drives `#deckimport`, `#deckimport-button`, `#deckimport-help`, `#deckimport-status` and `#deckimport-undo`, and keeps an undo of the replaced deck text
 
 ### Card Data System
 
@@ -57,7 +59,7 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
 ### URL Parameters for Direct Linking
 
 The application supports extensive URL parameter support for pre-filling forms:
-- Personal: `firstname`, `lastname`, `dcinumber`
+- Personal: `firstname`, `lastname`
 - Event: `event`, `eventdate`, `eventlocation`
 - Deck: `deckname`, `deckdesigner`, `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish or MTGTop8 deck URL; ignored when `deckmain`/`deckside` are present)
 - Display: `decksheet` (wotc/scg), `logo`, `disableediting`
@@ -134,9 +136,9 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 - Add case to sort switch statement
 
 **Adding a new logo:**
-- Place logo as base64-encoded JavaScript in `images/logos/`
-- Add logo name to `logos` array in `main.js`
-- Logo JavaScript files should define the logo as a global variable
+- Place the image file in `images/logos/` (JPEG, PNG or WebP)
+- Add an entry to `LOGOS_CONFIG` at the top of `main.js`: `{ id, name, file, format }`, under `wotc` for selectable sheet logos or `scg` for the SCG sheet's fixed artwork (`format` is the jsPDF image format, e.g. `JPEG`)
+- `wotc` entries populate the `#logo-select` dropdown automatically, sorted by `name`, and become valid values for the `logo` URL parameter; `scg` entries are preloaded into the logo cache by `id` and need no `name`
 
 ## Deployment
 
@@ -176,4 +178,5 @@ It exposes `GET /api/import?source=mtggoldfish&id=123` (or `source=mtgtop8`), fe
 - The app HTML-encodes all user input to prevent XSS attacks
 - PDF generation happens client-side using jsPDF library
 - The iframe preview regenerates with debounced updates to avoid performance issues
-- DCI number validation supports both 8-digit and 10-digit formats
+- `main.js` contains `posthog.capture(...)` analytics calls, all guarded by `typeof posthog !== 'undefined'`. No PostHog snippet is loaded in `index.html`, so they are inert; adding the snippet would switch analytics on site-wide
+- `dci.js` validates both 8-digit and 10-digit DCI numbers, but nothing in the current UI calls it (see the module notes above)
