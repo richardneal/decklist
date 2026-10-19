@@ -12,7 +12,7 @@ The application runs entirely client-side using vanilla JavaScript, jQuery, and 
 
 ### Core JavaScript Modules
 
-The application is split into four main JavaScript modules in `js/decklist/`, all loaded by `index.html`:
+The application is split into three main JavaScript modules in `js/decklist/`, all loaded by `index.html`:
 
 1. **decklist.js** - Core decklist parsing and manipulation
    - `Decklist.parse(deckmain, deckside)` - Parses various deck formats (MTGO, MWS, MTG Goldfish, Tappedout, etc.) into structured card objects
@@ -21,7 +21,7 @@ The application is split into four main JavaScript modules in `js/decklist/`, al
    - `Decklist.filter(deck, field, values, mode)` - Filters cards by properties
    - `Decklist.count(deck)` - Counts total cards in a deck
    - Returns objects with structure: `{main: [], side: [], unrecognized: [], unparseable: []}`
-   - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (mana value), `q` (quantity), `b` (banned status)
+   - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (mana value), `q` (quantity), `b` (legal formats)
 
 2. **main.js** - Main application logic
    - Event handling for form inputs
@@ -30,14 +30,7 @@ The application is split into four main JavaScript modules in `js/decklist/`, al
    - History state management for permalinks
    - Input validation with debounced updates (400ms for validation, 1500ms for PDF generation)
 
-3. **dci.js** - DCI number validation utilities
-   - `DCI.isValid(number)` - Validates DCI numbers using checksum algorithm
-   - `DCI.getTenDigit(number)` / `DCI.getEightDigit(number)` - Convert between formats
-   - `DCI.getTenIfValid(number)` - Returns the 10-digit form when valid, otherwise the input
-   - Uses prime number checksums for validation
-   - **Currently dormant**: there is no `#dcinumber` input in `index.html`, the `dcinumber` entry is commented out of `parseGET()`, and the PDF's DCI block is commented out. The module is still loaded, so wiring it back up means restoring the field, the parameter, and that PDF block together.
-
-4. **deckimport.js** - MTGGoldfish / MTGTop8 / Moxfield deck importing
+3. **deckimport.js** - MTGGoldfish / MTGTop8 / Moxfield deck importing
    - `DeckImport.parse(value)` - Describes a recognized deck link as `{source, label, id, url}`; returns `null` for any other host, a URL carrying credentials or an explicit port, a non-http(s) scheme, or a missing/malformed deck ID. A Moxfield ID must be 16–32 base64url characters, which keeps routes such as `/decks/public` from reading as a deck
    - `DeckImport.downloadURL(value)` - The canonical export URL from `parse`, or `null`
    - `DeckImport.split(text)` - Splits export text into `{main, side}`; throws if the response looks like HTML (a login or error page) or if any line is not quantity-prefixed
@@ -54,7 +47,7 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
   - `c`: color code (A=White, B=Blue, C=Black, D=Red, E=Green, F=Gold, G=Artifact, Z=Land)
   - `t`: type code (1=Land, 2=Creature, 3=Sorcery, 4=Instant, 5=Other)
   - `m`: mana value (99 for lands)
-  - `b`: banned status in formats (combination of s/m/l for Standard/Modern/Legacy)
+  - `b`: formats the card is legal in (any combination of s/m/l for Standard/Modern/Legacy); generated but not yet read by the frontend
   - `n`: actual card name with proper capitalization
 
 ### URL Parameters for Direct Linking
@@ -188,4 +181,3 @@ A genuine refusal surfaces as the Worker's 502 and the UI tells the user to past
 - PDF generation happens client-side using jsPDF library
 - The iframe preview regenerates with debounced updates to avoid performance issues
 - `main.js` contains `posthog.capture(...)` analytics calls, all guarded by `typeof posthog !== 'undefined'`. No PostHog snippet is loaded in `index.html`, so they are inert; adding the snippet would switch analytics on site-wide
-- `dci.js` validates both 8-digit and 10-digit DCI numbers, but nothing in the current UI calls it (see the module notes above)

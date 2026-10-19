@@ -100,15 +100,11 @@
   <!-- Load non-critical CSS asynchronously -->
   <link rel="preload" href="css/decklist.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="css/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="css/jquery-ui.structure.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="css/jquery-ui.theme.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
 
   <!-- Noscript fallback for users without JavaScript -->
   <noscript>
     <link rel="stylesheet" type="text/css" href="css/decklist.css">
     <link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css">
-    <link rel="stylesheet" type="text/css" href="css/jquery-ui.structure.min.css">
-    <link rel="stylesheet" type="text/css" href="css/jquery-ui.theme.min.css">
   </noscript>
 
   <!-- jQuery - Load synchronously as it's a critical dependency -->
@@ -124,7 +120,6 @@
   <!-- Code for the website - Must load after jQuery -->
   <script type="text/javascript" src="js/decklist/decklist.js"></script>
   <script type="text/javascript" src="js/decklist/main.js"></script>
-  <script type="text/javascript" src="js/decklist/dci.js"></script>
   <script type="text/javascript" src="js/decklist/deckimport.js"></script>
 </head>
 
@@ -256,7 +251,6 @@
       </div>
       <form>
         <input type="button" id="download" value="📥 Download PDF" onclick="generateDecklistPDF('dataurlnewwindow');">
-        <input type="button" id="upload" value="Upload Decklist" onclick="uploadDecklistPDF();">
         <input type="button" id="permalink" value="🔗 Copy Permalink" onclick="copyPermalinkToClipboard()">
       </form>
 
@@ -266,9 +260,6 @@
         <button id="loadDeck">📂 Load Decklist</button>
         <button id="clearDeck">🗑️ Clear All</button>
       </div>
-      <form id="formupload" enctype="multipart/form-data" method="post">
-        <input type="hidden" id="decklistPDF" name="decklistPDF">
-      </form>
       <h2>Status</h2>
       <div class="status default">
         <div class="statusmark"></div>
