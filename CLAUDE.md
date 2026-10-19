@@ -108,7 +108,7 @@ For iframe preview testing, the app uses `srcdoc` attribute to render the deckli
 
 ### Automated Tests
 
-Five suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+Six suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
 
 ```bash
 npm ci --prefix worker
@@ -125,6 +125,15 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 - `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection, export splitting, and the imported deck's format
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, the `X-Deck-Format` header, and failure handling
+- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
+
+  ```bash
+  npm ci --prefix tests/browser
+  npx --prefix tests/browser playwright install chromium   # once; skip where Chromium is preinstalled
+  npm test --prefix tests/browser
+  ```
+
+  Keep `playwright` pinned to a version whose Chromium is installed; a Claude Code cloud session ships the browsers for 1.56.1 in `/opt/pw-browsers`. Like `decklist.test.cjs` it uses the real card data, so a ban list change can break a test
 - `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved, and checks the legality, restriction and copy-limit fields. This is the gate the card-refresh workflow runs before committing.
 
 ### Common Modifications
