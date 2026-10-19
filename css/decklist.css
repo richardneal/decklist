@@ -1445,13 +1445,12 @@ body.dark-mode #deckimport-status[data-state="error"] { color: #ffb4ab; }
 .generator-page #sortorderfloat label::before,
 .generator-page #decksheetformatselector label::before {
   content: '\2713';
-  display: inline-block;
+  display: none;
   width: 1em;
   margin-right: 6px;
-  visibility: hidden;
 }
 .generator-page #sortorderfloat input:checked + label::before,
-.generator-page #decksheetformatselector input:checked + label::before { visibility: visible; }
+.generator-page #decksheetformatselector input:checked + label::before { display: inline-block; }
 .generator-page #sortorderfloat input:focus-visible + label,
 .generator-page #decksheetformatselector input:focus-visible + label {
   outline: 2px solid var(--accent-color);
