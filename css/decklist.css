@@ -1442,6 +1442,11 @@ body.dark-mode #deckimport-status[data-state="error"] { color: #ffb4ab; }
   box-shadow: none;
   transform: none;
 }
+/* Animating font-weight steps between regular and bold, briefly resizing the button. */
+.generator-page #sortorderfloat label,
+.generator-page #decksheetformatselector label {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+}
 .generator-page #sortorderfloat label::before,
 .generator-page #decksheetformatselector label::before {
   content: '\2713';
