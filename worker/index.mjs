@@ -33,6 +33,17 @@ const SOURCES = {
     // Each card carries its full printing and oracle data, as with Moxfield.
     limit: 2 * 1024 * 1024,
     convert: archidektDeck
+  },
+  scryfall: {
+    // Deck IDs are UUIDs; the frontend lowercases them so a deck caches only once.
+    id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    url: id => 'https://api.scryfall.com/decks/' + id + '/export/json',
+    accept: 'application/json',
+    // A Commander deck with a long maybeboard runs about 240 KB.
+    limit: 2 * 1024 * 1024,
+    convert: scryfallDeck,
+    // Scryfall's API asks every client to name itself.
+    agent: env => env.USER_AGENT
   }
 };
 
@@ -91,6 +102,20 @@ export function archidektDeck(text) {
     else if (!excluded.has(category)) main.push(card);
   }
   return deckText(commanders.concat(main), side);
+}
+
+// Collapses a Scryfall deck into quantity-prefixed decklist text. The sections follow the
+// deck's layout: a constructed deck has a mainboard and a sideboard, a Commander deck its
+// commanders, nonlands and lands, plus cards from outside the game (a companion, say),
+// which a registration sheet lists as the sideboard. The maybeboard is dropped, as are
+// blank entries Scryfall could not match to a card.
+export function scryfallDeck(text) {
+  let deck;
+  try { deck = JSON.parse(text); } catch (_) { throw new Error('Scryfall did not return deck data.'); }
+  if (!deck || !deck.entries || typeof deck.entries !== 'object') throw new Error('Scryfall did not return deck data.');
+  const board = names => names.flatMap(name => Array.isArray(deck.entries[name]) ? deck.entries[name] : [])
+    .map(entry => [entry?.card_digest?.name, entry?.count]);
+  return deckText(board(['commanders', 'mainboard', 'nonlands', 'lands']), board(['sideboard', 'outside']));
 }
 
 async function readBody(response, limit = MAX_BYTES) {

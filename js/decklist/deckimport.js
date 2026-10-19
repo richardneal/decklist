@@ -9,7 +9,7 @@ var DeckImport = {
   // Describes a recognized deck link as {source, label, id, url}, or returns null.
   parse: function(value) {
     var url;
-    try { url = new URL(value.trim().replace(/^(www\.)?(mtggoldfish\.com|mtgtop8\.com|moxfield\.com|archidekt\.com)\//i, 'https://$1$2/')); } catch (_) { return null; }
+    try { url = new URL(value.trim().replace(/^(www\.)?(mtggoldfish\.com|mtgtop8\.com|moxfield\.com|archidekt\.com|scryfall\.com)\//i, 'https://$1$2/')); } catch (_) { return null; }
     if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.port) return null;
     var host = url.hostname.replace(/^www\./, '');
     if (host === 'mtggoldfish.com') {
@@ -34,6 +34,12 @@ var DeckImport = {
       var archidekt = url.pathname.match(/^\/decks\/([1-9]\d{0,11})(?:\/[^/]*)?\/?$/);
       return archidekt ? { source: 'archidekt', label: 'Archidekt', id: archidekt[1],
         url: 'https://archidekt.com/api/decks/' + archidekt[1] + '/' } : null;
+    }
+    if (host === 'scryfall.com') {
+      var scryfall = url.pathname.match(/^\/@[^/]+\/decks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i);
+      var uuid = scryfall && scryfall[1].toLowerCase();
+      return scryfall ? { source: 'scryfall', label: 'Scryfall', id: uuid,
+        url: 'https://api.scryfall.com/decks/' + uuid + '/export/json' } : null;
     }
     return null;
   },
@@ -79,7 +85,7 @@ var DeckImport = {
 
   load: async function(value) {
     var deck = this.parse(value);
-    if (!deck) throw new Error('Enter a valid MTGGoldfish, MTGTop8, Moxfield or Archidekt deck URL.');
+    if (!deck) throw new Error('Enter a valid MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL.');
     var response = await fetch(this.apiURL + '?source=' + deck.source + '&id=' + encodeURIComponent(deck.id), { signal: AbortSignal.timeout(20000) });
     if (!response.ok) {
       var message = response.headers && response.headers.get('Content-Type')?.includes('text/plain')
@@ -132,7 +138,9 @@ $(function() {
         'Open a single deck on Moxfield, then copy its link. It should look like moxfield.com/decks/\u2026' :
         /archidekt\.com/i.test(originalURL) ?
         'Open a single deck on Archidekt, then copy its link. It should look like archidekt.com/decks/123\u2026' :
-        'Enter a valid MTGGoldfish, MTGTop8, Moxfield or Archidekt deck URL.', 'error');
+        /scryfall\.com/i.test(originalURL) ?
+        'Open a single deck on Scryfall, then copy its link. It should look like scryfall.com/@you/decks/\u2026' :
+        'Enter a valid MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL.', 'error');
       return;
     }
     var source = target.label;

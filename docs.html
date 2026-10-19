@@ -192,7 +192,7 @@
           <ol>
             <li><strong>Enter your information:</strong> Fill in your first and last name</li>
             <li><strong>Add event details:</strong> Event name, date, and location</li>
-            <li><strong>Add your deck:</strong> Paste an MTGGoldfish, MTGTop8, Moxfield or Archidekt deck link and click "Import deck", or copy your decklist from MTGO, MTGGoldfish, or TappedOut and paste it directly</li>
+            <li><strong>Add your deck:</strong> Paste an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck link and click "Import deck", or copy your decklist from MTGO, MTGGoldfish, or TappedOut and paste it directly</li>
             <li><strong>Choose format:</strong> Select WotC (Wizards of the Coast) or SCG (Star City Games) sheet format</li>
             <li><strong>Download:</strong> Click "Download PDF" to get your tournament-ready registration sheet</li>
           </ol>
@@ -271,6 +271,11 @@ Sideboard
         </div>
 
         <div class="docs-subsection">
+          <h3>Scryfall</h3>
+          <p>Paste the deck's address (<code>scryfall.com/@you/decks/…</code>) into "Import a deck". The deck must be public. A constructed deck keeps its mainboard and sideboard; a Commander deck's commander leads the main deck and its cards from outside the game, such as a companion, go to the sideboard. The maybeboard is ignored.</p>
+        </div>
+
+        <div class="docs-subsection">
           <h3>TappedOut</h3>
           <p>Use TappedOut's "Text" export format. Click on your deck, then select the "Text" view and copy everything.</p>
         </div>
@@ -315,7 +320,7 @@ Sideboard
           <ul>
             <li><strong>deckname</strong> - Deck name/archetype (e.g., "RUG Twin")</li>
             <li><strong>deckdesigner</strong> - Designer's name</li>
-            <li><strong>deckimport</strong> - URL-encoded MTGGoldfish, MTGTop8, Moxfield or Archidekt deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
+            <li><strong>deckimport</strong> - URL-encoded MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
             <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
             <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
           </ul>

@@ -8,6 +8,7 @@ function setup(options = {}) {
   const env = {
     ALLOWED_ORIGINS: 'https://nealston.com,https://richardneal.github.io',
     MOXFIELD_USER_AGENT: 'decklist-test/1.0',
+    USER_AGENT: 'decklist-generic/1.0',
     IMPORT_LIMITER: { limit: async () => ({ success: !options.limited }) }
   };
   const ctx = { waitUntil: promise => promise };
@@ -182,6 +183,47 @@ test('rejects malformed Archidekt IDs and decks with no usable cards', async () 
       cards: [{ quantity: 1, categories: ['Maybeboard'], card: { oracleCard: { name: 'Island' } } }] })]) {
     const bad = setup({ body });
     assert.equal((await bad.run('?source=archidekt&id=123456')).status, 502);
+    assert.equal(bad.entries.size, 0);
+  }
+});
+
+const SCRYFALL_ID = '5b088ae5-153e-48a9-8a38-b59c68fb5739';
+const entry = (name, count) => ({ count, card_digest: { name } });
+
+test('converts a constructed Scryfall deck and names itself to the API', async () => {
+  const s = setup({ body: JSON.stringify({ layout: 'constructed', entries: {
+    mainboard: [entry('Island', 10), entry('Island', 7), entry('Spectral Sailor', 4), { count: 1, card_digest: null }],
+    sideboard: [entry('Brazen Borrower // Petty Theft', 2)],
+    maybeboard: [entry('Not In The Deck', 1)]
+  } }) });
+  const response = await s.run('?source=scryfall&id=' + SCRYFALL_ID);
+  assert.equal(response.status, 200);
+  // Printings merge, a blank entry Scryfall could not match is skipped, and the
+  // maybeboard is dropped.
+  assert.equal(await response.text(), '17 Island\n4 Spectral Sailor\nSideboard\n2 Brazen Borrower // Petty Theft');
+  assert.equal(s.calls[0].url, 'https://api.scryfall.com/decks/' + SCRYFALL_ID + '/export/json');
+  assert.equal(s.calls[0].init.headers.Accept, 'application/json');
+  assert.equal(s.calls[0].init.headers['User-Agent'], 'decklist-generic/1.0');
+});
+test('puts a Scryfall commander first and cards from outside the game in the sideboard', async () => {
+  const s = setup({ body: JSON.stringify({ layout: 'commander', entries: {
+    nonlands: [entry('Sol Ring', 1)], lands: [entry('Plains', 30)],
+    commanders: [entry('Rin and Seri, Inseparable', 1)],
+    outside: [entry('Kaheera, the Orphanguard', 1)], maybeboard: [entry('Not In The Deck', 9)]
+  } }) });
+  assert.equal(await (await s.run('?source=scryfall&id=' + SCRYFALL_ID)).text(),
+    '1 Rin and Seri, Inseparable\n1 Sol Ring\n30 Plains\nSideboard\n1 Kaheera, the Orphanguard');
+});
+test('rejects malformed Scryfall IDs and decks with no usable cards', async () => {
+  const s = setup();
+  for (const id of ['abc', SCRYFALL_ID.toUpperCase(), SCRYFALL_ID + '/export', SCRYFALL_ID.slice(1)]) {
+    assert.equal((await s.run('?source=scryfall&id=' + encodeURIComponent(id))).status, 400);
+  }
+  assert.equal(s.calls.length, 0);
+  for (const body of ['not json', '{}', '{"entries":null}', '{"entries":{"mainboard":[]}}',
+    JSON.stringify({ entries: { maybeboard: [entry('Island', 1)] } })]) {
+    const bad = setup({ body });
+    assert.equal((await bad.run('?source=scryfall&id=' + SCRYFALL_ID)).status, 502);
     assert.equal(bad.entries.size, 0);
   }
 });
