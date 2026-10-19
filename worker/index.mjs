@@ -76,22 +76,24 @@ export function moxfieldDeck(text) {
   }
   const board = names => names.flatMap(name => Object.values(deck.boards[name]?.cards || {}))
     .map(entry => [entry?.card?.name, entry?.quantity]);
-  // A commander belongs on the main decklist; a companion is played from the sideboard.
-  return deckText(board(['commanders', 'mainboard']), board(['sideboard', 'companions']));
+  // Commander has no sideboard, so the commander leads it, where sorting the main deck
+  // cannot bury it among the other creatures; a companion is played from there too.
+  return deckText(board(['mainboard']), board(['commanders', 'sideboard', 'companions']));
 }
 
 // Collapses an Archidekt deck into quantity-prefixed decklist text. Archidekt keeps its
 // boards as categories, and a card's first category is the one that places it: the
 // Sideboard category is the sideboard, and any other category marked as left out of the
-// deck (the Maybeboard, say) is dropped. A companion is played from the sideboard,
-// whether Archidekt flags it or the player filed it under a Companion category.
+// deck (the Maybeboard, say) is dropped. The commander leads the sideboard, and a
+// companion is played from there, whether Archidekt flags it or the player filed it
+// under a Companion category.
 export function archidektDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Archidekt did not return deck data.'); }
   if (!deck || !Array.isArray(deck.cards)) throw new Error('Archidekt did not return deck data.');
   const categories = Array.isArray(deck.categories) ? deck.categories.filter(Boolean) : [];
   const excluded = new Set(categories.filter(category => category.includedInDeck === false).map(category => category.name));
-  // Premier categories hold the commander, which leads the main deck.
+  // Premier categories hold the commander, which leads the sideboard.
   const premier = new Set(categories.filter(category => category.isPremier).map(category => category.name));
   const commanders = [], main = [], side = [];
   for (const entry of deck.cards) {
@@ -101,13 +103,13 @@ export function archidektDeck(text) {
     else if (premier.has(category)) commanders.push(card);
     else if (!excluded.has(category)) main.push(card);
   }
-  return deckText(commanders.concat(main), side);
+  return deckText(main, commanders.concat(side));
 }
 
 // Collapses a Scryfall deck into quantity-prefixed decklist text. The sections follow the
 // deck's layout: a constructed deck has a mainboard and a sideboard, a Commander deck its
-// commanders, nonlands and lands, plus cards from outside the game (a companion, say),
-// which a registration sheet lists as the sideboard. The maybeboard is dropped, as are
+// nonlands and lands, plus its commanders and cards from outside the game (a companion,
+// say), which a registration sheet lists as the sideboard. The maybeboard is dropped, as are
 // blank entries Scryfall could not match to a card.
 export function scryfallDeck(text) {
   let deck;
@@ -115,7 +117,7 @@ export function scryfallDeck(text) {
   if (!deck || !deck.entries || typeof deck.entries !== 'object') throw new Error('Scryfall did not return deck data.');
   const board = names => names.flatMap(name => Array.isArray(deck.entries[name]) ? deck.entries[name] : [])
     .map(entry => [entry?.card_digest?.name, entry?.count]);
-  return deckText(board(['commanders', 'mainboard', 'nonlands', 'lands']), board(['sideboard', 'outside']));
+  return deckText(board(['mainboard', 'nonlands', 'lands']), board(['commanders', 'sideboard', 'outside']));
 }
 
 async function readBody(response, limit = MAX_BYTES) {
