@@ -25,7 +25,7 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
    - Returns objects with structure: `{main: [], side: [], unrecognized: [], unparseable: []}`
    - `Decklist.formats` - The formats a deck can be checked against (Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Commander, Other constructed, Limited), each with its rules (`constructed`, `commander` or `limited`) and, for those with a card pool, the letter the card data's `b`/`r` fields use
    - `Decklist.check(deck, format)` - Checks a `parse()` result against a format: deck size (60/15 for constructed; exactly 100 counting the commander, or 101 with a companion, for Commander; at least 40 for Limited), copies (4, or 1 in Commander or for a card restricted in the format, unless the card's own `x` says otherwise; Limited has no limit) and legality. Returns `{deckmain, deckside}` lists of validation objects that `main.js` turns into messages
-   - `Decklist.detectFormat(deck)` - Auto-detect: `commander` for a 90+ card main deck with at most 3 sideboard cards, otherwise the narrowest of Standard, Pioneer, Pauper, Modern, Legacy and Vintage the deck passes, otherwise `constructed`. Because it picks a format the deck is legal in, auto-detect never reports an illegal card; only a chosen format does
+   - `Decklist.detectFormat(deck)` - Auto-detect: `commander` for a 90+ card main deck with at most 3 sideboard cards, `limited` for a 40–45 card main deck, otherwise the narrowest of Standard, Pioneer, Pauper, Modern, Legacy and Vintage the deck passes, otherwise `constructed`. Because it picks a format the deck is legal in, auto-detect never reports an illegal card; only a chosen format does
    - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (mana value), `q` (quantity), `b` (formats it is not legal in), `r` (formats it is restricted in), `x` (its own copy limit)
 
 2. **main.js** - Main application logic
@@ -108,7 +108,7 @@ For iframe preview testing, the app uses `srcdoc` attribute to render the deckli
 
 ### Automated Tests
 
-Five suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+Six suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
 
 ```bash
 npm ci --prefix worker
@@ -125,6 +125,15 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 - `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection, export splitting, and the imported deck's format
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, the `X-Deck-Format` header, and failure handling
+- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
+
+  ```bash
+  npm ci --prefix tests/browser
+  npx --prefix tests/browser playwright install chromium   # once; skip where Chromium is preinstalled
+  npm test --prefix tests/browser
+  ```
+
+  Keep `playwright` pinned to a version whose Chromium is installed; a Claude Code cloud session ships the browsers for 1.56.1 in `/opt/pw-browsers`. Like `decklist.test.cjs` it uses the real card data, so a ban list change can break a test
 - `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved, and checks the legality, restriction and copy-limit fields. This is the gate the card-refresh workflow runs before committing.
 
 ### Common Modifications

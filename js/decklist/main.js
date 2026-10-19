@@ -1487,11 +1487,9 @@ function statusAndTooltips(valid) {
         } else if (validationObject['error'] === 'sectiontoolarge') {
           notifications.push(prop, ['This PDF only has space for up to 15 cards per section (including spaces)', validType]);
         } else if (validationObject['error'] === 'quantity') {
-          // include a list of cards that exceed their limit across the main/side
+          // include a list of cards over their limit across the main/side, each with its count and limit
           const excessCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, [(validationObject['data']['rules'] === 'commander' ?
-            'Commander decks may hold only one copy of each card other than basic lands:' :
-            'The following cards exceed 4 copies:') + excessCardsHtml, validType]);
+          notifications.push(prop, ['The following cards are over their copy limit:' + excessCardsHtml, validType]);
         } else if (validationObject['error'] === 'restricted') {
           const restrictedCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
           notifications.push(prop, ['The following cards are restricted in ' + validationObject['data']['format'] +

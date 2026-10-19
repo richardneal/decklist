@@ -103,7 +103,7 @@ test('holds a Commander deck to 100 singleton cards legal in Commander', () => {
   const deck = deckOf('2 Sol Ring\n1 Dockside Extortionist\n7 Seven Dwarves\n89 Island', "1 Atraxa, Praetors' Voice");
   const problems = decklist.check(deck, 'commander').deckmain;
   assert.deepEqual([...problems].map(problem => problem.error), ['quantity', 'illegal']);
-  assert.deepEqual([...problems[0].data.cards], ['Sol Ring']);
+  assert.deepEqual([...problems[0].data.cards], ['Sol Ring (2 copies; limit 1)']);
   assert.deepEqual([...problems[1].data.cards], ['Dockside Extortionist']);
 });
 test('detects the narrowest constructed format a deck is legal in', () => {
@@ -113,6 +113,8 @@ test('detects the narrowest constructed format a deck is legal in', () => {
   assert.equal(decklist.detectFormat(deckOf('4 Brainstorm\n4 Force of Will\n52 Island')), 'legacy');
   assert.equal(decklist.detectFormat(deckOf('1 Black Lotus\n1 Brainstorm\n58 Island')), 'vintage');
   assert.equal(decklist.detectFormat(deckOf('4 Black Lotus\n56 Island')), 'constructed');
+  // A 59-card deck is still constructed, so it is told it is a card short
+  assert.equal(decklist.detectFormat(deckOf('4 Counterspell\n55 Island')), 'pauper');
   assert.equal(decklist.detectFormat(deckOf('')), 'constructed');
 });
 test('reports cards a chosen format bans or restricts', () => {
@@ -130,7 +132,15 @@ test('reports cards a chosen format bans or restricts', () => {
 test('honors the copy limits cards set for themselves', () => {
   assert.deepEqual(errors(deckOf('7 Seven Dwarves\n53 Mountain', '15 Mountain'), 'modern'), []);
   const problems = decklist.check(deckOf('8 Seven Dwarves\n52 Mountain', '15 Mountain'), 'modern').deckmain;
-  assert.deepEqual([...problems[0].data.cards], ['Seven Dwarves (up to 7)']);
+  assert.deepEqual([...problems[0].data.cards], ['Seven Dwarves (8 copies; limit 7)']);
+  const bolts = decklist.check(deckOf('5 Lightning Bolt\n55 Mountain', '15 Mountain'), 'modern').deckmain;
+  assert.deepEqual([...bolts[0].data.cards], ['Lightning Bolt (5 copies; limit 4)']);
+});
+test('detects a Limited deck by its size', () => {
+  assert.equal(decklist.detectFormat(deckOf('6 Grizzly Bears\n34 Forest', '30 Lightning Bolt')), 'limited');
+  assert.equal(decklist.detectFormat(deckOf('6 Grizzly Bears\n39 Forest')), 'limited');
+  // Past 45 it reads as constructed again
+  assert.equal(decklist.detectFormat(deckOf('6 Grizzly Bears\n40 Forest')), 'pauper');
 });
 test('checks Limited decks for size alone', () => {
   assert.deepEqual(errors(deckOf('6 Grizzly Bears\n17 Forest\n17 Mountain', '30 Lightning Bolt'), 'limited'), []);

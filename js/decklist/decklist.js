@@ -417,15 +417,20 @@ var Decklist = {
     limited:     { name: 'Limited',           rules: 'limited' }
   },
 
-  // Guesses a parsed deck's format. A Commander deck shows by its shape: 99 or so
-  // cards in the main deck, and only its commanders and a companion in the sideboard.
-  // Any other deck gets the narrowest format it passes the checks for, so a guess
-  // never reports a card as illegal; only a chosen format can
+  // Guesses a parsed deck's format. Commander and Limited decks show by their shape:
+  // a Commander deck keeps 99 or so cards in the main deck and only its commanders and
+  // a companion in the sideboard, and a Limited deck runs 40 cards, or a few more, which
+  // no constructed deck may. Any other deck gets the narrowest format it passes the
+  // checks for, so a guess never reports a card as illegal; only a chosen format can
   // Accepts a parse() result
   // Returns a key of Decklist.formats
   detectFormat: function(deck) {
-    if (Decklist.count(deck.main) >= 90 && Decklist.count(deck.side) <= 3) {
+    const main = Decklist.count(deck.main);
+    if (main >= 90 && Decklist.count(deck.side) <= 3) {
       return 'commander';
+    }
+    if (main >= 40 && main <= 45) {
+      return 'limited';
     }
     if (!deck.main.length && !deck.side.length) {
       return 'constructed';
@@ -482,14 +487,14 @@ var Decklist = {
         if (isRestricted && !('x' in card)) {
           restricted.push(card['n']);
         } else {
-          excess.push('x' in card ? card['n'] + ' (up to ' + limit + ')' : card['n']);
+          excess.push(card['n'] + ' (' + card['q'] + ' copies; limit ' + limit + ')');
         }
       }
       if (definition.code && (card['b'] || '').includes(definition.code)) {
         illegal.push(card['n']);
       }
     });
-    if (excess.length)     { result.deckmain.push({ error: 'quantity', data: { cards: excess, rules: definition.rules } }); }
+    if (excess.length)     { result.deckmain.push({ error: 'quantity', data: { cards: excess } }); }
     if (restricted.length) { result.deckmain.push({ error: 'restricted', data: { cards: restricted, format: definition.name } }); }
     if (illegal.length)    { result.deckmain.push({ error: 'illegal', data: { cards: illegal, format: definition.name } }); }
     return result;
