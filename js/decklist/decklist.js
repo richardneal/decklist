@@ -158,8 +158,9 @@ var Decklist = {
         if (cards.hasOwnProperty(normalized_name)) {
             return cards[normalized_name];
         }
-    
-        return null;
+
+        // Last, ignore split-card slashes, so "Fire Ice" finds Fire // Ice
+        return Decklist.searchIndex().get(Decklist.searchKey(name)) || null;
       }    
     
     }
@@ -339,6 +340,24 @@ var Decklist = {
 
   // Accepts a deck list (array of card objects)
   // Returns a count of number of cards in a given deck
+  // Loose form of a card name for matching what people type: case, accents and
+  // split-card slashes are ignored, so "fire ice" and "Fire // Ice" agree
+  searchKey: function(name) {
+    return name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/æ/g, 'ae').replace(/\//g, ' ').replace(/\s+/g, ' ').trim();
+  },
+
+  // Map of searchKey to card object for every card, built on first use
+  searchIndex: function() {
+    if (!Decklist._searchIndex) {
+      Decklist._searchIndex = new Map();
+      for (const key in cards) {
+        Decklist._searchIndex.set(Decklist.searchKey(cards[key].n), cards[key]);
+      }
+    }
+    return Decklist._searchIndex;
+  },
+
   count: function(deck) {
     var count = 0;
     Object.values(deck).forEach(function(card) {

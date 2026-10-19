@@ -1885,9 +1885,10 @@ function initAutocomplete() {
     suggestions = [];
 
     if (typeof cards !== 'undefined') {
-      for (const cardKey in cards) {
-        const card = cards[cardKey];
-        if (card.n.toLowerCase().includes(searchTerm)) {
+      // Compare loose forms, so "fire ice" suggests Fire // Ice
+      const term = Decklist.searchKey(searchTerm);
+      for (const [key, card] of Decklist.searchIndex()) {
+        if (key.includes(term)) {
           suggestions.push(card.n);
           if (suggestions.length >= 10) break; // Limit to 10 suggestions
         }
