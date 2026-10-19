@@ -1381,7 +1381,7 @@ function validateInput(parsedLists) {
 
 
 // shown in the status box until the user enters something; matches the markup in index.html
-const STATUS_PROMPT_HTML = '<li class="prompt">Fill in your details and add your deck to check your decklist.</li>';
+const STATUS_PROMPT_HTML = '<li class="prompt">Fill in the form to check your decklist.</li>';
 
 // Change tooltips and status box to reflect current errors/warnings (or lack thereof)
 function statusAndTooltips(valid) {
