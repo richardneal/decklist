@@ -13,7 +13,7 @@ decklist.nealston.com is a free, open-source web tool for creating tournament-le
 - **Tournament Formats**: WotC and SCG registration sheet templates
 - **Automatic Validation**: Checks for 60-card minimum, sideboard limits, and card quantity rules
 - **Direct Linking**: Create shareable URLs with pre-filled decklist data
-- **Sort Options**: Alphabetical, CMC, Color, Numeric, Type, or Original order
+- **Sort Options**: Alphabetical, Mana Value, Color, Numeric, Type, or Original order
 - **No Account Required**: No registration needed; decks you paste are processed in your browser
 - **Free Forever**: No cost, no ads, open source
 
