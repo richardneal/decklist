@@ -229,8 +229,8 @@ var Decklist = {
       return deck;
     } else if (sortorder === 'alphabetical') {
       deck.sort(alphabeticalCardSort);
-    } else if (sortorder === 'cmc') {
-      deck.sort(cmcCardSort);
+    } else if (sortorder === 'manavalue') {
+      deck.sort(manaValueCardSort);
     } else if (sortorder === 'color') {
       deck.sort(colorCardSort);
     } else if (sortorder === 'numeric') {
@@ -256,11 +256,11 @@ var Decklist = {
       }
       return 0;
     }
-    // sort by CMC, then alphabetically
-    function cmcCardSort(a, b) {
-      var cmcA = a['m'] || 100,
-        cmcB = b['m'] || 100;
-      return cmcA - cmcB || alphabeticalCardSort(a, b);
+    // sort by mana value, then alphabetically
+    function manaValueCardSort(a, b) {
+      var manaValueA = a['m'] || 100,
+        manaValueB = b['m'] || 100;
+      return manaValueA - manaValueB || alphabeticalCardSort(a, b);
     }
     // sort by color of cards, then alphabetically
     function colorCardSort(a, b) {
@@ -309,7 +309,7 @@ var Decklist = {
     // to allow the function to be mappable, we force non-string "sectionType" values to default to user-entered sort order
     sectionType = typeof sectionType === 'string' ? sectionType || formSectionType : formSectionType;
 
-    if (sectionType === 'cmc') {
+    if (sectionType === 'manavalue') {
       return addSections(deck, 'm');
     } else if (sectionType ==='color') {
       return addSections(deck, 'c');

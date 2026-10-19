@@ -16,12 +16,12 @@ The application is split into four main JavaScript modules in `js/decklist/`, al
 
 1. **decklist.js** - Core decklist parsing and manipulation
    - `Decklist.parse(deckmain, deckside)` - Parses various deck formats (MTGO, MWS, MTG Goldfish, Tappedout, etc.) into structured card objects
-   - `Decklist.sort(deck, sortorder)` - Sorts decks by alphabetical, CMC, color, numeric, or type
+   - `Decklist.sort(deck, sortorder)` - Sorts decks by alphabetical, mana value, color, numeric, or type
    - `Decklist.section(deck, sectionType)` - Adds visual spacers between card groups
    - `Decklist.filter(deck, field, values, mode)` - Filters cards by properties
    - `Decklist.count(deck)` - Counts total cards in a deck
    - Returns objects with structure: `{main: [], side: [], unrecognized: [], unparseable: []}`
-   - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (CMC), `q` (quantity), `b` (banned status)
+   - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (mana value), `q` (quantity), `b` (banned status)
 
 2. **main.js** - Main application logic
    - Event handling for form inputs
@@ -53,7 +53,7 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
 - Value: object with properties:
   - `c`: color code (A=White, B=Blue, C=Black, D=Red, E=Green, F=Gold, G=Artifact, Z=Land)
   - `t`: type code (1=Land, 2=Creature, 3=Sorcery, 4=Instant, 5=Other)
-  - `m`: converted mana cost (99 for lands)
+  - `m`: mana value (99 for lands)
   - `b`: banned status in formats (combination of s/m/l for Standard/Modern/Legacy)
   - `n`: actual card name with proper capitalization
 

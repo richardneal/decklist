@@ -23,7 +23,7 @@ This fork includes additional features and improvements aimed at providing a mor
 ### Deck Organization
 - **Multiple Sort Options**:
   - Alphabetical
-  - CMC (Converted Mana Cost)
+  - Mana Value
   - Color
   - Numeric
   - Type (recommended)
@@ -54,7 +54,7 @@ Interested in directly linking to [decklist.nealston.com](https://decklist.neals
 - **`deckdesigner`**: the name of the designer of the decklist
 - **`deckmain`**: the deck itself; this can be in any format the website understands (use `%0A` for newlines)
 - **`deckside`**: the side itself; this can be in any format the website understands (use `%0A` for newlines)
-- **`decksort`**: change the order of the cards in the mainboard and sideboard (choices: `alphabetical`, `cmc`, `color`, `numeric`, `original`, `type`, defaults to `type`)
+- **`decksort`**: change the order of the cards in the mainboard and sideboard (choices: `alphabetical`, `manavalue`, `color`, `numeric`, `original`, `type`, defaults to `type`)
 - **`disableediting`**: prevent users from editing the fields above
 
 Please note that any field not specifically set will simply be left blank on the form.

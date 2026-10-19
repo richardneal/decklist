@@ -6,7 +6,7 @@ import unicodedata
 # Just FYI!
 # b (banned) = [sml] (standard, modern, legacy)
 # c (color) = White = A, Blue = B, Black = C, Red = D, Green = E, Gold = F, Artifact = G , Split = S, Unknown = X, Land = Z
-# m (CMC) = N  (Split = 98, Land = 99)
+# m (mana value) = N  (Split = 98, Land = 99)
 # n (actual name) = 'true name nemesis' to 'True Name Nemesis'
 # t (type) = 1 = land, 2 = creature, 3 = sorcery, 4 = instant, 5 = other
 
@@ -97,7 +97,7 @@ for card in cards["data"].values():
     elif 'Instant'  in face['types']:  ocards[ocard]['t'] = '4'
     else:                              ocards[ocard]['t'] = '5'
 
-    # Now try to deal with CMC
+    # Now try to deal with mana value
     if 'convertedManaCost' not in face: ocards[ocard]['m'] = 99
     else: ocards[ocard]['m'] = face['convertedManaCost']
 
