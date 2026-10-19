@@ -4,7 +4,7 @@ import json
 import unicodedata
 
 # Just FYI!
-# b (banned) = [sml] (standard, modern, legacy)
+# b (legal in) = [sml] (standard, modern, legacy)
 # c (color) = White = A, Blue = B, Black = C, Red = D, Green = E, Gold = F, Artifact = G , Split = S, Unknown = X, Land = Z
 # m (mana value) = N  (Split = 98, Land = 99)
 # n (actual name) = 'true name nemesis' to 'True Name Nemesis'

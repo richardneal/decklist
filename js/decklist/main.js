@@ -1,5 +1,5 @@
 /* eslint-env browser */
-/* global $, jQuery, jsPDF, Decklist, DCI */
+/* global $, jQuery, jsPDF, Decklist */
 
 // global timeout filters
 var decklistChangeTimer = null;
@@ -46,36 +46,10 @@ $(document).ready(function() {
     generateDecklistPDF();
   });
 
-  // Track deck sheet format changes
-  $('input[name="decksheetformat"]').on('change', function() {
-    const format = $(this).prop('id').replace('decksheet-', '');
-    if (typeof posthog !== 'undefined') {
-      posthog.capture('decksheet_format_changed', { format: format });
-    }
-  });
-
-  // Track sort order changes
-  $('input[name="sortorder"]').on('change', function() {
-    const sortOrder = $(this).prop('id').replace('sort-', '');
-    if (typeof posthog !== 'undefined') {
-      posthog.capture('sort_order_changed', { sort_order: sortOrder });
-    }
-  });
-
-  // Track separate basic lands toggle
-  $('#separate-basic-lands').on('change', function() {
-    if (typeof posthog !== 'undefined') {
-      posthog.capture('separate_basic_lands_toggled', {
-        enabled: $(this).is(':checked')
-      });
-    }
-  });
-
   // bind a date picker to the event date (thanks, jQuery UI)
-  // also skin the upload and download button
+  // also skin the download and permalink buttons
   $('#eventdate').datepicker({ dateFormat: 'yy-mm-dd' }); // ISO-8601, woohoo
   $('#download').button();
-  $('#upload').button();
   $('#permalink').button();
   $('input[type=radio]').checkboxradio({
     icon: false
@@ -160,7 +134,6 @@ function parseGET() {
   const params = [
     'firstname',
     'lastname',
-    //'dcinumber',
     'event',
     'eventdate',
     'eventlocation',
@@ -168,9 +141,7 @@ function parseGET() {
     'deckdesigner',
     'deckimport',
     'deckmain',
-    'deckside',
-    'deckname', 
-    'deckdesigner'
+    'deckside'
   ];
 
   // check for event, eventdate, or eventlocation and lock down those input fields
@@ -194,11 +165,6 @@ function parseGET() {
   // switch to the proper decksheet; doing it this way in case we ever support other formats
   if ($._GET['decksheet'] !== undefined) {
     $('#decksheet-' + $._GET['decksheet']).click();
-  }
-
-  // make the upload button visible, if uploadURL exists
-  if ($._GET[ 'uploadURL' ] !== undefined) {
-    $('#upload').css('display', 'inline-block');
   }
 
   // process the decksort param, if present
@@ -243,7 +209,7 @@ function generateSCGDecklist(parsedInput) {
   scgdl.setTextColor.apply(null, trueblack);
   scgdl.setLineWidth(1);
 
-  // add first name, last name, and DCI number boxes & text (as well as "required" text)
+  // add first name and last name boxes & text (as well as "required" text)
 
   const monospaced_fields = {
     'LAST NAME': {
@@ -257,12 +223,7 @@ function generateSCGDecklist(parsedInput) {
       label_x_offset: pxToPt(289.152),
       required: true,
       required_x_offset: pxToPt(386.727),
-    }/*,
-    'DCI NUMBER': {
-      text: $('#dcinumber').val(),
-      label_x_offset: pxToPt(554.486),
-      required: false,
-    },*/
+    }
   };
   
   Object.keys(monospaced_fields).forEach(function(key, i) {
@@ -801,9 +762,8 @@ function generateStandardDecklist(parsedInput) {
   dl.rect(27, 140, 24, 628, 'F');  // last name + first name fills
   dl.rect(27, 140, 24, 449, 'F');  // first name fill
 
-  dl.rect(27, 140, 24, 628);  // last name + first name + dci
-  //dl.rect(27, 140, 24, 270);  // dci
-  dl.rect(27, 140, 24, 449);  // first name + dci
+  dl.rect(27, 140, 24, 628);  // last name + first name
+  dl.rect(27, 140, 24, 449);  // first name
 
   dl.rect(250, 748, 56, 22); // total number main deck
   dl.rect(524, 694, 56, 22); // total number side deck
@@ -818,14 +778,8 @@ function generateStandardDecklist(parsedInput) {
   dl.rect(320, 734, 260, 12); // dc round + dc round
   dl.rect(320, 746, 260, 12); // status + status
 
-  let y = 140;
-  /*while (y < 380) {
-    dl.rect(27, y, 24, 24);  // dci digits
-    y += 24;
-  }*/
-
   // Now let's create a bunch of lines for putting cards on
-  y = 186;
+  let y = 186;
   while(y < 750)                  // first column of lines
   {
     dl.line(62, y, 106, y);
@@ -934,24 +888,6 @@ function generateStandardDecklist(parsedInput) {
   dl.setFontSize(11);
   dl.setFontStyle('bold');
   dl.text(firstname, 43, 542, 90);
-
-  // put the DCI number into the PDF
-  /*dl.setFont('helvetica');
-  dl.setFontSize(7);
-  dl.setFontStyle('italic');
-  dl.text('DCI #:', 41, 404, 90);    // dci # is rotated and italic
-  let dcinumber = $('#dcinumber').val();
-  if (dcinumber) { // only if there is a dci number
-    dcinumber = DCI.getTenIfValid(dcinumber).toString();
-  }
-  dl.setFont('helvetica');
-  dl.setFontSize(12);
-  dl.setFontStyle('bold');
-  if (dcinumber.length > 0) {
-    for (let i = 0, y = 372; i < dcinumber.length; i++, y -= 24) {
-      dl.text(dcinumber.charAt(i), 43, y, 90);
-    }
-  }*/
 
   const separateBasicLands = document.getElementById('separate-basic-lands').checked;
   const pages = paginateStandardMainDeck(standardMainDeckRows(maindeck, separateBasicLands));
@@ -1316,11 +1252,6 @@ async function copyPermalinkToClipboard() {
       const permalink = await generatePermalink();
       await navigator.clipboard.writeText(permalink);
       button.value = 'Copied!';
-
-      // Track permalink copy
-      if (typeof posthog !== 'undefined') {
-        posthog.capture('permalink_copied', { permalink_length: permalink.length });
-      }
   } catch (error) {
       console.error('Error:', error);
       button.value = 'Failed to Copy';
@@ -1359,35 +1290,7 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
     iframe.attr('src', domdl);
     container.append(iframe);
   }
-  else if (outputtype === 'raw') {
-    const rawPDF = dl.output();
-    return(rawPDF);
-  }
   else {
-    // Track PDF download
-    if (typeof posthog !== 'undefined') {
-      const decksheetFormat = $('#decksheetformatselector input[name=decksheetformat]:checked').prop('id').replace('decksheet-', '');
-      const sortOrder = $('input[name="sortorder"]:checked').prop('id').replace('sort-', '');
-      const maindeck_count = Decklist.count(parsedInput.main);
-      const sideboard_count = Decklist.count(parsedInput.side);
-
-      posthog.capture('pdf_downloaded', {
-        format: decksheetFormat,
-        sort_order: sortOrder,
-        main_deck_count: maindeck_count,
-        sideboard_count: sideboard_count,
-        total_cards: maindeck_count + sideboard_count
-      });
-
-      // Track successful decklist creation (valid 60+ card deck)
-      if (maindeck_count >= 60 && maindeck_count <= 100 && sideboard_count <= 15) {
-        posthog.capture('successful_decklist_created', {
-          format: decksheetFormat,
-          main_deck_count: maindeck_count,
-          sideboard_count: sideboard_count
-        });
-      }
-    }
     dl.save('decklist.pdf');
   }
 }
@@ -1406,7 +1309,6 @@ function validateInput(parsedLists) {
   const validate = {
     'firstname': [],
     'lastname': [],
-    //'dcinumber': [],
     'event': [],
     'eventdate': [],
     'eventlocation': [],
@@ -1435,16 +1337,6 @@ function validateInput(parsedLists) {
   // check last name (non-blank, too long)
   if ($('#lastname').val() === '')                          { validate.lastname.push({ warning: 'blank' });  }
   else if ($('#lastname').val().length > maxLastNameLength) { validate.lastname.push({ error: 'toolarge' }); }
-
-  // check DCI number (non-blank, numeric, < 11 digits, valid, has check digit, was changed)
-  /*if ($('#dcinumber').val() === '')                 { validate.dcinumber.push({ warning: 'blank' });  }
-  else if (!$('#dcinumber').val().match(/^[\d]+$/)) { validate.dcinumber.push({ error: 'nonnum' });   }
-  else if ($('#dcinumber').val().length >= 11)      { validate.dcinumber.push({ error: 'toolarge' }); }
-  else if (!DCI.isValid($('#dcinumber').val()))     { validate.dcinumber.push({ error: 'invalid' });  }
-  else {
-    if (DCI.isValid($('#dcinumber').val()) === -1)  { validate.dcinumber.push({ warning: 'nocheck' });}
-    if (DCI.wasChanged($('#dcinumber').val()))      { validate.dcinumber.push({ warning: 'changed' });}
-  }*/
 
   // check event name (non-blank)
   if ($('#event').val() === '') { validate.event.push({ warning: 'blank' }); }
@@ -1591,20 +1483,6 @@ function statusAndTooltips(valid) {
         } else if (validationObject['error'] === 'toolarge') {
           notifications.push(prop, ['Last name too long', validType]);
         }
-      /*} else if (prop === 'dcinumber') {
-        if (validationObject['warning'] === 'blank') {
-          notifications.push(prop, ['Missing DCI number', validType]);
-        } else if (validationObject['error'] === 'nonnum') {
-          notifications.push(prop, ['DCI number must contain only numbers', validType]);
-        } else if (validationObject['error'] === 'toolarge') {
-          notifications.push(prop, ['DCI numbers must be 10 digits or less', validType]);
-        } else if (validationObject['error'] === 'invalid') {
-          notifications.push(prop, ['DCI number is invalid', validType]);
-        } else if (validationObject['warning'] === 'nocheck') {
-          notifications.push(prop, ['We cannot verify that your DCI number is valid as it is in an old format. Please double-check it.', validType]);
-        } else if (validationObject['warning'] === 'changed') {
-          notifications.push(prop, ['Your DCI number was expanded to the newer 10 digit system', validType]);
-        }*/
       } else if (prop === 'event') {
         if (validationObject['warning'] === 'blank') {
           notifications.push(prop, ['Missing event name', validType]);
@@ -1726,24 +1604,6 @@ function statusAndTooltips(valid) {
   // set new status, display new notifications
   $('.status').removeClass('default empty valid warning error').addClass(newStatus);
   $('.status .details').html(statusBoxHtml);
-
-  // Track validation errors
-  if (errorLevel & 0x100) {
-    if (typeof posthog !== 'undefined') {
-      const errorFields = [];
-      for (const key in notifications) {
-        if (typeof notifications[key] !== 'function') {
-          if (notifications[key]?.some(n => n[1] === 'error')) {
-            errorFields.push(key);
-          }
-        }
-      }
-      posthog.capture('validation_error', {
-        error_fields: errorFields,
-        error_count: errorFields.length
-      });
-    }
-  }
 }
 
 document.addEventListener('DOMContentLoaded', (event) => {
@@ -1823,10 +1683,6 @@ function initDarkMode() {
       localStorage.setItem('darkMode', isDark);
     }
 
-    // Track dark mode toggle
-    if (typeof posthog !== 'undefined') {
-      posthog.capture('dark_mode_toggled', { enabled: isDark });
-    }
   });
 }
 
@@ -1882,13 +1738,6 @@ function initDeckManagement() {
       saveButton.textContent = '💾 Save Decklist';
     }, 2000);
 
-    // Track save event
-    if (typeof posthog !== 'undefined') {
-      posthog.capture('deck_saved', {
-        has_main_deck: deckData.deckmain.length > 0,
-        has_sideboard: deckData.deckside.length > 0
-      });
-    }
   });
 
   // Load deck from localStorage
@@ -1933,10 +1782,6 @@ function initDeckManagement() {
       loadButton.textContent = '📂 Load Decklist';
     }, 2000);
 
-    // Track load event
-    if (typeof posthog !== 'undefined') {
-      posthog.capture('deck_loaded');
-    }
   });
 
   // Clear all fields
@@ -1955,10 +1800,6 @@ function initDeckManagement() {
     // Trigger PDF regeneration
     pdfChangeWait();
 
-    // Track clear event
-    if (typeof posthog !== 'undefined') {
-      posthog.capture('deck_cleared');
-    }
   });
 }
 

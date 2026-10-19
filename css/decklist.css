@@ -513,7 +513,6 @@ h2 {
   box-shadow: var(--shadow-sm);
 }
 
-#upload,
 #permalink {
   padding: 12px 24px;
   font-size: 14px;
@@ -527,16 +526,10 @@ h2 {
   color: var(--text-primary);
 }
 
-#upload:hover,
 #permalink:not(:disabled):hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
   background: var(--bg-secondary);
-}
-
-#upload,
-#formupload {
-  display: none;
 }
 
 .status {
@@ -961,7 +954,6 @@ a {
     box-sizing: border-box;
   }
 
-  #upload,
   #permalink {
     width: 100%;
     box-sizing: border-box;
@@ -1113,7 +1105,6 @@ a {
     box-sizing: border-box;
   }
 
-  #upload,
   #permalink {
     width: 100%;
     box-sizing: border-box;
