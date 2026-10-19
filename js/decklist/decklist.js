@@ -487,14 +487,14 @@ var Decklist = {
         if (isRestricted && !('x' in card)) {
           restricted.push(card['n']);
         } else {
-          excess.push('x' in card ? card['n'] + ' (up to ' + limit + ')' : card['n']);
+          excess.push(card['n'] + ' (' + card['q'] + ' copies; limit ' + limit + ')');
         }
       }
       if (definition.code && (card['b'] || '').includes(definition.code)) {
         illegal.push(card['n']);
       }
     });
-    if (excess.length)     { result.deckmain.push({ error: 'quantity', data: { cards: excess, rules: definition.rules } }); }
+    if (excess.length)     { result.deckmain.push({ error: 'quantity', data: { cards: excess } }); }
     if (restricted.length) { result.deckmain.push({ error: 'restricted', data: { cards: restricted, format: definition.name } }); }
     if (illegal.length)    { result.deckmain.push({ error: 'illegal', data: { cards: illegal, format: definition.name } }); }
     return result;
