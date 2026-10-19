@@ -165,8 +165,8 @@ var Decklist = {
           return loose;
         }
 
-        // Last, a double-faced or adventure card spelled out in full, as deck sites
-        // export it, is stored under its front face alone
+        // Last, a double-faced, adventure, flip or prepare card spelled out in
+        // full, as deck sites export it, is stored under its front face alone
         let front = name.split(' // ')[0];
         return front !== name ? getCard(front) : null;
       }
