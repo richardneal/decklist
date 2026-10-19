@@ -37,8 +37,9 @@ The application is split into four main JavaScript modules in `js/decklist/`, al
    - Uses prime number checksums for validation
    - **Currently dormant**: there is no `#dcinumber` input in `index.html`, the `dcinumber` entry is commented out of `parseGET()`, and the PDF's DCI block is commented out. The module is still loaded, so wiring it back up means restoring the field, the parameter, and that PDF block together.
 
-4. **deckimport.js** - MTGGoldfish / MTGTop8 deck importing
-   - `DeckImport.downloadURL(value)` - Normalizes a deck URL to its canonical export URL; returns `null` for any other host, a URL carrying credentials or an explicit port, a non-http(s) scheme, or a missing/non-numeric deck ID
+4. **deckimport.js** - MTGGoldfish / MTGTop8 / Moxfield deck importing
+   - `DeckImport.parse(value)` - Describes a recognized deck link as `{source, label, id, url}`; returns `null` for any other host, a URL carrying credentials or an explicit port, a non-http(s) scheme, or a missing/malformed deck ID. A Moxfield ID must be 16–32 base64url characters, which keeps routes such as `/decks/public` from reading as a deck
+   - `DeckImport.downloadURL(value)` - The canonical export URL from `parse`, or `null`
    - `DeckImport.split(text)` - Splits export text into `{main, side}`; throws if the response looks like HTML (a login or error page) or if any line is not quantity-prefixed
    - `DeckImport.load(value)` - Fetches through the import Worker with a 20s `AbortSignal.timeout`, then splits the result
    - `DeckImport.importFromParameters(params)` - Honors the `deckimport` URL parameter; an embedded `deckmain`/`deckside` takes precedence
@@ -61,7 +62,7 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
 The application supports extensive URL parameter support for pre-filling forms:
 - Personal: `firstname`, `lastname`
 - Event: `event`, `eventdate`, `eventlocation`
-- Deck: `deckname`, `deckdesigner`, `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish or MTGTop8 deck URL; ignored when `deckmain`/`deckside` are present)
+- Deck: `deckname`, `deckdesigner`, `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish, MTGTop8 or Moxfield deck URL; ignored when `deckmain`/`deckside` are present)
 - Display: `decksheet` (wotc/scg), `disableediting`
 
 Use `%0A` for newlines in deck data, `%20` for spaces.
@@ -170,7 +171,11 @@ The import Worker is deployed separately — pushing to `main` does **not** upda
 npm run deploy --prefix worker
 ```
 
-It exposes `GET /api/import?source=mtggoldfish&id=123` (or `source=mtgtop8`), fetches only fixed export URLs, rejects redirects and HTML, caches successes for five minutes, and rate-limits to 20 requests per minute per IP per location. Its CORS allowlist is the `ALLOWED_ORIGINS` var in `worker/wrangler.jsonc` — add an origin there if you host the frontend elsewhere. Also available: `npm run dev --prefix worker` (local server on :8787) and `npm run check --prefix worker` (dry-run deploy).
+It exposes `GET /api/import?source=mtggoldfish&id=123` (or `source=mtgtop8`, or `source=moxfield` with a base64url deck ID), fetches only fixed export URLs, rejects redirects and HTML, caches successes for five minutes, and rate-limits to 20 requests per minute per IP per location. Sources are declared in the `SOURCES` table at the top of `worker/index.mjs`: an entry gives the ID pattern, the upstream URL, the `Accept` header and, optionally, a `convert` step. Its CORS allowlist is the `ALLOWED_ORIGINS` var in `worker/wrangler.jsonc` — add an origin there if you host the frontend elsewhere.
+
+**Moxfield is a JSON source.** It publishes no text export — the Copy buttons in its Export dialog are built in the browser from the deck JSON and hit no endpoint — and it sends no CORS headers, so the deck has to come through the Worker. The Worker reads `https://api2.moxfield.com/v3/decks/all/<id>` and `moxfieldDeck()` folds the boards into decklist text: commanders lead the main deck, a companion joins the sideboard, separate printings of one card merge, and the maybeboard is dropped.
+
+Two things follow from that. The JSON spells out every card in full, so a 60-card deck runs about 140 KB; the `moxfield` source therefore raises `readBody`'s cap to 2 MB, while the text sources keep the 64 KB default. And Moxfield fronts its API with Cloudflare, which turns some clients away — plain `curl` gets a 403 whatever User-Agent it sends, though `workerd` is served normally. `MOXFIELD_USER_AGENT` in `worker/wrangler.jsonc` sets the User-Agent the Worker identifies itself with; if Moxfield starts refusing it, ask their support for an allowlisted one and put it there. A refusal surfaces as the Worker's 502, and the UI then tells the user to paste the exported deck text instead. Also available: `npm run dev --prefix worker` (local server on :8787) and `npm run check --prefix worker` (dry-run deploy).
 
 ## Important Notes
 

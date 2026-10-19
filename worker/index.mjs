@@ -1,14 +1,64 @@
+// Plenty for a text export. Moxfield sends deck JSON instead and raises its own cap.
 const MAX_BYTES = 64 * 1024;
 
+const SOURCES = {
+  mtggoldfish: {
+    id: /^[1-9]\d{0,11}$/,
+    url: id => 'https://www.mtggoldfish.com/deck/download/' + id,
+    accept: 'text/plain'
+  },
+  mtgtop8: {
+    id: /^[1-9]\d{0,11}$/,
+    url: id => 'https://www.mtgtop8.com/mtgo?d=' + id,
+    accept: 'text/plain'
+  },
+  moxfield: {
+    // Public deck IDs are base64url-encoded GUIDs, so 22 characters in practice. The
+    // lower bound keeps route names such as /decks/public from reading as a deck ID.
+    id: /^[A-Za-z0-9_-]{16,32}$/,
+    url: id => 'https://api2.moxfield.com/v3/decks/all/' + id,
+    accept: 'application/json',
+    // A 60-card deck's JSON runs about 140 KB, since every card is spelled out in
+    // full; this leaves room for a Commander deck with 100 distinct cards.
+    limit: 2 * 1024 * 1024,
+    convert: moxfieldDeck,
+    // Moxfield fronts its API with Cloudflare, which turns some clients away; this
+    // names us politely, and takes an allowlisted string if they ever ask for one.
+    agent: env => env.MOXFIELD_USER_AGENT
+  }
+};
+
 export function upstreamURL(source, id) {
-  if (!/^[1-9]\d{0,11}$/.test(id || '')) return null;
-  if (source === 'mtggoldfish') return 'https://www.mtggoldfish.com/deck/download/' + id;
-  if (source === 'mtgtop8') return 'https://www.mtgtop8.com/mtgo?d=' + id;
-  return null;
+  const definition = SOURCES[source];
+  return definition && definition.id.test(id || '') ? definition.url(id) : null;
 }
 
-async function readDeck(response) {
-  if (Number(response.headers.get('content-length')) > MAX_BYTES) {
+// Collapses the boards of a Moxfield deck into quantity-prefixed decklist text.
+export function moxfieldDeck(text) {
+  let deck;
+  try { deck = JSON.parse(text); } catch (_) { throw new Error('Moxfield did not return deck data.'); }
+  if (!deck || !deck.boards || typeof deck.boards !== 'object') {
+    throw new Error('Moxfield did not return deck data.');
+  }
+  // Merge separate printings of one card, since a decklist names each card once.
+  const board = names => {
+    const totals = new Map();
+    for (const name of names) {
+      for (const entry of Object.values(deck.boards[name]?.cards || {})) {
+        const card = entry?.card?.name, quantity = entry?.quantity;
+        if (!card || typeof card !== 'string' || !Number.isInteger(quantity) || quantity < 1) continue;
+        totals.set(card, (totals.get(card) || 0) + quantity);
+      }
+    }
+    return [...totals].map(([name, quantity]) => quantity + ' ' + name);
+  };
+  // A commander belongs on the main decklist; a companion is played from the sideboard.
+  const main = board(['commanders', 'mainboard']), side = board(['sideboard', 'companions']);
+  return main.concat(side.length ? ['Sideboard'].concat(side) : []).join('\n');
+}
+
+async function readBody(response, limit = MAX_BYTES) {
+  if (Number(response.headers.get('content-length')) > limit) {
     await response.body?.cancel();
     throw new Error('Deck export is too large.');
   }
@@ -20,7 +70,7 @@ async function readDeck(response) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_BYTES) {
+    if (size > limit) {
       await reader.cancel();
       throw new Error('Deck export is too large.');
     }
@@ -29,7 +79,10 @@ async function readDeck(response) {
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  const text = new TextDecoder().decode(bytes).trim();
+  return new TextDecoder().decode(bytes).trim();
+}
+
+function validateDeck(text) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (!lines.some(line => /^\d+x?\s+\S/.test(line)) ||
       !lines.every(line => /^(?:\d+x?\s+\S|SB:\s*\d+\s+\S|Sideboard\b)/i.test(line)) ||
@@ -61,8 +114,8 @@ export async function handle(request, env, ctx, services = {}) {
   });
   if (request.method !== 'GET') return reply('Use GET.', 405, { Allow: 'GET, OPTIONS' });
   const source = url.searchParams.get('source'), id = url.searchParams.get('id');
-  const target = upstreamURL(source, id);
-  if (!target) return reply('Provide a supported source and a numeric deck ID.', 400);
+  const definition = SOURCES[source], target = upstreamURL(source, id);
+  if (!target) return reply('Provide a supported source and a valid deck ID.', 400);
   if (!env.IMPORT_LIMITER) return reply('Import service is not configured.', 503);
   const { success } = await env.IMPORT_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
   if (!success) return reply('Too many imports. Please try again in a minute.', 429, { 'Retry-After': '60' });
@@ -73,15 +126,17 @@ export async function handle(request, env, ctx, services = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
+    const agent = definition.agent?.(env);
     const response = await (services.fetch || fetch)(target, {
       redirect: 'manual', signal: controller.signal,
-      headers: { Accept: 'text/plain' }
+      headers: { Accept: definition.accept, ...(agent ? { 'User-Agent': agent } : {}) }
     });
     if (!response.ok) {
       await response.body?.cancel();
       return reply('The deck source returned HTTP ' + response.status + '. Try exporting and pasting the deck text.', 502);
     }
-    const text = await readDeck(response);
+    const body = await readBody(response, definition.limit);
+    const text = validateDeck(definition.convert ? definition.convert(body) : body);
     // Cache only validated data; add origin-specific headers after retrieving it.
     ctx.waitUntil(cache.put(key, new Response(text, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=300' }
