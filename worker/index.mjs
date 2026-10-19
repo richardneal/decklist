@@ -1,4 +1,4 @@
-// Plenty for a text export. Moxfield sends deck JSON instead and raises its own cap.
+// Plenty for a text export. The JSON sources raise their own cap.
 const MAX_BYTES = 64 * 1024;
 
 const SOURCES = {
@@ -25,12 +25,46 @@ const SOURCES = {
     // Moxfield fronts its API with Cloudflare, which turns some clients away; this
     // names us politely, and takes an allowlisted string if they ever ask for one.
     agent: env => env.MOXFIELD_USER_AGENT
+  },
+  archidekt: {
+    id: /^[1-9]\d{0,11}$/,
+    url: id => 'https://archidekt.com/api/decks/' + id + '/',
+    accept: 'application/json',
+    // Each card carries its full printing and oracle data, as with Moxfield.
+    limit: 2 * 1024 * 1024,
+    convert: archidektDeck
+  },
+  scryfall: {
+    // Deck IDs are UUIDs; the frontend lowercases them so a deck caches only once.
+    id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    url: id => 'https://api.scryfall.com/decks/' + id + '/export/json',
+    accept: 'application/json',
+    // A Commander deck with a long maybeboard runs about 240 KB.
+    limit: 2 * 1024 * 1024,
+    convert: scryfallDeck,
+    // Scryfall's API asks every client to name itself.
+    agent: env => env.USER_AGENT
   }
 };
 
 export function upstreamURL(source, id) {
   const definition = SOURCES[source];
   return definition && definition.id.test(id || '') ? definition.url(id) : null;
+}
+
+// Writes main and side boards of [name, quantity] pairs as quantity-prefixed decklist
+// text, merging separate printings of one card, since a decklist names each card once.
+function deckText(main, side) {
+  const lines = entries => {
+    const totals = new Map();
+    for (const [card, quantity] of entries) {
+      if (!card || typeof card !== 'string' || !Number.isInteger(quantity) || quantity < 1) continue;
+      totals.set(card, (totals.get(card) || 0) + quantity);
+    }
+    return [...totals].map(([name, quantity]) => quantity + ' ' + name);
+  };
+  const sideLines = lines(side);
+  return lines(main).concat(sideLines.length ? ['Sideboard'].concat(sideLines) : []).join('\n');
 }
 
 // Collapses the boards of a Moxfield deck into quantity-prefixed decklist text.
@@ -40,21 +74,48 @@ export function moxfieldDeck(text) {
   if (!deck || !deck.boards || typeof deck.boards !== 'object') {
     throw new Error('Moxfield did not return deck data.');
   }
-  // Merge separate printings of one card, since a decklist names each card once.
-  const board = names => {
-    const totals = new Map();
-    for (const name of names) {
-      for (const entry of Object.values(deck.boards[name]?.cards || {})) {
-        const card = entry?.card?.name, quantity = entry?.quantity;
-        if (!card || typeof card !== 'string' || !Number.isInteger(quantity) || quantity < 1) continue;
-        totals.set(card, (totals.get(card) || 0) + quantity);
-      }
-    }
-    return [...totals].map(([name, quantity]) => quantity + ' ' + name);
-  };
+  const board = names => names.flatMap(name => Object.values(deck.boards[name]?.cards || {}))
+    .map(entry => [entry?.card?.name, entry?.quantity]);
   // A commander belongs on the main decklist; a companion is played from the sideboard.
-  const main = board(['commanders', 'mainboard']), side = board(['sideboard', 'companions']);
-  return main.concat(side.length ? ['Sideboard'].concat(side) : []).join('\n');
+  return deckText(board(['commanders', 'mainboard']), board(['sideboard', 'companions']));
+}
+
+// Collapses an Archidekt deck into quantity-prefixed decklist text. Archidekt keeps its
+// boards as categories, and a card's first category is the one that places it: the
+// Sideboard category is the sideboard, and any other category marked as left out of the
+// deck (the Maybeboard, say) is dropped. A companion is played from the sideboard,
+// whether Archidekt flags it or the player filed it under a Companion category.
+export function archidektDeck(text) {
+  let deck;
+  try { deck = JSON.parse(text); } catch (_) { throw new Error('Archidekt did not return deck data.'); }
+  if (!deck || !Array.isArray(deck.cards)) throw new Error('Archidekt did not return deck data.');
+  const categories = Array.isArray(deck.categories) ? deck.categories.filter(Boolean) : [];
+  const excluded = new Set(categories.filter(category => category.includedInDeck === false).map(category => category.name));
+  // Premier categories hold the commander, which leads the main deck.
+  const premier = new Set(categories.filter(category => category.isPremier).map(category => category.name));
+  const commanders = [], main = [], side = [];
+  for (const entry of deck.cards) {
+    const category = Array.isArray(entry?.categories) ? entry.categories[0] : undefined;
+    const card = [entry?.card?.oracleCard?.name, entry?.quantity];
+    if (category === 'Sideboard' || category === 'Companion' || entry?.companion === true) side.push(card);
+    else if (premier.has(category)) commanders.push(card);
+    else if (!excluded.has(category)) main.push(card);
+  }
+  return deckText(commanders.concat(main), side);
+}
+
+// Collapses a Scryfall deck into quantity-prefixed decklist text. The sections follow the
+// deck's layout: a constructed deck has a mainboard and a sideboard, a Commander deck its
+// commanders, nonlands and lands, plus cards from outside the game (a companion, say),
+// which a registration sheet lists as the sideboard. The maybeboard is dropped, as are
+// blank entries Scryfall could not match to a card.
+export function scryfallDeck(text) {
+  let deck;
+  try { deck = JSON.parse(text); } catch (_) { throw new Error('Scryfall did not return deck data.'); }
+  if (!deck || !deck.entries || typeof deck.entries !== 'object') throw new Error('Scryfall did not return deck data.');
+  const board = names => names.flatMap(name => Array.isArray(deck.entries[name]) ? deck.entries[name] : [])
+    .map(entry => [entry?.card_digest?.name, entry?.count]);
+  return deckText(board(['commanders', 'mainboard', 'nonlands', 'lands']), board(['sideboard', 'outside']));
 }
 
 async function readBody(response, limit = MAX_BYTES) {

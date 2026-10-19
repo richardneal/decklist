@@ -159,15 +159,15 @@ var Decklist = {
             return cards[normalized_name];
         }
 
-        // Then ignore split-card slashes, so "Fire Ice" finds Fire // Ice
-        let card = Decklist.searchIndex().get(Decklist.searchKey(name));
-        if (card) {
-            return card;
+        // Next, ignore split-card slashes, so "Fire Ice" finds Fire // Ice
+        let loose = Decklist.searchIndex().get(Decklist.searchKey(name));
+        if (loose) {
+          return loose;
         }
 
-        // Last, cards keyed by their front face (adventure, double-faced, flip
-        // and prepare cards) can be written with both halves
-        let front = name.split(" // ")[0];
+        // Last, a double-faced, adventure, flip or prepare card spelled out in
+        // full, as deck sites export it, is stored under its front face alone
+        let front = name.split(' // ')[0];
         return front !== name ? getCard(front) : null;
       }
     
