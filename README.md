@@ -18,7 +18,7 @@ This fork includes additional features and improvements aimed at providing a mor
 - **Clear All**: Quick reset button to start fresh
 - **Card Autocomplete**: Smart card name suggestions as you type (supports 2+ character searches)
 - **Import by URL**: Paste an MTGGoldfish deck URL or an MTGTop8 event URL containing a deck ID, then click **Import Deck**. Downloads use a dedicated Cloudflare Worker at `https://deck-import.nealston.com/api/import`; if it is unavailable, paste the exported deck text instead. See [Worker setup](worker/README.md).
-- **Multiple Format Support**: Import from MTGO, MTG Goldfish, Tappedout, MWS, MTG Salvation, and Deckbox
+- **Multiple Format Support**: Import from MTGO, MTGGoldfish, TappedOut, MWS, MTG Salvation, and Deckbox
 
 ### Deck Organization
 - **Multiple Sort Options**:
