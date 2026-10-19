@@ -5,24 +5,23 @@
 var decklistChangeTimer = null;
 var pdfChangeTimer = null;
 
-// Logos configuration - centralized logo metadata
-const LOGOS_CONFIG = {
-  wotc: [
-    { id: 'mtg', name: 'Magic: The Gathering', file: 'mtg.jpg', format: 'JPEG' },
-    { id: 'dci', name: 'DCI', file: 'dcilogo.jpg', format: 'JPEG' },
-    { id: 'elojodeugin', name: 'El Ojo de Ugin', file: 'elojodeugin.jpg', format: 'JPEG' }
-  ],
-  scg: [
-    { id: 'FUTcreature', file: 'FUTcreature.jpg', format: 'JPEG' },
-    { id: 'FUTland', file: 'FUTland.jpg', format: 'JPEG' },
-    { id: 'FUTmultiple', file: 'FUTmultiple.jpg', format: 'JPEG' },
-    { id: 'FUTsorcery', file: 'FUTsorcery.jpg', format: 'JPEG' },
-    { id: 'scglogo', file: 'starcitygames.webp', format: 'JPEG' }
-  ]
-};
+// Sheet artwork, preloaded into logoCache by id
+const LOGOS_CONFIG = [
+  // WotC sheet
+  { id: 'mtg', file: 'mtg.jpg', format: 'JPEG' },
+  // SCG sheet
+  { id: 'FUTcreature', file: 'FUTcreature.jpg', format: 'JPEG' },
+  { id: 'FUTland', file: 'FUTland.jpg', format: 'JPEG' },
+  { id: 'FUTmultiple', file: 'FUTmultiple.jpg', format: 'JPEG' },
+  { id: 'FUTsorcery', file: 'FUTsorcery.jpg', format: 'JPEG' },
+  { id: 'scglogo', file: 'starcitygames.webp', format: 'JPEG' }
+];
 
 // Cache for loaded logo images
 var logoCache = {};
+
+// Resolves once every logo has loaded (or failed to)
+var logosReady = null;
 
 // When the page loads, generate a blank deck list preview
 $(document).ready(function() {
@@ -36,58 +35,22 @@ $(document).ready(function() {
   // Note: initAutocomplete() is now called when cards database loads (see index.html)
   // This ensures the 'cards' object is available before autocomplete initializes
 
-  // Populate logo dropdown dynamically
-  populateLogoDropdown();
-
-  // Initialize custom logo upload
-  initCustomLogoUpload();
-
-  // Preload SCG logos
-  loadSCGLogos();
+  // Preload the sheet artwork
+  logosReady = loadLogos();
 
   // bind events to all the input fields on the left side, to generate a PDF on change
-  $('div.left input, div.left textarea').on('input', pdfChangeWait);
-  $('#eventdate, input[type="radio"]').change(pdfChangeWait);
+  $('div.left input:not([type="checkbox"]), div.left textarea').on('input', pdfChangeWait);
+  $('#eventdate').change(pdfChangeWait);
+  // radios and checkboxes are single clicks, not typing, so regenerate right away
+  $('input[type="radio"], input[type="checkbox"]').change(function() {
+    generateDecklistPDF();
+  });
 
   // Track deck sheet format changes
   $('input[name="decksheetformat"]').on('change', function() {
     const format = $(this).prop('id').replace('decksheet-', '');
     if (typeof posthog !== 'undefined') {
       posthog.capture('decksheet_format_changed', { format: format });
-    }
-    // Show/hide logo selector based on format
-    toggleLogoSelector();
-  });
-
-  // Handle logo selection changes
-  $('#logo-select').on('change', function() {
-    const selectedLogo = $(this).val();
-    $._GET['logo'] = selectedLogo;
-
-    // For custom logos, don't regenerate PDF until image is uploaded
-    if (selectedLogo === 'custom') {
-      // Custom logo handling is done in initCustomLogoUpload
-      // Only regenerate if custom logo is already cached
-      if (logoCache['custom']) {
-        generateDecklistPDF();
-      }
-    } else {
-      // Load the selected logo and regenerate PDF
-      loadLogoImage(selectedLogo, function() {
-        generateDecklistPDF();
-      });
-    }
-
-    // Update history state
-    const newState = generatePermalinkSync(true);
-    if (newState !== history.state) {
-      console.log("pushing new state " + newState);
-      history.pushState(newState, document.title, generatePermalinkSync());
-    }
-
-    // Track logo change
-    if (typeof posthog !== 'undefined') {
-      posthog.capture('logo_changed', { logo: selectedLogo });
     }
   });
 
@@ -223,21 +186,10 @@ function parseGET() {
     }
   });
 
-  // Set default logo if not specified
-  if ($._GET['logo'] === undefined) {
-    $._GET['logo'] = 'mtg';
-  }
-
-  // Load the selected WotC logo
-  loadLogoImage($._GET['logo'], function() {
+  // Generate the preview once the artwork is in the cache
+  logosReady.then(function() {
     generateDecklistPDF();
   });
-
-  // Set logo dropdown value from URL parameter
-  $('#logo-select').val($._GET['logo']);
-
-  // Initialize logo selector visibility
-  toggleLogoSelector();
 
   // switch to the proper decksheet; doing it this way in case we ever support other formats
   if ($._GET['decksheet'] !== undefined) {
@@ -829,9 +781,8 @@ function generateStandardDecklist(parsedInput) {
     sideboard_count = Decklist.count(sideboard);
 
   // Add the logo from cache
-  const currentLogo = logoCache[$._GET['logo'] || 'mtg'];
-  if (currentLogo) {
-    dl.addImage(currentLogo.data, currentLogo.format, 27, 54, 90, 32);
+  if (logoCache['mtg']) {
+    dl.addImage(logoCache['mtg'].data, logoCache['mtg'].format, 27, 54, 90, 32);
   }
 
   // Create all the rectangles
@@ -1150,8 +1101,6 @@ function generatePermalinkSync(includeBlank = false) {
   // Use current origin to avoid SecurityError on localhost
   let rv = window.location.origin + '/';
 
-  const logo = ($._GET && $._GET['logo']) ? $._GET['logo'] : 'mtg';
-
   const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner'];
   let firstParam = true; // flag to track if any parameter has been appended
   params.forEach(function(param) {
@@ -1169,16 +1118,6 @@ function generatePermalinkSync(includeBlank = false) {
     }
   });
 
-  // Add logo parameter only if it's different from 'mtg'
-  if (logo !== 'mtg') {
-    if (firstParam) {
-      rv += '?';
-    } else {
-      rv += '&';
-    }
-    rv += 'logo=' + encodeURIComponent(logo);
-  }
-
   return rv;
 }
 
@@ -1186,8 +1125,6 @@ function generatePermalinkSync(includeBlank = false) {
 async function generatePermalink(includeBlank = false) {
   // Always use production URL for sharing, even on localhost
   let rv = 'https://decklist.nealston.com/';
-
-  const logo = ($._GET && $._GET['logo']) ? $._GET['logo'] : 'mtg';
 
   const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner'];
   let firstParam = true;
@@ -1205,16 +1142,6 @@ async function generatePermalink(includeBlank = false) {
       rv += param + '=' + encodeURIComponent(value);
     }
   });
-
-  // Add logo parameter only if it's different from 'mtg'
-  if (logo !== 'mtg') {
-    if (firstParam) {
-      rv += '?';
-    } else {
-      rv += '&';
-    }
-    rv += 'logo=' + encodeURIComponent(logo);
-  }
 
   // Shorten URL using is.gd
   try {
@@ -1453,6 +1380,9 @@ function validateInput(parsedLists) {
 }
 
 
+// shown in the status box until the user enters something; matches the markup in index.html
+const STATUS_PROMPT_HTML = '<li class="prompt">Fill in your details and add your deck to check your decklist.</li>';
+
 // Change tooltips and status box to reflect current errors/warnings (or lack thereof)
 function statusAndTooltips(valid) {
   // notifications are stored as the following:
@@ -1572,10 +1502,11 @@ function statusAndTooltips(valid) {
 
   // check if all fields are empty; if they are, set errorLevel accordingly
   // close active tooltips, clear titles and classes for new tooltip text
+  // only text fields count: radios and checkboxes always report a value ('on')
   let allEmpty = true;
   $('.left input, .left textarea').tooltip('close');
   $('.left input, .left textarea').each(function() {
-    if ($(this).val()) {
+    if ($(this).is('input[type="text"], input[type="url"], textarea') && $(this).val()) {
       allEmpty = false;
     }
     $(this).prop('title', '');
@@ -1588,8 +1519,8 @@ function statusAndTooltips(valid) {
   // compose new notifications HTML fragment, set new tooltips, and set input field classes
   let statusBoxHtml = '';
   for (const key in notifications) {
-    // exclude any functions of the object
-    if (typeof notifications[key] !== 'function') {
+    // exclude any functions of the object, and stay quiet until something is entered
+    if (!allEmpty && typeof notifications[key] !== 'function') {
       let newTitle = '';
 
       const notificationsLength = notifications[key].length;
@@ -1627,6 +1558,10 @@ function statusAndTooltips(valid) {
     }
   }
 
+  if (allEmpty) {
+    statusBoxHtml = STATUS_PROMPT_HTML;
+  }
+
   // compute new status
   let newStatus = 'valid';
   if (errorLevel & 0x100)      { newStatus = 'error'; }
@@ -1661,237 +1596,40 @@ document.addEventListener('DOMContentLoaded', (event) => {
   document.getElementById('current-year').textContent = currentYear;
 });
 
-// ==================== LOGO SELECTOR FUNCTIONALITY ====================
+// ==================== LOGO LOADING ====================
 
-// Populate logo dropdown with options from LOGOS_CONFIG
-function populateLogoDropdown() {
-  const dropdown = $('#logo-select');
-  dropdown.empty();
+// Load every logo in LOGOS_CONFIG into the cache as a data URL
+function loadLogos() {
+  return Promise.all(LOGOS_CONFIG.map(function(logoConfig) {
+    return new Promise(function(resolve) {
+      const img = new Image();
+      img.onload = function() {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          // throws on a tainted canvas, e.g. when index.html is opened from file://
+          const dataURL = canvas.toDataURL('image/' + logoConfig.format.toLowerCase());
 
-  // Sort logos alphabetically by name for display
-  const sortedLogos = [...LOGOS_CONFIG.wotc].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-
-  sortedLogos.forEach(function(logo) {
-    const option = $('<option></option>')
-      .attr('value', logo.id)
-      .text(logo.name);
-    dropdown.append(option);
-  });
-
-  // Add Custom option at the end
-  const customOption = $('<option></option>')
-    .attr('value', 'custom')
-    .text('Custom (Upload Your Own)');
-  dropdown.append(customOption);
-}
-
-// Load a logo image into cache
-function loadLogoImage(logoId, callback) {
-  // Check if already cached
-  if (logoCache[logoId]) {
-    callback(logoCache[logoId]);
-    return;
-  }
-
-  // Handle custom logo case
-  if (logoId === 'custom') {
-    // Custom logo should be uploaded by user, so if it's not cached, just call callback without data
-    // The PDF generation will handle missing custom logo gracefully
-    callback(null);
-    return;
-  }
-
-  // Find logo config
-  const logoConfig = LOGOS_CONFIG.wotc.find(l => l.id === logoId);
-  if (!logoConfig) {
-    console.error('Logo not found:', logoId);
-    return;
-  }
-
-  // Load the image
-  const img = new Image();
-  img.onload = function() {
-    // Convert to base64
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    const dataURL = canvas.toDataURL('image/' + logoConfig.format.toLowerCase());
-
-    // Cache it
-    logoCache[logoId] = {
-      data: dataURL,
-      format: logoConfig.format
-    };
-
-    callback(logoCache[logoId]);
-  };
-  img.onerror = function() {
-    console.error('Failed to load logo:', logoConfig.file);
-  };
-  img.src = 'images/logos/' + logoConfig.file;
-}
-
-// Load SCG logos into cache
-function loadSCGLogos(callback) {
-  let loadedCount = 0;
-  const totalLogos = LOGOS_CONFIG.scg.length;
-
-  LOGOS_CONFIG.scg.forEach(function(logoConfig) {
-    const img = new Image();
-    img.onload = function() {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const dataURL = canvas.toDataURL('image/' + logoConfig.format.toLowerCase());
-
-      logoCache[logoConfig.id] = {
-        data: dataURL,
-        format: logoConfig.format
-      };
-
-      loadedCount++;
-      if (loadedCount === totalLogos && callback) {
-        callback();
-      }
-    };
-    img.src = 'images/logos/' + logoConfig.file;
-  });
-}
-
-// Toggle logo selector visibility based on decksheet format
-function toggleLogoSelector() {
-  const decksheetFormat = $('#decksheetformatselector input[name=decksheetformat]:checked').prop('id').replace('decksheet-', '');
-
-  if (decksheetFormat === 'wotc') {
-    $('#logoselector').show();
-  } else {
-    $('#logoselector').hide();
-  }
-}
-
-// ==================== CUSTOM LOGO UPLOAD FUNCTIONALITY ====================
-
-// Validate custom logo image (type and dimensions)
-function validateCustomLogo(file) {
-  return new Promise((resolve, reject) => {
-    // Check file type
-    const validTypes = ['image/jpeg', 'image/png'];
-    if (!validTypes.includes(file.type)) {
-      reject('Invalid file type. Please upload a JPEG or PNG image.');
-      return;
-    }
-
-    // Check file size (max 5MB to be safe)
-    if (file.size > 5 * 1024 * 1024) {
-      reject('File is too large. Please upload an image under 5MB.');
-      return;
-    }
-
-    // Check image dimensions
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-
-    img.onload = function() {
-      URL.revokeObjectURL(objectUrl);
-
-      if (img.width > 180 || img.height > 72) {
-        reject(`Image dimensions (${img.width}x${img.height}) exceed the maximum allowed size of 180x72 pixels.`);
-        return;
-      }
-
-      // Image is valid
-      resolve({
-        width: img.width,
-        height: img.height,
-        file: file
-      });
-    };
-
-    img.onerror = function() {
-      URL.revokeObjectURL(objectUrl);
-      reject('Failed to load image. Please try a different file.');
-    };
-
-    img.src = objectUrl;
-  });
-}
-
-// Handle custom logo upload
-function handleCustomLogoUpload(file) {
-  validateCustomLogo(file)
-    .then(result => {
-      // Convert image to base64
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const dataURL = e.target.result;
-        const format = file.type === 'image/png' ? 'PNG' : 'JPEG';
-
-        // Cache the custom logo
-        logoCache['custom'] = {
-          data: dataURL,
-          format: format
-        };
-
-        // Update filename display
-        $('#custom-logo-filename').text(`✓ ${file.name} (${result.width}x${result.height})`);
-
-        // Regenerate PDF with new logo
-        generateDecklistPDF();
-
-        // Track custom logo upload
-        if (typeof posthog !== 'undefined') {
-          posthog.capture('custom_logo_uploaded', {
-            width: result.width,
-            height: result.height,
-            format: format
-          });
+          logoCache[logoConfig.id] = {
+            data: dataURL,
+            format: logoConfig.format
+          };
+        } catch (e) {
+          console.error('Failed to cache logo:', logoConfig.file, e);
+        } finally {
+          resolve();
         }
       };
-      reader.readAsDataURL(file);
-    })
-    .catch(error => {
-      alert(error);
-      // Reset file input
-      $('#custom-logo-input').val('');
-      $('#custom-logo-filename').text('');
+      img.onerror = function() {
+        console.error('Failed to load logo:', logoConfig.file);
+        resolve();
+      };
+      img.src = 'images/logos/' + logoConfig.file;
     });
-}
-
-// Initialize custom logo upload functionality
-function initCustomLogoUpload() {
-  // Show/hide custom upload UI based on dropdown selection
-  $('#logo-select').on('change', function() {
-    const selectedLogo = $(this).val();
-
-    if (selectedLogo === 'custom') {
-      $('#custom-logo-upload').show();
-      // If no custom logo cached yet, prompt for upload
-      if (!logoCache['custom']) {
-        $('#custom-logo-filename').text('Please choose an image file');
-      }
-    } else {
-      $('#custom-logo-upload').hide();
-    }
-  });
-
-  // Trigger file input when button is clicked
-  $('#custom-logo-button').on('click', function() {
-    $('#custom-logo-input').click();
-  });
-
-  // Handle file selection
-  $('#custom-logo-input').on('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-      handleCustomLogoUpload(file);
-    }
-  });
+  }));
 }
 
 // ==================== DARK MODE FUNCTIONALITY ====================

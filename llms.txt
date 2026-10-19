@@ -39,7 +39,6 @@ The site supports direct linking with pre-filled data:
 - `deckimport` - URL-encoded MTGGoldfish, MTGTop8 or Moxfield deck URL, imported on page load (`deckmain`/`deckside` take precedence)
 - `decksheet` - Format (wotc/scg)
 - `decksort` - Sort order
-- `logo` - Logo for WotC sheets (mtg/dci/elojodeugin/custom)
 - `disableediting` - Lock the pre-filled fields
 
 Example: `https://decklist.nealston.com/?event=FNM&decksheet=wotc`

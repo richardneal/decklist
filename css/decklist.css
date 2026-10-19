@@ -476,46 +476,6 @@ h2 {
   box-shadow: var(--shadow-sm);
 }
 
-#logoselector {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 24px;
-  padding: 12px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
-}
-
-#logoselector label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-#logo-select {
-  padding: 8px 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 14px;
-  cursor: pointer;
-  transition: var(--transition);
-  min-width: 180px;
-}
-
-#logo-select:hover {
-  border-color: var(--border-color-hover);
-  box-shadow: var(--shadow-sm);
-}
-
-#logo-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(0, 85, 204, 0.1);
-}
-
 #decklistpreview {
   margin-bottom: 20px;
 }
@@ -631,12 +591,15 @@ h2 {
   width: 80px;
 }
 
+.default .statusmark,
+.empty .statusmark {
+  display: none;
+}
+
 .valid .statusmark:before {
   background: url("../images/ok.png") center center / 80px no-repeat scroll;
 }
 
-.default .statusmark:before,
-.empty .statusmark:before,
 .warning .statusmark:before {
   background: url("../images/warning.png") center center / 80px no-repeat scroll;
 }
@@ -662,6 +625,12 @@ h2 {
   position: relative;
   transition: color 0.15s;
   color: var(--text-primary);
+}
+
+.details > li.prompt {
+  margin-left: 0;
+  color: var(--text-secondary);
+  text-align: center;
 }
 
 .details label {
@@ -808,45 +777,6 @@ a {
   box-shadow: var(--shadow-sm);
 }
 
-/* Custom Logo Upload styles */
-#custom-logo-upload {
-  padding: 12px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-sm);
-  text-align: center;
-}
-
-.custom-logo-btn {
-  padding: 10px 16px;
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: var(--transition);
-  box-shadow: var(--shadow-sm);
-}
-
-.custom-logo-btn:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.custom-logo-btn:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-sm);
-}
-
-#custom-logo-filename {
-  display: inline-block;
-  margin-left: 10px;
-  font-size: 0.9em;
-  color: var(--text-secondary);
-}
-
 /* Autocomplete styles */
 .autocomplete-suggestions {
   position: absolute;
@@ -986,19 +916,6 @@ a {
   #sortorderfloat label {
     font-size: 12px;
     padding: 8px 12px;
-  }
-
-  #logoselector {
-    flex-direction: column;
-    padding: 10px;
-    gap: 8px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  #logo-select {
-    width: 100%;
-    box-sizing: border-box;
   }
 
   .right {
@@ -1168,16 +1085,6 @@ a {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-  }
-
-  #logoselector {
-    padding: 12px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  #logo-select {
-    min-width: 150px;
   }
 
   .footer {
@@ -1442,16 +1349,20 @@ body.dark-mode #deckimport-status[data-state="error"] { color: #ffb4ab; }
   box-shadow: none;
   transform: none;
 }
+/* Animating font-weight steps between regular and bold, briefly resizing the button. */
+.generator-page #sortorderfloat label,
+.generator-page #decksheetformatselector label {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+}
 .generator-page #sortorderfloat label::before,
 .generator-page #decksheetformatselector label::before {
   content: '\2713';
-  display: inline-block;
+  display: none;
   width: 1em;
   margin-right: 6px;
-  visibility: hidden;
 }
 .generator-page #sortorderfloat input:checked + label::before,
-.generator-page #decksheetformatselector input:checked + label::before { visibility: visible; }
+.generator-page #decksheetformatselector input:checked + label::before { display: inline-block; }
 .generator-page #sortorderfloat input:focus-visible + label,
 .generator-page #decksheetformatselector input:focus-visible + label {
   outline: 2px solid var(--accent-color);

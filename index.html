@@ -244,17 +244,6 @@
         <input type="radio" id="decksheet-wotc" name="decksheetformat" checked><label for="decksheet-wotc"><abbr title="Wizards of the Coast">WotC</abbr></label>
         <input type="radio" id="decksheet-scg" name="decksheetformat"><label for="decksheet-scg"><abbr title="Star City Games">SCG</abbr></label>
       </div>
-      <div id="logoselector">
-        <label for="logo-select">Logo:</label>
-        <select id="logo-select" name="logo">
-          <!-- Options populated dynamically from LOGOS_CONFIG -->
-        </select>
-        <div id="custom-logo-upload" style="display: none; margin-top: 10px;">
-          <input type="file" id="custom-logo-input" accept="image/jpeg,image/png" style="display: none;">
-          <button type="button" id="custom-logo-button" class="custom-logo-btn">Choose Image<br>(max 180x72)</button>
-          <span id="custom-logo-filename" style="margin-left: 10px; font-size: 0.9em; color: #666;"></span>
-        </div>
-      </div>
       <h2>
         Decklist Preview
       </h2>
@@ -283,7 +272,7 @@
       <h2>Status</h2>
       <div class="status default">
         <div class="statusmark"></div>
-        <ul class="details"></ul>
+        <ul class="details"><li class="prompt">Fill in your details and add your deck to check your decklist.</li></ul>
       </div>
     </div>
     </div>
