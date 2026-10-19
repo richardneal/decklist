@@ -1,28 +1,53 @@
 #!/usr/bin/env python3
 
+from enum import Enum
 import json
 import unicodedata
 
-# Just FYI!
-# b (not legal in) = [sml] (standard, modern, legacy)
-# c (color) = White = A, Blue = B, Black = C, Red = D, Green = E, Gold = F, Artifact = G, Unknown = X, Land = Z
-# m (mana value) = N
-# n (actual name) = 'true name nemesis' to 'True Name Nemesis'
-# t (type) = 1 = land, 2 = creature, 3 = sorcery, 4 = instant, 5 = other
+# Each card is written out as {c, t, m, b, n}, keyed by its lowercase,
+# accent-free name ('true name nemesis'):
+#   c - Color
+#   t - Type
+#   m - mana value (NO_MANA_VALUE when MTGJSON gives none)
+#   b - the first letter of each FORMATS entry the card is not legal in,
+#       omitted when it is legal in all of them
+#   n - the true name, 'True Name Nemesis'
+# decklist.js sorts by these codes as strings, so their order is the color and
+# type sort order on the sheet: renaming a member is free, changing a value is not.
+
+class Color(str, Enum):
+    WHITE     = 'A'
+    BLUE      = 'B'
+    BLACK     = 'C'
+    RED       = 'D'
+    GREEN     = 'E'
+    GOLD      = 'F'
+    ARTIFACT  = 'G'
+    COLORLESS = 'X'
+    LAND      = 'Z'
+
+class Type(str, Enum):
+    LAND     = '1'
+    CREATURE = '2'
+    SORCERY  = '3'
+    INSTANT  = '4'
+    OTHER    = '5'
+
+MTGJSON_COLORS = {'W': Color.WHITE, 'U': Color.BLUE, 'B': Color.BLACK, 'R': Color.RED, 'G': Color.GREEN}
+
+# Checked in order: an artifact creature is a creature, an artifact land a land
+MTGJSON_TYPES = (('Land', Type.LAND), ('Creature', Type.CREATURE),
+                 ('Sorcery', Type.SORCERY), ('Instant', Type.INSTANT))
+
+NO_MANA_VALUE = 99
 
 FORMATS = ('standard', 'modern', 'legacy')
 
 FLIP_LAYOUTS = ('transform', 'modal_dfc', 'adventure')
 
 def getLegalities(face):
-    # Let's figure out legalities
-    banned = 'sml'
-
-    for format in FORMATS:
-        if face.get('legalities', {}).get(format) == 'Legal':
-            banned = banned.replace(format[0].lower(), '')
-
-    return(banned)
+    legalities = face.get('legalities', {})
+    return ''.join(format[0] for format in FORMATS if legalities.get(format) != 'Legal')
 
 def remove_accents(input_str):
     """Removes accents from a given string."""
@@ -30,12 +55,11 @@ def remove_accents(input_str):
     return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
 
 def getColorCode(colors):
-    color_map = {'W': 'A', 'U': 'B', 'B': 'C', 'R': 'D', 'G': 'E'}
     if len(colors) == 0:
-        return 'X'  # X for unknown or no color
+        return Color.COLORLESS
     if len(colors) > 1:
-        return 'F'  # Gold for multiple colors
-    return color_map.get(colors[0], 'X')
+        return Color.GOLD
+    return MTGJSON_COLORS.get(colors[0], Color.COLORLESS)
 
 def getFace(card):
     # We only care about the first face
@@ -51,12 +75,9 @@ def getName(face):
     return face['faceName' if isFlip(face) else 'name']
 
 def getKey(face):
-    # We're going to store them in lowercase, without accents
-    key = remove_accents(getName(face).lower())
-
-    # Python's Unicode support sucks, as does everybodies.  Manually
-    # replace the Ae to lower case
-    return key.replace(u'\xc6', u'\xe6')
+    # We're going to store them in lowercase, without accents.
+    # Æ is a letter, not an accented A, so it stays as æ.
+    return remove_accents(getName(face).lower())
 
 def isDigital(face, online_sets):
     # Rebalanced Arena cards can share a paper set code with the original.
@@ -66,32 +87,29 @@ def isDigital(face, online_sets):
 
 def getColor(face):
     if 'Land' in face['types']:
-        return 'Z'
+        return Color.LAND
     # MTGJSON always lists colors, as an empty list for colorless cards
     if 'Artifact' in face['types'] and not face.get('colors'):
-        return 'G'
+        return Color.ARTIFACT
     if face['layout'] == 'split' or isFlip(face):
         return getColorCode(face.get('colorIdentity', []))
     return getColorCode(face.get('colors', []))
 
 def getType(face):
-    if   'Land'     in face['types']:  return '1'
-    elif 'Creature' in face['types']:  return '2'
-    elif 'Sorcery'  in face['types']:  return '3'
-    elif 'Instant'  in face['types']:  return '4'
-    else:                              return '5'
+    for mtgjson_type, type_code in MTGJSON_TYPES:
+        if mtgjson_type in face['types']:
+            return type_code
+    return Type.OTHER
 
 def getManaValue(face):
-    return face.get('convertedManaCost', 99)
+    return face.get('convertedManaCost', NO_MANA_VALUE)
 
 def getEntry(face):
     entry = {'c': getColor(face), 't': getType(face), 'm': getManaValue(face)}
 
-    # Add it into the file if the banned list isn't empty
     legality = getLegalities(face)
-    if legality != '': entry['b'] = legality
+    if legality: entry['b'] = legality
 
-    # And put the true name in there as well
     entry['n'] = getName(face)
     return entry
 
@@ -104,7 +122,6 @@ with open('SetList.json', 'r') as setfh:
     online_sets = {item['code'] for item in json.load(setfh)['data']
                    if item.get('isOnlineOnly', False)}
 
-# Okay, we need the colors but in a much shorter format
 ocards = {}
 for card in cards['data'].values():
     face = getFace(card)
