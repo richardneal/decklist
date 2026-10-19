@@ -41,6 +41,19 @@ test('fetches through the dedicated API and reports HTTP errors', async () => {
   await assert.rejects(importer.load('invalid'), /valid.*URL/);
 });
 
+test('reads the deck format the Worker reports, or an MTGTop8 link names', async () => {
+  const reply = format => async () => ({ ok: true, text: async () => '4 Island',
+    headers: { get: name => name === 'X-Deck-Format' ? format : null } });
+  context.fetch = reply('modern');
+  assert.equal((await importer.load('https://archidekt.com/decks/123')).format, 'modern');
+  context.fetch = reply('brawl');
+  assert.equal((await importer.load('https://archidekt.com/decks/123')).format, '');
+  context.fetch = reply(null);
+  assert.equal((await importer.load('https://www.mtgtop8.com/event?e=1&d=2&f=PAU')).format, 'pauper');
+  assert.equal((await importer.load('https://www.mtgtop8.com/event?e=1&d=2&f=EDH')).format, '');
+  assert.equal((await importer.load('https://mtggoldfish.com/deck/123')).format, '');
+});
+
 test('button updates textareas, refreshes the preview, and preserves edits during a request', async () => {
   const elements = new Map();
   function $(selector) {
@@ -63,14 +76,18 @@ test('button updates textareas, refreshes the preview, and preserves edits durin
   vm.runInContext(fs.readFileSync('js/decklist/deckimport.js', 'utf8'), ui);
   $('#deckimport').val('https://mtggoldfish.com/deck/123');
   $('#deckside').val('old sideboard');
+  $('#deckformat').val('legacy');
   ui.fetch = async () => ({ ok: true, text: async () => '4 Island' });
   await $('#deckimport-button').trigger('click');
   assert.equal($('#deckmain').val(), '4 Island');
+  // An import with no format of its own goes back to Auto-detect
+  assert.equal($('#deckformat').val(), '');
   assert.equal($('#deckside').val(), '');
   assert.equal($('#deckside').inputs, 1);
   assert.equal($('#deckimport-button').prop('disabled'), false);
   $('#deckmain').val('2 Mountain').trigger('input');
   $('#deckside').val('1 Negate');
+  $('#deckformat').val('vintage');
   await ui.DeckImport.importFromParameters({ deckimport: 'https://mtggoldfish.com/deck/123' });
   assert.match($('#deckimport-status').message, /Imported from MTGGoldfish: 4 main-deck cards and 0 sideboard cards/);
   assert.equal($('#deckside').inputs, 2);
@@ -84,6 +101,7 @@ test('button updates textareas, refreshes the preview, and preserves edits durin
   await $('#deckimport-undo').trigger('click');
   assert.equal($('#deckmain').val(), '2 Mountain');
   assert.equal($('#deckside').val(), '1 Negate');
+  assert.equal($('#deckformat').val(), 'vintage');
   assert.equal($('#deckimport-undo').prop('hidden'), true);
   await ui.DeckImport.importFromParameters({ deckimport: 'https://unrelated.example/deck/1' });
   assert.match($('#deckimport-status').message, /valid.*URL/);

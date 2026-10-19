@@ -74,7 +74,7 @@
         "name": "Does the generator validate card legality?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes! The generator automatically validates your cards against our database and will warn you if your deck contains fewer or more than 60 cards in the main deck."
+          "text": "Yes. Choose your format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper or Commander) and the generator flags any card that is banned, not legal or over its copy limit, including Vintage's restricted list. It also checks deck size: 60 cards and a 15-card sideboard for constructed, exactly 100 for Commander, at least 40 for Limited. Left on Auto-detect, it guesses the format from the deck itself."
         }
       },
       {
@@ -225,7 +225,7 @@
 
         <div class="faq-item">
           <h3>Does the generator validate card legality?</h3>
-          <p>Yes! The generator automatically validates your cards against our database and will warn you if your deck contains fewer or more than 60 cards in the main deck.</p>
+          <p>Yes. Choose your format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper or Commander) and the generator flags any card that is banned, not legal or over its copy limit, including Vintage's restricted list. It also checks deck size: 60 cards and a 15-card sideboard for constructed, exactly 100 for Commander, at least 40 for Limited. Left on Auto-detect, it guesses the format from the deck itself.</p>
         </div>
 
         <div class="faq-item">
@@ -262,17 +262,17 @@ Sideboard
 
         <div class="docs-subsection">
           <h3>Moxfield</h3>
-          <p>Paste the deck's address (<code>moxfield.com/decks/…</code>) into "Import a deck". Commanders and a companion are added to the sideboard, since Commander decks have none and a commander listed there stays easy to find; the maybeboard is ignored.</p>
+          <p>Paste the deck's address (<code>moxfield.com/decks/…</code>) into "Import a deck". Commanders and a companion are added to the sideboard, since Commander decks have none and a commander listed there stays easy to find; the maybeboard is ignored. The deck's format is selected for you when it is one the generator checks.</p>
         </div>
 
         <div class="docs-subsection">
           <h3>Archidekt</h3>
-          <p>Paste the deck's address (<code>archidekt.com/decks/…</code>) into "Import a deck". The deck must be public. Cards in the Sideboard category go to the sideboard, as do the commander and a companion; and the Maybeboard and any other category left out of the deck are ignored. Each card is placed by its first category, as Archidekt itself counts it.</p>
+          <p>Paste the deck's address (<code>archidekt.com/decks/…</code>) into "Import a deck". The deck must be public. Cards in the Sideboard category go to the sideboard, as do the commander and a companion; and the Maybeboard and any other category left out of the deck are ignored. Each card is placed by its first category, as Archidekt itself counts it. The deck's format is selected for you when it is one the generator checks.</p>
         </div>
 
         <div class="docs-subsection">
           <h3>Scryfall</h3>
-          <p>Paste the deck's address (<code>scryfall.com/@you/decks/…</code>) into "Import a deck". The deck must be public. A constructed deck keeps its mainboard and sideboard; a Commander deck's commander and its cards from outside the game, such as a companion, go to the sideboard. The maybeboard is ignored.</p>
+          <p>Paste the deck's address (<code>scryfall.com/@you/decks/…</code>) into "Import a deck". The deck must be public. A constructed deck keeps its mainboard and sideboard; a Commander deck's commander and its cards from outside the game, such as a companion, go to the sideboard. The maybeboard is ignored. The deck's format is selected for you when it is one the generator checks.</p>
         </div>
 
         <div class="docs-subsection">
@@ -320,6 +320,7 @@ Sideboard
           <ul>
             <li><strong>deckname</strong> - Deck name/archetype (e.g., "RUG Twin")</li>
             <li><strong>deckdesigner</strong> - Designer's name</li>
+            <li><strong>deckformat</strong> - Format to check the deck against: <code>standard</code>, <code>pioneer</code>, <code>modern</code>, <code>legacy</code>, <code>vintage</code>, <code>pauper</code>, <code>commander</code>, <code>constructed</code> (no ban list) or <code>limited</code> (defaults to auto-detect)</li>
             <li><strong>deckimport</strong> - URL-encoded MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
             <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
             <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>

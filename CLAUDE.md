@@ -23,20 +23,23 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
    - `Decklist.searchKey(name)` / `Decklist.searchIndex()` - Loose card-name form (case, accents and split-card slashes ignored) and a lazily built map from it to cards; used as the parser's loose lookup and by the deck autocomplete
    - A name that still matches nothing but contains `//` is retried as its front face, since double-faced, adventure, flip and prepare cards are stored under the front face alone while deck sites export both faces
    - Returns objects with structure: `{main: [], side: [], unrecognized: [], unparseable: []}`
-   - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (mana value), `q` (quantity), `b` (formats it is not legal in)
+   - `Decklist.formats` - The formats a deck can be checked against (Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Commander, Other constructed, Limited), each with its rules (`constructed`, `commander` or `limited`) and, for those with a card pool, the letter the card data's `b`/`r` fields use
+   - `Decklist.check(deck, format)` - Checks a `parse()` result against a format: deck size (60/15 for constructed; exactly 100 counting the commander, or 101 with a companion, for Commander; at least 40 for Limited), copies (4, or 1 in Commander or for a card restricted in the format, unless the card's own `x` says otherwise; Limited has no limit) and legality. Returns `{deckmain, deckside}` lists of validation objects that `main.js` turns into messages
+   - `Decklist.detectFormat(deck)` - Auto-detect: `commander` for a 90+ card main deck with at most 3 sideboard cards, otherwise the narrowest of Standard, Pioneer, Pauper, Modern, Legacy and Vintage the deck passes, otherwise `constructed`. Because it picks a format the deck is legal in, auto-detect never reports an illegal card; only a chosen format does
+   - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (mana value), `q` (quantity), `b` (formats it is not legal in), `r` (formats it is restricted in), `x` (its own copy limit)
 
 2. **main.js** - Main application logic
    - Event handling for form inputs
    - PDF generation using jsPDF
    - URL parameter parsing for direct linking
    - History state management for permalinks
-   - Input validation with debounced updates (400ms for validation, 1500ms for PDF generation)
+   - Input validation with debounced updates (400ms for validation, 1500ms for PDF generation); deck size, copy and legality checks come from `Decklist.check()` for the format in `#deckformat` (empty means auto-detect, and the Auto-detect option's text names the format it picked)
 
 3. **deckimport.js** - MTGGoldfish / MTGTop8 / Moxfield / Archidekt / Scryfall deck importing
    - `DeckImport.parse(value)` - Describes a recognized deck link as `{source, label, id, url}`; returns `null` for any other host, a URL carrying credentials or an explicit port, a non-http(s) scheme, or a missing/malformed deck ID. A Moxfield ID must be 16–32 base64url characters, which keeps routes such as `/decks/public` from reading as a deck; an Archidekt ID is numeric, optionally followed by the deck's name slug; a Scryfall ID is the UUID in `scryfall.com/@user/decks/<uuid>`, lowercased
    - `DeckImport.downloadURL(value)` - The canonical export URL from `parse`, or `null`
    - `DeckImport.split(text)` - Splits export text into `{main, side}`; throws if the response looks like HTML (a login or error page) or if any line is not quantity-prefixed
-   - `DeckImport.load(value)` - Fetches through the import Worker with a 20s `AbortSignal.timeout`, then splits the result
+   - `DeckImport.load(value)` - Fetches through the import Worker with a 20s `AbortSignal.timeout`, then splits the result and adds `format`: the Worker's `X-Deck-Format` header, else an MTGTop8 link's `f` parameter (`ST`, `PI`, `MO`, `LE`, `VI`, `PAU`), else `''`. The import sets `#deckformat` to it, so a deck with no format goes back to Auto-detect, and undo restores the previous choice
    - `DeckImport.importFromParameters(params)` - Honors the `deckimport` URL parameter; an embedded `deckmain`/`deckside` takes precedence
    - `DeckImport.apiURL` points at the deployed Worker; set it to `http://localhost:8787/api/import` to test against `npm run dev --prefix worker`
    - Drives `#deckimport`, `#deckimport-button`, `#deckimport-help`, `#deckimport-status` and `#deckimport-undo`, and keeps an undo of the replaced deck text
@@ -49,7 +52,9 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
   - `c`: color code (A=White, B=Blue, C=Black, D=Red, E=Green, F=Gold, G=Artifact, Z=Land)
   - `t`: type code (1=Land, 2=Creature, 3=Sorcery, 4=Instant, 5=Other)
   - `m`: mana value (99 when MTGJSON gives none; lands are 0)
-  - `b`: formats the card is not legal in (any combination of s/m/l for Standard/Modern/Legacy); generated but not yet read by the frontend
+  - `b`: formats the card is not legal in (banned, or outside the format's card pool), as letters from `FORMATS` in `parsecards.py`: s/p/m/l/v/u/c for Standard/Pioneer/Modern/Legacy/Vintage/Pauper/Commander. `Decklist.formats` uses the same letters
+  - `r`: formats the card is restricted in (one copy), in the same letters; in practice only `v`
+  - `x`: the card's own copy limit, from its rules text ("A deck can have any number of cards named…", "up to seven", "only one"); `0` means any number, and every basic land gets `0`. It replaces the format's limit, so the frontend needs no list of basic lands
   - `n`: actual card name with proper capitalization
 
 ### URL Parameters for Direct Linking
@@ -57,7 +62,7 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
 The application supports extensive URL parameter support for pre-filling forms:
 - Personal: `firstname`, `lastname`
 - Event: `event`, `eventdate`, `eventlocation`
-- Deck: `deckname`, `deckdesigner`, `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; ignored when `deckmain`/`deckside` are present)
+- Deck: `deckname`, `deckdesigner`, `deckformat` (a key of `Decklist.formats`; absent or unknown means auto-detect), `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; ignored when `deckmain`/`deckside` are present)
 - Display: `decksheet` (wotc/scg), `disableediting`
 
 Use `%0A` for newlines in deck data, `%20` for spaces.
@@ -116,11 +121,11 @@ node --test tests/*.test.*
 python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 ```
 
-- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`, double-faced cards spelled out in full) and front-face names for meld, flip and prepare cards
-- `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection and export splitting
+- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`, double-faced cards spelled out in full), front-face names for meld, flip and prepare cards, and the format checks and auto-detection. The format tests rely on current ban lists, so a ban or unban can break one
+- `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection, export splitting, and the imported deck's format
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
-- `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, and failure handling
-- `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved. This is the gate the card-refresh workflow runs before committing.
+- `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, the `X-Deck-Format` header, and failure handling
+- `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved, and checks the legality, restriction and copy-limit fields. This is the gate the card-refresh workflow runs before committing.
 
 ### Common Modifications
 
@@ -169,6 +174,8 @@ npm run deploy --prefix worker
 ```
 
 It exposes `GET /api/import?source=mtggoldfish&id=123` (or `source=mtgtop8`, `source=archidekt` with a numeric deck ID, `source=scryfall` with a deck UUID, or `source=moxfield` with a base64url deck ID), fetches only fixed export URLs, rejects redirects and HTML, caches successes for five minutes, and rate-limits to 20 requests per minute per IP per location. Sources are declared in the `SOURCES` table at the top of `worker/index.mjs`: an entry gives the ID pattern, the upstream URL, the `Accept` header and, optionally, a `convert` step. Its CORS allowlist is the `ALLOWED_ORIGINS` var in `worker/wrangler.jsonc` — add an origin there if you host the frontend elsewhere.
+
+The JSON sources' `convert` steps return `{text, format}`, and the Worker sends a known format back as an `X-Deck-Format` header (cached with the text, and listed in `Access-Control-Expose-Headers` so the page can read it). Only the formats the frontend checks are reported — `standard`, `pioneer`, `modern`, `legacy`, `vintage`, `pauper`, `commander` — as Moxfield's and Scryfall's `format` field names them; Archidekt numbers its formats, mapped in `ARCHIDEKT_FORMATS` (1 Standard, 2 Modern, 3 Commander, 4 Legacy, 5 Vintage, 6 Pauper, 15 Pioneer). Any other format, and the MTGGoldfish and MTGTop8 text exports, report none.
 
 **Moxfield is a JSON source.** It publishes no text export — the Copy buttons in its Export dialog are built in the browser from the deck JSON and hit no endpoint — and it sends no CORS headers, so the deck has to come through the Worker. The Worker reads `https://api2.moxfield.com/v3/decks/all/<id>` and `moxfieldDeck()` folds the boards into decklist text: commanders lead the sideboard, a companion joins them there, separate printings of one card merge, and the maybeboard is dropped.
 

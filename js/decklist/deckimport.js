@@ -6,6 +6,12 @@ var DeckImport = {
   // Set this to the deployed Worker URL when the API is hosted separately.
   apiURL: 'https://deck-import.nealston.com/api/import',
 
+  // The deck formats the Worker can report, as #deckformat names them.
+  formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander'],
+
+  // MTGTop8 deck links name their format in the f parameter.
+  mtgtop8Formats: { ST: 'standard', PI: 'pioneer', MO: 'modern', LE: 'legacy', VI: 'vintage', PAU: 'pauper' },
+
   // Describes a recognized deck link as {source, label, id, url}, or returns null.
   parse: function(value) {
     var url;
@@ -18,9 +24,10 @@ var DeckImport = {
         url: 'https://www.mtggoldfish.com/deck/download/' + match[1] } : null;
     }
     if (host === 'mtgtop8.com' && /^\/(event|mtgo)\/?$/.test(url.pathname)) {
-      var id = url.searchParams.get('d');
+      var id = url.searchParams.get('d'), code = url.searchParams.get('f');
       return /^\d+$/.test(id || '') ? { source: 'mtgtop8', label: 'MTGTop8', id: id,
-        url: 'https://www.mtgtop8.com/mtgo?d=' + id } : null;
+        url: 'https://www.mtgtop8.com/mtgo?d=' + id,
+        format: Object.prototype.hasOwnProperty.call(this.mtgtop8Formats, code) ? this.mtgtop8Formats[code] : '' } : null;
     }
     if (host === 'moxfield.com') {
       // Public deck IDs are 22-character base64url. The floor keeps routes such as
@@ -92,7 +99,12 @@ var DeckImport = {
         ? (await response.text()).slice(0, 300) : '';
       throw new Error(message || 'The deck download failed (HTTP ' + response.status + ').');
     }
-    return this.split(await response.text());
+    var boards = this.split(await response.text());
+    // Moxfield, Archidekt and Scryfall name the deck's format, and an MTGTop8 link
+    // can; MTGGoldfish's text export doesn't.
+    var format = response.headers && response.headers.get('X-Deck-Format');
+    boards.format = this.formats.indexOf(format) !== -1 ? format : (deck.format || '');
+    return boards;
   }
 };
 
@@ -127,7 +139,7 @@ $(function() {
   $('#clearDeck, #loadDeck').on('click', function() { revision++; clearUndo(); message(''); refresh(); });
   button.on('click', async function() {
     if (busy) return;
-    var originalMain = $('#deckmain').val(), originalSide = $('#deckside').val();
+    var originalMain = $('#deckmain').val(), originalSide = $('#deckside').val(), originalFormat = $('#deckformat').val();
     var originalURL = $('#deckimport').val(), requestRevision = revision;
     var target = DeckImport.parse(originalURL);
     if (!target) {
@@ -156,13 +168,15 @@ $(function() {
         return;
       }
       $('#deckmain').val(deck.main);
+      // A deck with no format of its own goes back to Auto-detect.
+      $('#deckformat').val(deck.format);
       $('#deckside').val(deck.side).trigger('input');
       var count = function(text) {
         return text.split('\n').reduce(function(total, line) { return total + (parseInt(line, 10) || 0); }, 0);
       };
       message('Imported from ' + source + ': ' + count(deck.main) + ' main-deck cards and ' +
         count(deck.side) + ' sideboard cards.', 'success');
-      undo = { main: originalMain, side: originalSide, importedMain: deck.main, importedSide: deck.side };
+      undo = { main: originalMain, side: originalSide, format: originalFormat, importedMain: deck.main, importedSide: deck.side };
       $('#deckimport-undo').prop('hidden', false);
     } catch (error) {
       var timedOut = error.name === 'TimeoutError' || error.name === 'AbortError';
@@ -184,6 +198,7 @@ $(function() {
     }
     var previous = undo;
     $('#deckmain').val(previous.main);
+    $('#deckformat').val(previous.format);
     $('#deckside').val(previous.side).trigger('input');
     clearUndo();
     message('Import undone. Your previous deck has been restored.');

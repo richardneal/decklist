@@ -2,15 +2,20 @@
 
 from enum import Enum
 import json
+import re
 import unicodedata
 
-# Each card is written out as {c, t, m, b, n}, keyed by its lowercase,
+# Each card is written out as {c, t, m, b, r, x, n}, keyed by its lowercase,
 # accent-free name ('true name nemesis'):
 #   c - Color
 #   t - Type
 #   m - mana value (NO_MANA_VALUE when MTGJSON gives none)
-#   b - the first letter of each FORMATS entry the card is not legal in,
-#       omitted when it is legal in all of them
+#   b - the FORMATS letter of each format the card is not legal in, omitted
+#       when it is legal in all of them
+#   r - the FORMATS letter of each format the card is restricted in (one
+#       copy only), omitted when there are none
+#   x - how many copies a deck may hold when the card itself says so, with 0
+#       for any number (basic lands, Relentless Rats); omitted otherwise
 #   n - the true name, 'True Name Nemesis'
 # decklist.js sorts by these codes as strings, so their order is the color and
 # type sort order on the sheet: renaming a member is free, changing a value is not.
@@ -54,7 +59,17 @@ MTGJSON_TYPES = (('Land', Type.LAND), ('Creature', Type.CREATURE),
 
 NO_MANA_VALUE = 99
 
-FORMATS = ('standard', 'modern', 'legacy')
+# MTGJSON's name for each format a deck can be checked against, and the letter
+# the b and r fields write it as; decklist.js reads the same letters
+FORMATS = {'standard': 's', 'pioneer': 'p', 'modern': 'm', 'legacy': 'l',
+           'vintage': 'v', 'pauper': 'u', 'commander': 'c'}
+
+# 'A deck can have any number of cards named Relentless Rats.'
+# 'A deck can have up to seven cards named Seven Dwarves.'
+# 'A deck can have only one card named Once More with Feeling.'
+COPY_LIMIT_RE = re.compile(r'A deck can have (any number of|up to \w+|only one) cards? named')
+NUMBER_WORDS = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6,
+                'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10}
 
 # A card with a second face or spell, written down by its front face and
 # coloured by both. Kamigawa flip cards and prepare cards (a creature
@@ -69,9 +84,23 @@ FACE_NAME_LAYOUTS = FLIP_LAYOUTS + (Layout.MELD,)
 # have entries of their own, under doubled names such as 'Forest // Forest'
 SKIPPED_LAYOUTS = (Layout.TOKEN, Layout.REVERSIBLE_CARD)
 
-def getLegalities(face):
+def getLegalities(face, statuses):
     legalities = face.get('legalities', {})
-    return ''.join(format[0] for format in FORMATS if legalities.get(format) != 'Legal')
+    return ''.join(code for format, code in FORMATS.items() if legalities.get(format) in statuses)
+
+def getIllegal(face):
+    # MTGJSON leaves out the formats a card is not legal in, and names the
+    # rest Legal, Restricted or Banned
+    return getLegalities(face, (None, 'Banned', 'Not Legal'))
+
+def getCopyLimit(face):
+    if 'Basic' in face.get('supertypes', []):
+        return 0
+    match = COPY_LIMIT_RE.search(face.get('text', ''))
+    if not match:
+        return None
+    amount = match.group(1)
+    return 0 if amount == 'any number of' else NUMBER_WORDS.get(amount.split()[-1])
 
 def remove_accents(input_str):
     """Removes accents from a given string."""
@@ -132,8 +161,12 @@ def getManaValue(face):
 def getEntry(face):
     entry = {'c': getColor(face), 't': getType(face), 'm': getManaValue(face)}
 
-    legality = getLegalities(face)
-    if legality: entry['b'] = legality
+    illegal = getIllegal(face)
+    if illegal: entry['b'] = illegal
+    restricted = getLegalities(face, ('Restricted',))
+    if restricted: entry['r'] = restricted
+    limit = getCopyLimit(face)
+    if limit is not None: entry['x'] = limit
 
     entry['n'] = getName(face)
     return entry

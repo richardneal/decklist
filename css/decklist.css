@@ -319,6 +319,7 @@ h2 {
 }
 
 .left input,
+.left select,
 .left textarea {
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
@@ -336,12 +337,14 @@ h2 {
 }
 
 .left input:hover,
+.left select:hover,
 .left textarea:hover {
   border-color: var(--border-color-hover);
   box-shadow: var(--shadow-md);
 }
 
 .left input:focus,
+.left select:focus,
 .left textarea:focus {
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 15%, transparent), var(--shadow-md);
@@ -362,7 +365,8 @@ h2 {
   border-color: var(--error);
 }
 
-.left input[disabled] {
+.left input[disabled],
+.left select[disabled] {
   opacity: 0.6;
 }
 
@@ -912,6 +916,7 @@ a {
   }
 
   .left input,
+  .left select,
   .left textarea {
     width: 100%;
     margin: 0 0 15px 0;
@@ -1085,6 +1090,7 @@ a {
   }
 
   .left input,
+  .left select,
   .left textarea {
     width: 100%;
     margin: 0 0 18px 0;
@@ -1306,8 +1312,8 @@ a {
 .generator-page .left form > h2:first-child { padding-top: 0; margin-top: 0; }
 .generator-page .left form > label { display: flex; flex-direction: column; gap: 8px; margin: 0; width: auto; text-align: left; min-width: 0; }
 .generator-page .left label > span:first-child { float: none; width: auto; padding: 0; text-align: left; font-size: 13px; font-weight: 500; }
-.generator-page .left form > label > input:not([type=checkbox]), .generator-page .left textarea { width: 100%; box-sizing: border-box; margin: 0; box-shadow: none; height: 44px; }
-.generator-page .left input:focus, .generator-page .left textarea:focus { transform: none; }
+.generator-page .left form > label > input:not([type=checkbox]), .generator-page .left form > label > select, .generator-page .left textarea { width: 100%; box-sizing: border-box; margin: 0; box-shadow: none; height: 44px; }
+.generator-page .left input:focus, .generator-page .left select:focus, .generator-page .left textarea:focus { transform: none; }
 .generator-page .left form > label[for=deckmain], .generator-page .left form > label[for=deckside], .generator-page .left form > label[for=event], .generator-page .checkbox-label, .generator-page .deck-import { grid-column: 1 / -1; }
 .generator-page .left textarea { height: 180px; font-size: 13px; }
 .generator-page .left #deckside { height: 105px; }
