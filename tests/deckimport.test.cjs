@@ -136,3 +136,58 @@ test('asks the API for the Moxfield source and deck ID', async () => {
   assert.equal(deck.main, '4 Island');
   assert.equal(deck.side, '2 Negate');
 });
+
+test('recognizes Archidekt deck URLs, with or without the name slug', () => {
+  for (const url of ['https://archidekt.com/decks/123456', 'https://archidekt.com/decks/123456/',
+    'https://www.archidekt.com/decks/123456/my_deck_name', 'https://archidekt.com/decks/123456/my_deck_name#top',
+    'archidekt.com/decks/123456/my_deck_name']) {
+    assert.equal(importer.downloadURL(url), 'https://archidekt.com/api/decks/123456/');
+  }
+  assert.deepEqual({ ...importer.parse('https://archidekt.com/decks/123456/my_deck_name') }, {
+    source: 'archidekt', label: 'Archidekt', id: '123456', url: 'https://archidekt.com/api/decks/123456/'
+  });
+});
+test('rejects Archidekt pages and lookalike hosts that carry no deck ID', () => {
+  for (const url of ['https://archidekt.com/', 'https://archidekt.com/decks/', 'https://archidekt.com/decks/abc',
+    'https://archidekt.com/decks/0', 'https://archidekt.com/decks/123456/my_deck_name/extra',
+    'https://archidekt.com/search/decks', 'https://archidekt.com/u/someone',
+    'https://archidekt.com.evil.test/decks/123456', 'https://archidekt.com:8443/decks/123456']) {
+    assert.equal(importer.downloadURL(url), null);
+  }
+});
+test('asks the API for the Archidekt source and deck ID', async () => {
+  context.fetch = async (url) => {
+    assert.equal(url, importer.apiURL + '?source=archidekt&id=123456');
+    return { ok: true, text: async () => '4 Island\nSideboard\n2 Negate' };
+  };
+  const deck = await importer.load('https://archidekt.com/decks/123456/my_deck_name');
+  assert.equal(deck.main, '4 Island');
+  assert.equal(deck.side, '2 Negate');
+});
+
+const SCRYFALL_ID = '5b088ae5-153e-48a9-8a38-b59c68fb5739';
+
+test('recognizes Scryfall deck URLs and lowercases the deck ID', () => {
+  for (const url of ['https://scryfall.com/@nyuu/decks/' + SCRYFALL_ID,
+    'https://scryfall.com/@nyuu/decks/' + SCRYFALL_ID + '/?as=list&with=usd',
+    'https://www.scryfall.com/@nyuu/decks/' + SCRYFALL_ID.toUpperCase(),
+    'scryfall.com/@nyuu/decks/' + SCRYFALL_ID]) {
+    assert.equal(importer.downloadURL(url), 'https://api.scryfall.com/decks/' + SCRYFALL_ID + '/export/json');
+  }
+  assert.equal(importer.parse('https://scryfall.com/@nyuu/decks/' + SCRYFALL_ID.toUpperCase()).id, SCRYFALL_ID);
+});
+test('rejects Scryfall pages that carry no deck ID', () => {
+  for (const url of ['https://scryfall.com/', 'https://scryfall.com/decks', 'https://scryfall.com/@nyuu/decks',
+    'https://scryfall.com/@nyuu/decks/' + SCRYFALL_ID + '/edit', 'https://scryfall.com/decks/' + SCRYFALL_ID,
+    'https://scryfall.com/@nyuu/decks/not-a-uuid', 'https://scryfall.com/card/slp/2/ragavan-nimble-pilferer',
+    'https://api.scryfall.com/decks/' + SCRYFALL_ID, 'https://scryfall.com.evil.test/@nyuu/decks/' + SCRYFALL_ID]) {
+    assert.equal(importer.downloadURL(url), null);
+  }
+});
+test('asks the API for the Scryfall source and deck ID', async () => {
+  context.fetch = async (url) => {
+    assert.equal(url, importer.apiURL + '?source=scryfall&id=' + SCRYFALL_ID);
+    return { ok: true, text: async () => '4 Island\nSideboard\n2 Negate' };
+  };
+  assert.equal((await importer.load('https://scryfall.com/@nyuu/decks/' + SCRYFALL_ID)).side, '2 Negate');
+});

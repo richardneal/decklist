@@ -159,9 +159,17 @@ var Decklist = {
             return cards[normalized_name];
         }
 
-        // Last, ignore split-card slashes, so "Fire Ice" finds Fire // Ice
-        return Decklist.searchIndex().get(Decklist.searchKey(name)) || null;
-      }    
+        // Next, ignore split-card slashes, so "Fire Ice" finds Fire // Ice
+        let loose = Decklist.searchIndex().get(Decklist.searchKey(name));
+        if (loose) {
+          return loose;
+        }
+
+        // Last, a double-faced or adventure card spelled out in full, as deck sites
+        // export it, is stored under its front face alone
+        let front = name.split(' // ')[0];
+        return front !== name ? getCard(front) : null;
+      }
     
     }
     // Adds a card object to a given deck list (new addition or updates an already-present quantity)

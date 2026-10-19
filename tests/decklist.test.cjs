@@ -38,3 +38,12 @@ test('finds the tournament card when a playtest card shares its name', () => {
   const { n, c, t, m } = deck.main[0];
   assert.deepEqual({ n, c, t, m }, { n: 'Pick Your Poison', c: 'E', t: '3', m: 1 });
 });
+test('finds double-faced and adventure cards spelled out in full', () => {
+  const deck = decklist.parse('1 Fable of the Mirror-Breaker // Reflection of Kiki-Jiki\n' +
+    '1 Delver of Secrets // Insectile Aberration\n1 brazen borrower / petty theft', '');
+  assert.deepEqual([...deck.main.map(card => card.n)],
+    ['Fable of the Mirror-Breaker', 'Delver of Secrets', 'Brazen Borrower']);
+  assert.equal(deck.unrecognized.length, 0);
+  // Split cards are stored under both halves, so they still match in full.
+  assert.equal(decklist.parse('1 Fire // Ice', '').main[0].n, 'Fire // Ice');
+});

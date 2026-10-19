@@ -8,7 +8,8 @@
   "routes": [{ "pattern": "deck-import.nealston.com", "custom_domain": true }],
   "vars": {
     "ALLOWED_ORIGINS": "https://decklist.nealston.com,https://nealston.com,https://www.nealston.com,http://localhost:8000,http://127.0.0.1:8000",
-    "MOXFIELD_USER_AGENT": "decklist.nealston.com (+https://decklist.nealston.com)"
+    "MOXFIELD_USER_AGENT": "decklist.nealston.com (+https://decklist.nealston.com)",
+    "USER_AGENT": "decklist.nealston.com (+https://decklist.nealston.com)"
   },
   "ratelimits": [{
     "name": "IMPORT_LIMITER",
