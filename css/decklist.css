@@ -631,12 +631,15 @@ h2 {
   width: 80px;
 }
 
+.default .statusmark,
+.empty .statusmark {
+  display: none;
+}
+
 .valid .statusmark:before {
   background: url("../images/ok.png") center center / 80px no-repeat scroll;
 }
 
-.default .statusmark:before,
-.empty .statusmark:before,
 .warning .statusmark:before {
   background: url("../images/warning.png") center center / 80px no-repeat scroll;
 }
@@ -662,6 +665,12 @@ h2 {
   position: relative;
   transition: color 0.15s;
   color: var(--text-primary);
+}
+
+.details > li.prompt {
+  margin-left: 0;
+  color: var(--text-secondary);
+  text-align: center;
 }
 
 .details label {

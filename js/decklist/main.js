@@ -1453,6 +1453,9 @@ function validateInput(parsedLists) {
 }
 
 
+// shown in the status box until the user enters something; matches the markup in index.html
+const STATUS_PROMPT_HTML = '<li class="prompt">Fill in your details and add your deck to check your decklist.</li>';
+
 // Change tooltips and status box to reflect current errors/warnings (or lack thereof)
 function statusAndTooltips(valid) {
   // notifications are stored as the following:
@@ -1572,10 +1575,11 @@ function statusAndTooltips(valid) {
 
   // check if all fields are empty; if they are, set errorLevel accordingly
   // close active tooltips, clear titles and classes for new tooltip text
+  // only text fields count: radios and checkboxes always report a value ('on')
   let allEmpty = true;
   $('.left input, .left textarea').tooltip('close');
   $('.left input, .left textarea').each(function() {
-    if ($(this).val()) {
+    if ($(this).is('input[type="text"], input[type="url"], textarea') && $(this).val()) {
       allEmpty = false;
     }
     $(this).prop('title', '');
@@ -1588,8 +1592,8 @@ function statusAndTooltips(valid) {
   // compose new notifications HTML fragment, set new tooltips, and set input field classes
   let statusBoxHtml = '';
   for (const key in notifications) {
-    // exclude any functions of the object
-    if (typeof notifications[key] !== 'function') {
+    // exclude any functions of the object, and stay quiet until something is entered
+    if (!allEmpty && typeof notifications[key] !== 'function') {
       let newTitle = '';
 
       const notificationsLength = notifications[key].length;
@@ -1625,6 +1629,10 @@ function statusAndTooltips(valid) {
       // add a tooltip only for errors; people were complaining about overzealous tooltips
       if (fieldClass === 'error') { $(fieldId).prop('title', newTitle); }
     }
+  }
+
+  if (allEmpty) {
+    statusBoxHtml = STATUS_PROMPT_HTML;
   }
 
   // compute new status
