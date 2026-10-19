@@ -33,3 +33,34 @@ test('finds meld cards by their own name', () => {
     { n: 'Urza, Lord Protector', c: 'F', t: '2', m: 3 },
   ]);
 });
+test('finds flip and prepare cards by their front face', () => {
+  const lines = ['1 Akki Lavarunner', '1 Erayo, Soratami Ascendant',
+    '1 Emeritus of Woe', '1 Adventurous Eater', '1 Demonic Tutor'];
+  const deck = decklist.parse(lines.join('\n'), '');
+  assert.deepEqual([...deck.unrecognized], []);
+  const summary = Array.from(deck.main, ({ n, c, t, m }) => ({ n, c, t, m }));
+  assert.deepEqual(summary, [
+    { n: 'Akki Lavarunner', c: 'D', t: '2', m: 4 },
+    { n: 'Erayo, Soratami Ascendant', c: 'B', t: '2', m: 2 },
+    { n: 'Emeritus of Woe', c: 'C', t: '2', m: 4 },
+    { n: 'Adventurous Eater', c: 'C', t: '2', m: 3 },
+    { n: 'Demonic Tutor', c: 'C', t: '3', m: 2 },
+  ]);
+});
+test('finds front-face-keyed cards written with both halves', () => {
+  for (const [line, name] of [
+    ['1 Akki Lavarunner // Tok-Tok, Volcano Born', 'Akki Lavarunner'],
+    ['1 Emeritus of Woe // Demonic Tutor', 'Emeritus of Woe'],
+    ['1 Bonecrusher Giant / Stomp', 'Bonecrusher Giant'],
+    ['1 Delver of Secrets // Insectile Aberration', 'Delver of Secrets'],
+  ]) {
+    const deck = decklist.parse(line, '');
+    assert.equal(deck.main[0].n, name, line);
+    assert.equal(deck.unrecognized.length, 0, line);
+  }
+});
+test('drops doubled reversible-card names', () => {
+  const deck = decklist.parse('1 Forest // Forest\n1 Bloomvine Regent', '');
+  assert.deepEqual(Array.from(deck.main, card => card.n), ['Forest', 'Bloomvine Regent']);
+  assert.equal(decklist.searchIndex().has('forest forest'), false);
+});

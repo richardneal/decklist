@@ -103,5 +103,67 @@ class CardGenerationTests(unittest.TestCase):
                                           'the mightstone and weakstone', 'urza, lord protector',
                                           'urza, planeswalker'])
 
+    def test_flip_and_prepare_cards_are_keyed_by_their_front_face(self):
+        # As MTGJSON gives them: both faces named 'Front // Back'. A prepare
+        # card's spell can also be a card of its own, and reversible cards
+        # reprint one card under a doubled name
+        def face(name, layout, **fields):
+            return {'name': name, 'printings': ['MH3'], 'layout': layout,
+                    'legalities': {}, 'convertedManaCost': 4.0, **fields}
+        result = generate({
+            'Akki Lavarunner // Tok-Tok, Volcano Born': [
+                face('Akki Lavarunner // Tok-Tok, Volcano Born', 'flip',
+                     faceName='Akki Lavarunner', side='a', types=['Creature'],
+                     colors=['R'], colorIdentity=['R']),
+                face('Akki Lavarunner // Tok-Tok, Volcano Born', 'flip',
+                     faceName='Tok-Tok, Volcano Born', side='b', types=['Creature'],
+                     colors=['R'], colorIdentity=['R'])],
+            'Emeritus of Woe // Demonic Tutor': [
+                face('Emeritus of Woe // Demonic Tutor', 'prepare',
+                     faceName='Emeritus of Woe', side='a', types=['Creature'],
+                     colors=['B'], colorIdentity=['B']),
+                face('Emeritus of Woe // Demonic Tutor', 'prepare',
+                     faceName='Demonic Tutor', side='b', types=['Sorcery'],
+                     colors=['B'], colorIdentity=['B'])],
+            'Demonic Tutor': card('Demonic Tutor', types=['Sorcery'], colors=['B']),
+            'Blossom-Blessed Angel // Rampant Growth': [
+                face('Blossom-Blessed Angel // Rampant Growth', 'prepare',
+                     faceName='Blossom-Blessed Angel', side='a', types=['Creature'],
+                     colors=['W'], colorIdentity=['G', 'W']),
+                face('Blossom-Blessed Angel // Rampant Growth', 'prepare',
+                     faceName='Rampant Growth', side='b', types=['Sorcery'],
+                     colors=['G'], colorIdentity=['G', 'W'])],
+            'Bloomvine Regent // Claim Territory': [
+                face('Bloomvine Regent // Claim Territory', 'adventure',
+                     faceName='Bloomvine Regent', side='a', types=['Creature'],
+                     colors=['G'], colorIdentity=['G']),
+                face('Bloomvine Regent // Claim Territory', 'adventure',
+                     faceName='Claim Territory', side='b', types=['Sorcery'],
+                     colors=['G'], colorIdentity=['G'])],
+            'Bloomvine Regent // Claim Territory // Bloomvine Regent // Claim Territory': [
+                face('Bloomvine Regent // Claim Territory // Bloomvine Regent // Claim Territory',
+                     'reversible_card', faceName='Bloomvine Regent', side='a',
+                     types=['Creature'], colors=['G']),
+                face('Bloomvine Regent // Claim Territory // Bloomvine Regent // Claim Territory',
+                     'reversible_card', faceName='Claim Territory', side='b',
+                     types=['Sorcery'], colors=['G'])],
+            'Forest // Forest': [face('Forest // Forest', 'reversible_card', faceName='Forest',
+                                      types=['Land'], colors=[])],
+            'Forest': card('Forest', types=['Land'], colors=[]),
+        })
+        self.assertEqual(result['akki lavarunner'],
+                         {'c': 'D', 't': '2', 'm': 4.0, 'b': 'sml', 'n': 'Akki Lavarunner'})
+        self.assertEqual(result['emeritus of woe'],
+                         {'c': 'C', 't': '2', 'm': 4.0, 'b': 'sml', 'n': 'Emeritus of Woe'})
+        self.assertEqual(result['demonic tutor']['n'], 'Demonic Tutor')
+        self.assertEqual(result['demonic tutor']['t'], '3')
+        # Coloured by the spell too, as adventure cards are
+        self.assertEqual(result['blossom-blessed angel']['c'], 'F')
+        self.assertEqual(result['bloomvine regent']['n'], 'Bloomvine Regent')
+        self.assertEqual(result['forest']['n'], 'Forest')
+        self.assertEqual(sorted(result), ['akki lavarunner', 'bloomvine regent',
+                                          'blossom-blessed angel', 'demonic tutor',
+                                          'emeritus of woe', 'forest'])
+
 if __name__ == '__main__':
     unittest.main()

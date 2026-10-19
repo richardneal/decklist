@@ -43,7 +43,7 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
 ### Card Data System
 
 Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript object. The card database structure:
-- Key: lowercase card name (with accents removed)
+- Key: lowercase card name (with accents removed). Split cards keep the full `Fire // Ice` name; transform, modal DFC, adventure, flip, prepare and meld cards are keyed by their front face (`akki lavarunner`, `emeritus of woe`), and `getCard` falls back to the front face when a deck writes both halves. Tokens and `reversible_card` printings (doubled names such as `Forest // Forest`) are skipped
 - Value: object with properties:
   - `c`: color code (A=White, B=Blue, C=Black, D=Red, E=Green, F=Gold, G=Artifact, Z=Land)
   - `t`: type code (1=Land, 2=Creature, 3=Sorcery, 4=Instant, 5=Other)
@@ -115,7 +115,7 @@ node --test tests/*.test.*
 python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 ```
 
-- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`)
+- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`) and front-face names for meld, flip and prepare cards
 - `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection and export splitting
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, and failure handling

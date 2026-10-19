@@ -159,9 +159,17 @@ var Decklist = {
             return cards[normalized_name];
         }
 
-        // Last, ignore split-card slashes, so "Fire Ice" finds Fire // Ice
-        return Decklist.searchIndex().get(Decklist.searchKey(name)) || null;
-      }    
+        // Then ignore split-card slashes, so "Fire Ice" finds Fire // Ice
+        let card = Decklist.searchIndex().get(Decklist.searchKey(name));
+        if (card) {
+            return card;
+        }
+
+        // Last, cards keyed by their front face (adventure, double-faced, flip
+        // and prepare cards) can be written with both halves
+        let front = name.split(" // ")[0];
+        return front !== name ? getCard(front) : null;
+      }
     
     }
     // Adds a card object to a given deck list (new addition or updates an already-present quantity)

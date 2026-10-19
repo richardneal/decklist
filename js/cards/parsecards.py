@@ -43,11 +43,18 @@ NO_MANA_VALUE = 99
 
 FORMATS = ('standard', 'modern', 'legacy')
 
-FLIP_LAYOUTS = ('transform', 'modal_dfc', 'adventure')
+# A card with a second face or spell, written down by its front face and
+# coloured by both. Kamigawa flip cards ('flip') and prepare cards (a creature
+# with a spell it can cast a copy of) are named 'Front // Back' by MTGJSON.
+FLIP_LAYOUTS = ('transform', 'modal_dfc', 'adventure', 'flip', 'prepare')
 
 # MTGJSON names each meld front 'Front // Melded result', and gives the melded
 # result an entry of its own; the front is the card a deck lists.
 FACE_NAME_LAYOUTS = FLIP_LAYOUTS + ('meld',)
+
+# Reversible cards print one card on both sides and only reprint cards that
+# have entries of their own, under doubled names such as 'Forest // Forest'
+SKIPPED_LAYOUTS = ('token', 'reversible_card')
 
 def getLegalities(face):
     legalities = face.get('legalities', {})
@@ -129,7 +136,7 @@ with open('SetList.json', 'r') as setfh:
 ocards = {}
 for card in cards['data'].values():
     face = getFace(card)
-    if face['layout'] == 'token' or isDigital(face, online_sets):
+    if face['layout'] in SKIPPED_LAYOUTS or isDigital(face, online_sets):
         continue
     ocards[getKey(face)] = getEntry(face)
 
