@@ -9,7 +9,7 @@ var DeckImport = {
   // Describes a recognized deck link as {source, label, id, url}, or returns null.
   parse: function(value) {
     var url;
-    try { url = new URL(value.trim().replace(/^(www\.)?(mtggoldfish\.com|mtgtop8\.com|moxfield\.com)\//i, 'https://$1$2/')); } catch (_) { return null; }
+    try { url = new URL(value.trim().replace(/^(www\.)?(mtggoldfish\.com|mtgtop8\.com|moxfield\.com|archidekt\.com)\//i, 'https://$1$2/')); } catch (_) { return null; }
     if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.port) return null;
     var host = url.hostname.replace(/^www\./, '');
     if (host === 'mtggoldfish.com') {
@@ -28,6 +28,12 @@ var DeckImport = {
       var moxfield = url.pathname.match(/^\/decks\/([A-Za-z0-9_-]{16,32})(?:\/[A-Za-z0-9_-]+)?\/?$/);
       return moxfield ? { source: 'moxfield', label: 'Moxfield', id: moxfield[1],
         url: 'https://api2.moxfield.com/v3/decks/all/' + moxfield[1] } : null;
+    }
+    if (host === 'archidekt.com') {
+      // Deck links carry a numeric ID and usually a name slug after it.
+      var archidekt = url.pathname.match(/^\/decks\/([1-9]\d{0,11})(?:\/[^/]*)?\/?$/);
+      return archidekt ? { source: 'archidekt', label: 'Archidekt', id: archidekt[1],
+        url: 'https://archidekt.com/api/decks/' + archidekt[1] + '/' } : null;
     }
     return null;
   },
@@ -73,7 +79,7 @@ var DeckImport = {
 
   load: async function(value) {
     var deck = this.parse(value);
-    if (!deck) throw new Error('Enter a valid MTGGoldfish, MTGTop8 or Moxfield deck URL.');
+    if (!deck) throw new Error('Enter a valid MTGGoldfish, MTGTop8, Moxfield or Archidekt deck URL.');
     var response = await fetch(this.apiURL + '?source=' + deck.source + '&id=' + encodeURIComponent(deck.id), { signal: AbortSignal.timeout(20000) });
     if (!response.ok) {
       var message = response.headers && response.headers.get('Content-Type')?.includes('text/plain')
@@ -124,7 +130,9 @@ $(function() {
         'Choose a specific deck on MTGTop8, then copy its link. The link needs a d= deck ID.' :
         /moxfield\.com/i.test(originalURL) ?
         'Open a single deck on Moxfield, then copy its link. It should look like moxfield.com/decks/\u2026' :
-        'Enter a valid MTGGoldfish, MTGTop8 or Moxfield deck URL.', 'error');
+        /archidekt\.com/i.test(originalURL) ?
+        'Open a single deck on Archidekt, then copy its link. It should look like archidekt.com/decks/123\u2026' :
+        'Enter a valid MTGGoldfish, MTGTop8, Moxfield or Archidekt deck URL.', 'error');
       return;
     }
     var source = target.label;

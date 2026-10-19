@@ -20,7 +20,8 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
    - `Decklist.section(deck, sectionType)` - Adds visual spacers between card groups
    - `Decklist.filter(deck, field, values, mode)` - Filters cards by properties
    - `Decklist.count(deck)` - Counts total cards in a deck
-   - `Decklist.searchKey(name)` / `Decklist.searchIndex()` - Loose card-name form (case, accents and split-card slashes ignored) and a lazily built map from it to cards; used as the parser's last-resort lookup and by the deck autocomplete
+   - `Decklist.searchKey(name)` / `Decklist.searchIndex()` - Loose card-name form (case, accents and split-card slashes ignored) and a lazily built map from it to cards; used as the parser's loose lookup and by the deck autocomplete
+   - A name that still matches nothing but contains `//` is retried as its front face, since double-faced and adventure cards are stored under the front face alone while deck sites export both faces
    - Returns objects with structure: `{main: [], side: [], unrecognized: [], unparseable: []}`
    - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (mana value), `q` (quantity), `b` (formats it is not legal in)
 
@@ -31,8 +32,8 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
    - History state management for permalinks
    - Input validation with debounced updates (400ms for validation, 1500ms for PDF generation)
 
-3. **deckimport.js** - MTGGoldfish / MTGTop8 / Moxfield deck importing
-   - `DeckImport.parse(value)` - Describes a recognized deck link as `{source, label, id, url}`; returns `null` for any other host, a URL carrying credentials or an explicit port, a non-http(s) scheme, or a missing/malformed deck ID. A Moxfield ID must be 16–32 base64url characters, which keeps routes such as `/decks/public` from reading as a deck
+3. **deckimport.js** - MTGGoldfish / MTGTop8 / Moxfield / Archidekt deck importing
+   - `DeckImport.parse(value)` - Describes a recognized deck link as `{source, label, id, url}`; returns `null` for any other host, a URL carrying credentials or an explicit port, a non-http(s) scheme, or a missing/malformed deck ID. A Moxfield ID must be 16–32 base64url characters, which keeps routes such as `/decks/public` from reading as a deck; an Archidekt ID is numeric, optionally followed by the deck's name slug
    - `DeckImport.downloadURL(value)` - The canonical export URL from `parse`, or `null`
    - `DeckImport.split(text)` - Splits export text into `{main, side}`; throws if the response looks like HTML (a login or error page) or if any line is not quantity-prefixed
    - `DeckImport.load(value)` - Fetches through the import Worker with a 20s `AbortSignal.timeout`, then splits the result
@@ -56,7 +57,7 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
 The application supports extensive URL parameter support for pre-filling forms:
 - Personal: `firstname`, `lastname`
 - Event: `event`, `eventdate`, `eventlocation`
-- Deck: `deckname`, `deckdesigner`, `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish, MTGTop8 or Moxfield deck URL; ignored when `deckmain`/`deckside` are present)
+- Deck: `deckname`, `deckdesigner`, `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish, MTGTop8, Moxfield or Archidekt deck URL; ignored when `deckmain`/`deckside` are present)
 - Display: `decksheet` (wotc/scg), `disableediting`
 
 Use `%0A` for newlines in deck data, `%20` for spaces.
@@ -115,7 +116,7 @@ node --test tests/*.test.*
 python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 ```
 
-- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`)
+- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`, double-faced cards spelled out in full)
 - `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection and export splitting
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, and failure handling
@@ -167,11 +168,13 @@ The import Worker is deployed separately — pushing to `main` does **not** upda
 npm run deploy --prefix worker
 ```
 
-It exposes `GET /api/import?source=mtggoldfish&id=123` (or `source=mtgtop8`, or `source=moxfield` with a base64url deck ID), fetches only fixed export URLs, rejects redirects and HTML, caches successes for five minutes, and rate-limits to 20 requests per minute per IP per location. Sources are declared in the `SOURCES` table at the top of `worker/index.mjs`: an entry gives the ID pattern, the upstream URL, the `Accept` header and, optionally, a `convert` step. Its CORS allowlist is the `ALLOWED_ORIGINS` var in `worker/wrangler.jsonc` — add an origin there if you host the frontend elsewhere.
+It exposes `GET /api/import?source=mtggoldfish&id=123` (or `source=mtgtop8`, `source=archidekt` with a numeric deck ID, or `source=moxfield` with a base64url deck ID), fetches only fixed export URLs, rejects redirects and HTML, caches successes for five minutes, and rate-limits to 20 requests per minute per IP per location. Sources are declared in the `SOURCES` table at the top of `worker/index.mjs`: an entry gives the ID pattern, the upstream URL, the `Accept` header and, optionally, a `convert` step. Its CORS allowlist is the `ALLOWED_ORIGINS` var in `worker/wrangler.jsonc` — add an origin there if you host the frontend elsewhere.
 
 **Moxfield is a JSON source.** It publishes no text export — the Copy buttons in its Export dialog are built in the browser from the deck JSON and hit no endpoint — and it sends no CORS headers, so the deck has to come through the Worker. The Worker reads `https://api2.moxfield.com/v3/decks/all/<id>` and `moxfieldDeck()` folds the boards into decklist text: commanders lead the main deck, a companion joins the sideboard, separate printings of one card merge, and the maybeboard is dropped.
 
 Two things follow from that. The JSON spells out every card in full, so a 60-card deck runs about 140 KB; the `moxfield` source therefore raises `readBody`'s cap to 2 MB, while the text sources keep the 64 KB default.
+
+**Archidekt is a JSON source too.** The Worker reads the unofficial but public `https://archidekt.com/api/decks/<id>/`, and `archidektDeck()` folds it into decklist text. Archidekt keeps its boards as categories, and a card's *first* category places it: `Sideboard` is the sideboard, a premier category (the commander) leads the main deck, and any other category with `includedInDeck: false` (the Maybeboard, for one) is dropped. It shares the 2 MB cap. Both JSON sources write their text through `deckText()`, which merges separate printings of one card.
 
 **Don't test the Moxfield source with `curl`.** Moxfield fronts its API with Cloudflare bot management, and the verdict follows the *original visitor*, not the Worker: a request the site makes for a real browser is served, while the same deck requested from `curl` comes back 403, seconds apart, on a deck neither has cached. So `curl` reports a feature that works in a browser as broken — and the Worker caches a success for five minutes, so a `curl` that follows a browser import gets a 200 off the cache and reports it as fixed. Both readings are wrong. Test it through the site in a browser, and when a deck must be uncached, use one nothing has fetched in the last five minutes.
 

@@ -24,3 +24,12 @@ test('search keys ignore case, accents and slashes', () => {
   assert.equal(decklist.searchKey('Lim-Dûl the Necromancer'), 'lim-dul the necromancer');
   assert.ok(decklist.searchIndex().get('fire ice'));
 });
+test('finds double-faced and adventure cards spelled out in full', () => {
+  const deck = decklist.parse('1 Fable of the Mirror-Breaker // Reflection of Kiki-Jiki\n' +
+    '1 Delver of Secrets // Insectile Aberration\n1 brazen borrower / petty theft', '');
+  assert.deepEqual([...deck.main.map(card => card.n)],
+    ['Fable of the Mirror-Breaker', 'Delver of Secrets', 'Brazen Borrower']);
+  assert.equal(deck.unrecognized.length, 0);
+  // Split cards are stored under both halves, so they still match in full.
+  assert.equal(decklist.parse('1 Fire // Ice', '').main[0].n, 'Fire // Ice');
+});

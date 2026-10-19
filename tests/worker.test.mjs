@@ -133,3 +133,50 @@ test('accepts Moxfield JSON larger than the text-export cap, but not unbounded',
   assert.equal((await huge.run('?source=moxfield&id=' + MOXFIELD_ID)).status, 502);
   assert.equal(huge.entries.size, 0);
 });
+
+const ARCHIDEKT_JSON = JSON.stringify({
+  categories: [
+    { name: 'Commander', isPremier: true, includedInDeck: true },
+    { name: 'Ramp', isPremier: false, includedInDeck: true },
+    { name: 'Sideboard', isPremier: false, includedInDeck: false },
+    { name: 'Maybeboard', isPremier: false, includedInDeck: false }
+  ],
+  cards: [
+    { quantity: 2, categories: ['Ramp'], card: { oracleCard: { name: 'Swamp' } } },
+    { quantity: 2, categories: null, card: { oracleCard: { name: 'Swamp' } } },
+    { quantity: 1, categories: ['Commander'], card: { oracleCard: { name: 'Atraxa, Praetors’ Voice' } } },
+    { quantity: 4, categories: ['Ramp', 'Maybeboard'], card: { oracleCard: { name: 'Thoughtseize' } } },
+    { quantity: 3, categories: ['Sideboard'], card: { oracleCard: { name: 'Negate' } } },
+    { quantity: 9, categories: ['Maybeboard', 'Ramp'], card: { oracleCard: { name: 'Not In The Deck' } } },
+    { quantity: 0, categories: [], card: { oracleCard: { name: 'Zero Copies' } } },
+    { quantity: 1, categories: [] }
+  ]
+});
+
+test('converts Archidekt deck JSON, placing each card by its first category', async () => {
+  const s = setup({ body: ARCHIDEKT_JSON });
+  const response = await s.run('?source=archidekt&id=123456');
+  assert.equal(response.status, 200);
+  // The commander leads the main deck, uncategorized cards are main deck, printings
+  // merge, and a card whose first category is excluded (the Maybeboard) is dropped.
+  assert.equal(await response.text(), [
+    '1 Atraxa, Praetors’ Voice', '4 Swamp', '4 Thoughtseize', 'Sideboard', '3 Negate'
+  ].join('\n'));
+  assert.equal(s.calls[0].url, 'https://archidekt.com/api/decks/123456/');
+  assert.equal(s.calls[0].init.headers.Accept, 'application/json');
+  assert.equal(s.calls[0].init.headers['User-Agent'], undefined);
+});
+test('rejects malformed Archidekt IDs and decks with no usable cards', async () => {
+  const s = setup({ body: ARCHIDEKT_JSON });
+  for (const id of ['0', 'abc', '123/extra', '1'.repeat(13), '']) {
+    assert.equal((await s.run('?source=archidekt&id=' + encodeURIComponent(id))).status, 400);
+  }
+  assert.equal(s.calls.length, 0);
+  for (const body of ['not json', '{}', '{"cards":null}', '{"cards":[]}',
+    JSON.stringify({ categories: [{ name: 'Maybeboard', includedInDeck: false }],
+      cards: [{ quantity: 1, categories: ['Maybeboard'], card: { oracleCard: { name: 'Island' } } }] })]) {
+    const bad = setup({ body });
+    assert.equal((await bad.run('?source=archidekt&id=123456')).status, 502);
+    assert.equal(bad.entries.size, 0);
+  }
+});
