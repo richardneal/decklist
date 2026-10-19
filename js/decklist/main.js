@@ -953,84 +953,19 @@ function generateStandardDecklist(parsedInput) {
     }
   }*/
 
-  // Assume separateBasicLands is a checkbox in your form
   const separateBasicLands = document.getElementById('separate-basic-lands').checked;
+  const pages = paginateStandardMainDeck(standardMainDeckRows(maindeck, separateBasicLands));
 
   // Add the deck to the decklist
-  for (let column = 0, x = 82, y = 182; column < 2; column++) {
-    dl.setFont('helvetica');
-    dl.setFontStyle('normal');
-    if (column === 0) {
-      dl.setFontSize(13);
-      dl.text('Main Deck:', 62, 149);
-      dl.setFontSize(11);
-      dl.text('# in deck:', 62, 166);  // first row, main deck
-      dl.line(62, 167, 111, 167);
-      dl.text('Card Name:', 122, 166);
-      dl.line(122, 167, 183, 167);
-    } else {
-      dl.setFontSize(13);
-      if (separateBasicLands) dl.text('Main Deck Continued & Basic Lands:', 336, 149);
-      else dl.text('Main Deck Continued:', 336, 149);
-      dl.setFontSize(11);
-      dl.text('# in deck:', 336, 166); // second row, main deck
-      dl.line(336, 167, 386, 167);
-      dl.text('Card Name:', 396, 166);
-      dl.line(396, 167, 457, 167);
-    }
-    dl.setFont('helvetica');
-    dl.setFontSize(12);
-    dl.setFontStyle('normal');
-
-    const basicLands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
-    'Snow-Covered Plains', 'Snow-Covered Island', 'Snow-Covered Swamp', 'Snow-Covered Mountain',
-    'Snow-Covered Forest', 'Wastes'];
-
-    let basicLandsFromMaindeck = [];
-    let nonBasicLands = maindeck;
-
-    if (separateBasicLands) {
-      // Separating basic land cards from maindeck only if separateBasicLands is true
-      basicLandsFromMaindeck = maindeck.filter(card => basicLands.includes(card['n']));
-      nonBasicLands = maindeck.filter(card => !basicLands.includes(card['n']));
-    }
-
-    let printDeck;
-    if (column === 0) {
-      printDeck = nonBasicLands;
-    } else {
-      // Adjust logic based on separateBasicLands flag
-      if (separateBasicLands) {
-        printDeck = [...nonBasicLands.slice(32), ...basicLandsFromMaindeck];
-      } else {
-        printDeck = nonBasicLands.slice(32);
-      }
-    }
-    
-    for (let j = 0, index = j; j < 32 && index < 44 && index < printDeck.length; j++, index++, y += 18) {
-      let card = printDeck[index];
-      
-      if (card && card['q'] === 0) {
-        if (column === 1 && j === 0) {
-          // remove blank entry at top of second column
-          printDeck.splice(index, 1);
-          card = printDeck[index];
-        } else {
-          // Ignore zero quantity entries (blank)
-          continue;
-        }
-      }
-    
-      if (card) {
-        let xOffset = (card['q'] > 9 && card['q'] < 100) ? 3 : 0;  // Check if 'n' is two digits
-        dl.text(card['q'].toString(), x  - xOffset, y);
-        dl.text(card['n'].toString(), x + 38, y);
-      }
-    
-    }
-  
-    x = 356, y = 182;
-  }
+  dl.setFont('helvetica');
+  dl.setFontStyle('normal');
+  dl.setFontSize(13);
+  dl.text('Main Deck:', 62, 149);
+  if (separateBasicLands) dl.text('Main Deck Continued & Basic Lands:', 336, 149);
+  else dl.text('Main Deck Continued:', 336, 149);
+  drawStandardColumnHeadings(dl);
+  drawStandardCardRows(dl, pages[0][0], 82, 182);
+  drawStandardCardRows(dl, pages[0][1], 356, 182);
 
   dl.setFont('helvetica');
   dl.setFontSize(13);
@@ -1048,7 +983,7 @@ function generateStandardDecklist(parsedInput) {
   dl.setFontStyle('normal');
   for (let i = 0, x = 356, y = 434; i < 15 && i < sideboard.length; i++, y += 18) {
     dl.text(sideboard[i]['q'].toString(), x, y);
-    dl.text(sideboard[i]['n'], x + 38, y);
+    fitText(dl, sideboard[i]['n'], x + 38, y, STANDARD_NAME_WIDTH);
   }
 
   // Add the maindeck count
@@ -1090,10 +1025,225 @@ function generateStandardDecklist(parsedInput) {
   dl.text('Status:', 454, 754);
   dl.text('Judge:', 454, 766);
 
+  drawStandardFooter(dl, 1, pages.length);
+
+  // Main decks that outgrow the first page continue on extra pages
+  for (let page = 1; page < pages.length; page++) {
+    dl.addPage();
+    drawStandardContinuationPage(dl, pages[page], page + 1, pages.length);
+  }
+
+  return dl;
+}
+
+// Width available to a card name on the WotC sheet, from the name's start to the end of its line
+const STANDARD_NAME_WIDTH = 184;
+
+// Rows per column on the WotC sheet: the first page shares its second column with the
+// sideboard, while continuation pages give both columns the full height
+const STANDARD_FIRST_PAGE_ROWS = [32, 12];
+const STANDARD_CONTINUATION_ROWS = [32, 32];
+
+// Accepts the sorted and sectioned main deck
+// Returns the rows to print; when basic lands are kept separate they move to the end,
+// starting no earlier than the second column under its "& Basic Lands" heading
+function standardMainDeckRows(maindeck, separateBasicLands) {
+  if (!separateBasicLands) return maindeck;
+
+  const basicLands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
+    'Snow-Covered Plains', 'Snow-Covered Island', 'Snow-Covered Swamp', 'Snow-Covered Mountain',
+    'Snow-Covered Forest', 'Wastes'];
+  // Taking the basics out can leave a spacer at the top or two in a row; drop those
+  const nonBasicLands = maindeck
+      .filter(card => !basicLands.includes(card['n']))
+      .filter((card, i, list) => card['q'] !== 0 || (i > 0 && list[i - 1]['q'] !== 0)),
+    padding = Math.max(0, STANDARD_FIRST_PAGE_ROWS[0] - nonBasicLands.length);
+  return [
+    ...nonBasicLands,
+    ...Array.from({ length: padding }, () => ({ n: '', q: 0 })),
+    ...maindeck.filter(card => basicLands.includes(card['n']))
+  ];
+}
+
+// Splits main deck rows into pages of two columns each
+// Spacer rows (quantity 0) are dropped where they would start a column or end the list
+// Always returns at least one page
+function paginateStandardMainDeck(rows) {
+  let end = rows.length;
+  while (end > 0 && rows[end - 1]['q'] === 0) end--;
+
+  const pages = [];
+  let index = 0;
+  do {
+    const capacities = pages.length === 0 ? STANDARD_FIRST_PAGE_ROWS : STANDARD_CONTINUATION_ROWS;
+    pages.push(capacities.map(function (capacity) {
+      while (index < end && rows[index]['q'] === 0) index++;
+      const column = rows.slice(index, Math.min(index + capacity, end));
+      index += column.length;
+      return column;
+    }));
+  } while (index < end);
+
+  return pages;
+}
+
+// Writes one column of cards, one row every 18pt starting at y; spacer rows stay blank
+function drawStandardCardRows(dl, column, x, y) {
+  dl.setFont('helvetica');
+  dl.setFontSize(12);
+  dl.setFontStyle('normal');
+  column.forEach(function (card, i) {
+    if (card['q'] === 0) return;
+    const rowY = y + i * 18,
+      xOffset = (card['q'] > 9 && card['q'] < 100) ? 3 : 0;  // Check if 'q' is two digits
+    dl.text(card['q'].toString(), x - xOffset, rowY);
+    fitText(dl, card['n'].toString(), x + 38, rowY, STANDARD_NAME_WIDTH);
+  });
+}
+
+// Writes text no wider than maxWidth, shrinking the font down to 7pt and then
+// cutting the end off with an ellipsis; the font size is restored afterwards
+function fitText(dl, text, x, y, maxWidth) {
+  const fontSize = dl.internal.getFontSize();
+  let size = fontSize;
+  while (size > 7 && dl.getTextWidth(text) > maxWidth) {
+    size -= 0.5;
+    dl.setFontSize(size);
+  }
+  if (dl.getTextWidth(text) > maxWidth) {
+    while (text.length > 1 && dl.getTextWidth(text + '...') > maxWidth) {
+      text = text.slice(0, -1);
+    }
+    text = text.trimEnd() + '...';
+  }
+  dl.text(text, x, y);
+  dl.setFontSize(fontSize);
+}
+
+// The "# in deck" / "Card Name" headings above both card columns
+function drawStandardColumnHeadings(dl) {
+  dl.setFont('helvetica');
+  dl.setFontStyle('normal');
+  dl.setFontSize(11);
+  dl.text('# in deck:', 62, 166);  // first column
+  dl.line(62, 167, 111, 167);
+  dl.text('Card Name:', 122, 166);
+  dl.line(122, 167, 183, 167);
+  dl.text('# in deck:', 336, 166); // second column
+  dl.line(336, 167, 386, 167);
+  dl.text('Card Name:', 396, 166);
+  dl.line(396, 167, 457, 167);
+}
+
+// The page number (on multi-page sheets) and the Wizards copyright along the bottom edge
+function drawStandardFooter(dl, page, pageCount) {
+  dl.setFont('helvetica');
+  dl.setFontStyle('normal');
+  if (pageCount > 1) {
+    dl.setFontSize(8);
+    const note = page < pageCount ? ` - main deck continues on page ${page + 1}` : '';
+    dl.text(`Page ${page} of ${pageCount}${note}`, 62, 780);
+  }
+  dl.setFontSize(6);
   const currentYear = new Date().getFullYear();
   dl.text(`TM & © ${currentYear} Wizards of the Coast LLC`, 475, 780); // wizards copyright
-  
-  return dl;
+}
+
+// The player's name down the left edge, as on the first page
+function drawStandardNameSidebar(dl, firstname, lastname) {
+  dl.setFillColor(230, 230, 232);
+  dl.setLineWidth(1);
+  dl.rect(27, 140, 24, 628, 'F');
+  dl.rect(27, 140, 24, 628);
+  dl.rect(27, 140, 24, 449);
+
+  dl.setFont('helvetica');
+  dl.setFontSize(7);
+  dl.setFontStyle('normal');
+  dl.text('Last Name:', 41, 760, 90);
+  dl.text('First Name:', 41, 581, 90);
+  dl.setFontSize(11);
+  dl.setFontStyle('bold');
+  dl.text(lastname, 43, 722, 90);
+  dl.text(firstname, 43, 542, 90);
+}
+
+// A continuation page: the player and event details again, then two full columns of main deck
+function drawStandardContinuationPage(dl, columns, page, pageCount) {
+  const firstname = $('#firstname').val().capitalize(),
+    lastname = $('#lastname').val().capitalize();
+
+  if (logoCache['mtg']) {
+    dl.addImage(logoCache['mtg'].data, logoCache['mtg'].format, 27, 54, 90, 32);
+  }
+
+  dl.setFont('helvetica');
+  dl.setFontSize(15);
+  dl.setFontStyle('normal');
+  dl.text('DECK REGISTRATION SHEET (CONTINUED)', 135, 45);
+
+  // first letter of last name, as on the first page
+  dl.setFillColor(230, 230, 232);
+  dl.setLineWidth(1);
+  dl.rect(552, 30, 24, 24, 'F');
+  dl.rect(552, 30, 24, 24);
+  dl.setFontSize(7);
+  dl.text('First Letter of', 506, 40);
+  dl.text('Last Name', 514, 48);
+  if (lastname.length > 0) {
+    dl.setFontSize(20);
+    dl.setFontStyle('bold');
+    dl.text(lastname.charAt(0), 552 + 12, 49, null, null, 'center');
+  }
+
+  // name, event, date and deck name
+  dl.setLineWidth(1);
+  dl.rect(135, 54, 441, 24);
+  dl.rect(135, 78, 441, 24);
+  dl.rect(355, 54, 221, 48);
+  dl.setLineWidth(.5);
+  dl.rect(135, 54, 54, 48);
+  dl.rect(355, 54, 54, 48);
+
+  const fullName = [lastname, firstname].filter(Boolean).join(', ');
+  [
+    ['Name:', 165, 68, fullName, 192, 69.5],
+    ['Date:', 169, 92, $('#eventdate').val(), 192, 93.5],
+    ['Event:', 386, 68, $('#event').val().capitalize(), 412, 69.5],
+    ['Deck Name:', 367, 92, $('#deckname').val().capitalize(), 412, 93.5]
+  ].forEach(function ([label, labelX, labelY, value, valueX, valueY]) {
+    dl.setFont('helvetica');
+    dl.setFontStyle('normal');
+    dl.setFontSize(7);
+    dl.text(label, labelX, labelY);
+    dl.setFontSize(11);
+    fitText(dl, value, valueX, valueY, (valueX < 355 ? 355 : 576) - valueX - 4);
+  });
+
+  dl.setFontSize(13);
+  dl.text('PRINT CLEARLY USING ENGLISH CARD NAMES', 36, 121);
+
+  drawStandardNameSidebar(dl, firstname, lastname);
+
+  // card lines, full height in both columns
+  dl.setLineWidth(.5);
+  for (let y = 186; y < 750; y += 18) {
+    dl.line(62, y, 106, y);
+    dl.line(116, y, 306, y);
+    dl.line(336, y, 380, y);
+    dl.line(390, y, 580, y);
+  }
+
+  dl.setFont('helvetica');
+  dl.setFontStyle('normal');
+  dl.setFontSize(13);
+  dl.text('Main Deck Continued:', 62, 149);
+  dl.text('Main Deck Continued:', 336, 149);
+  drawStandardColumnHeadings(dl);
+  drawStandardCardRows(dl, columns[0], 82, 182);
+  drawStandardCardRows(dl, columns[1], 356, 182);
+
+  drawStandardFooter(dl, page, pageCount);
 }
 
 // Synchronous version for history state (no URL shortening)
@@ -1251,7 +1401,7 @@ function validateInput(parsedLists) {
   // value = array of error objects: {error_level: error_type}
   // error levels include 'warning' and 'error'
   // error types include 'blank', 'nonnum', 'toolarge', 'toosmall',
-  //       'size', 'unrecognized', 'quantity', 'futuredate'
+  //       'size', 'unrecognized', 'quantity', 'futuredate', 'continued'
   // error objects may have other keys (eg. data) which contain extra information
   const validate = {
     'firstname': [],
@@ -1317,7 +1467,10 @@ function validateInput(parsedLists) {
   if ((maindeck_count === 0) || (maindeck_count > 60)) { validate.deckmain.push({ warning: 'size' });   }
   else if (maindeck_count < 60)                        { validate.deckmain.push({ error: 'toosmall' }); }
   if (decksheetFormat === 'wotc') {
-    if (maindeck.length > 44)                          { validate.deckmain.push({ error: 'toolarge' }); }
+    const separateBasicLands = $('#separate-basic-lands').is(':checked'),
+      rows = standardMainDeckRows(Decklist.section(Decklist.sort(maindeck.slice())), separateBasicLands),
+      extraPages = paginateStandardMainDeck(rows).length - 1;
+    if (extraPages > 0)                                { validate.deckmain.push({ warning: 'continued', data: extraPages }); }
   } else if (decksheetFormat === 'scg') {
     const maindeck_sections = [Decklist.filter(maindeck, 't', '2'), Decklist.filter(maindeck, 't', ['1', '2'], 'exclude'), Decklist.filter(maindeck, 't', '1')].map(Decklist.sort).map(Decklist.section);
     if (maindeck_sections.some(function(arr) { return arr.length > 15; })) {
@@ -1473,8 +1626,10 @@ function statusAndTooltips(valid) {
           notifications.push(prop, ['Most decks consist of exactly 60 cards', validType]); }
         else if (validationObject['error'] === 'toosmall') {
           notifications.push(prop, ['Decks may not consist of less than 60 cards', validType]);
-        } else if (validationObject['error'] === 'toolarge') {
-          notifications.push(prop, ['This PDF only has space for up to 44 unique cards (including spaces)', validType]);
+        } else if (validationObject['warning'] === 'continued') {
+          const extraPages = validationObject['data'];
+          notifications.push(prop, ['The first page has room for 44 rows (including spaces), so the main deck continues on ' +
+            (extraPages === 1 ? 'a second page' : extraPages + ' more pages'), validType]);
         } else if (validationObject['error'] === 'sectiontoolarge') {
           notifications.push(prop, ['This PDF only has space for up to 15 cards per section (including spaces)', validType]);
         } else if (validationObject['error'] === 'quantity') {
