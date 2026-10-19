@@ -33,6 +33,16 @@ class Type(str, Enum):
     INSTANT  = '4'
     OTHER    = '5'
 
+# The MTGJSON layouts the generator treats specially; any other is read as a
+# single-faced card
+class Layout(str, Enum):
+    SPLIT     = 'split'
+    TRANSFORM = 'transform'
+    MODAL_DFC = 'modal_dfc'
+    ADVENTURE = 'adventure'
+    MELD      = 'meld'
+    TOKEN     = 'token'
+
 MTGJSON_COLORS = {'W': Color.WHITE, 'U': Color.BLUE, 'B': Color.BLACK, 'R': Color.RED, 'G': Color.GREEN}
 
 # Checked in order: an artifact creature is a creature, an artifact land a land
@@ -43,11 +53,11 @@ NO_MANA_VALUE = 99
 
 FORMATS = ('standard', 'modern', 'legacy')
 
-FLIP_LAYOUTS = ('transform', 'modal_dfc', 'adventure')
+FLIP_LAYOUTS = (Layout.TRANSFORM, Layout.MODAL_DFC, Layout.ADVENTURE)
 
 # MTGJSON names each meld front 'Front // Melded result', and gives the melded
 # result an entry of its own; the front is the card a deck lists.
-FACE_NAME_LAYOUTS = FLIP_LAYOUTS + ('meld',)
+FACE_NAME_LAYOUTS = FLIP_LAYOUTS + (Layout.MELD,)
 
 def getLegalities(face):
     legalities = face.get('legalities', {})
@@ -96,7 +106,7 @@ def getColor(face):
     # MTGJSON always lists colors, as an empty list for colorless cards
     if 'Artifact' in face['types'] and not face.get('colors'):
         return Color.ARTIFACT
-    if face['layout'] == 'split' or isFlip(face):
+    if face['layout'] == Layout.SPLIT or isFlip(face):
         return getColorCode(face.get('colorIdentity', []))
     return getColorCode(face.get('colors', []))
 
@@ -130,7 +140,7 @@ with open('SetList.json', 'r') as setfh:
 ocards = {}
 for card in cards['data'].values():
     face = getFace(card)
-    if face['layout'] == 'token' or isDigital(face, online_sets):
+    if face['layout'] == Layout.TOKEN or isDigital(face, online_sets):
         continue
     ocards[getKey(face)] = getEntry(face)
 
