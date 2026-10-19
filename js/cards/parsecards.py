@@ -45,6 +45,10 @@ FORMATS = ('standard', 'modern', 'legacy')
 
 FLIP_LAYOUTS = ('transform', 'modal_dfc', 'adventure')
 
+# MTGJSON names each meld front 'Front // Melded result', and gives the melded
+# result an entry of its own; the front is the card a deck lists.
+FACE_NAME_LAYOUTS = FLIP_LAYOUTS + ('meld',)
+
 def getLegalities(face):
     legalities = face.get('legalities', {})
     return ''.join(format[0] for format in FORMATS if legalities.get(format) != 'Legal')
@@ -62,17 +66,18 @@ def getColorCode(colors):
     return MTGJSON_COLORS.get(colors[0], Color.COLORLESS)
 
 def getFace(card):
-    # We only care about the first face
-    if 'side' not in card[0] or len(card) == 1:
-        return card[0]
-    return card[0] if card[0]['side'] == 'a' else card[1]
+    # We only care about the front face. MTGJSON can list more than one card
+    # under a name, such as a Mystery Booster playtest Pick Your Poison beside
+    # the real one; the first with legalities is the one decks register.
+    fronts = [face for face in card if face.get('side', 'a') == 'a'] or card
+    return min(fronts, key=lambda face: not face.get('legalities'))
 
 def isFlip(face):
     return face['layout'] in FLIP_LAYOUTS
 
 def getName(face):
-    # Flip cards are played, and written down, by their front face
-    return face['faceName' if isFlip(face) else 'name']
+    # Flip and meld cards are played, and written down, by their front face
+    return face['faceName' if face['layout'] in FACE_NAME_LAYOUTS else 'name']
 
 def getKey(face):
     # We're going to store them in lowercase, without accents.
