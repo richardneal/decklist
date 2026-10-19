@@ -193,7 +193,7 @@
           <ol>
             <li><strong>Enter your information:</strong> Fill in your first and last name</li>
             <li><strong>Add event details:</strong> Event name, date, and location</li>
-            <li><strong>Add your deck:</strong> Paste an MTGGoldfish or MTGTop8 deck link and click "Import deck", or copy your decklist from MTGO, MTG Goldfish, or Tappedout and paste it directly</li>
+            <li><strong>Add your deck:</strong> Paste an MTGGoldfish, MTGTop8 or Moxfield deck link and click "Import deck", or copy your decklist from MTGO, MTG Goldfish, or Tappedout and paste it directly</li>
             <li><strong>Choose format:</strong> Select WotC (Wizards of the Coast) or SCG (Star City Games) sheet format</li>
             <li><strong>Download:</strong> Click "Download PDF" to get your tournament-ready registration sheet</li>
           </ol>
@@ -267,6 +267,11 @@ Sideboard
         </div>
 
         <div class="docs-subsection">
+          <h3>Moxfield</h3>
+          <p>Paste the deck's address (<code>moxfield.com/decks/…</code>) into "Import a deck". Commanders are added to the main deck and a companion to the sideboard; the maybeboard is ignored.</p>
+        </div>
+
+        <div class="docs-subsection">
           <h3>Tappedout</h3>
           <p>Use Tappedout's "Text" export format. Click on your deck, then select the "Text" view and copy everything.</p>
         </div>
@@ -311,7 +316,7 @@ Sideboard
           <ul>
             <li><strong>deckname</strong> - Deck name/archetype (e.g., "RUG Twin")</li>
             <li><strong>deckdesigner</strong> - Designer's name</li>
-            <li><strong>deckimport</strong> - URL-encoded MTGGoldfish or MTGTop8 deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
+            <li><strong>deckimport</strong> - URL-encoded MTGGoldfish, MTGTop8 or Moxfield deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
             <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
             <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
           </ul>

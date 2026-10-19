@@ -6,20 +6,35 @@ var DeckImport = {
   // Set this to the deployed Worker URL when the API is hosted separately.
   apiURL: 'https://deck-import.nealston.com/api/import',
 
-  downloadURL: function(value) {
+  // Describes a recognized deck link as {source, label, id, url}, or returns null.
+  parse: function(value) {
     var url;
-    try { url = new URL(value.trim().replace(/^(www\.)?(mtggoldfish\.com|mtgtop8\.com)\//i, 'https://$1$2/')); } catch (_) { return null; }
+    try { url = new URL(value.trim().replace(/^(www\.)?(mtggoldfish\.com|mtgtop8\.com|moxfield\.com)\//i, 'https://$1$2/')); } catch (_) { return null; }
     if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.port) return null;
     var host = url.hostname.replace(/^www\./, '');
     if (host === 'mtggoldfish.com') {
       var match = url.pathname.match(/^\/deck\/(?:download\/)?(\d+)\/?$/);
-      return match ? 'https://www.mtggoldfish.com/deck/download/' + match[1] : null;
+      return match ? { source: 'mtggoldfish', label: 'MTGGoldfish', id: match[1],
+        url: 'https://www.mtggoldfish.com/deck/download/' + match[1] } : null;
     }
     if (host === 'mtgtop8.com' && /^\/(event|mtgo)\/?$/.test(url.pathname)) {
       var id = url.searchParams.get('d');
-      return /^\d+$/.test(id || '') ? 'https://www.mtgtop8.com/mtgo?d=' + id : null;
+      return /^\d+$/.test(id || '') ? { source: 'mtgtop8', label: 'MTGTop8', id: id,
+        url: 'https://www.mtgtop8.com/mtgo?d=' + id } : null;
+    }
+    if (host === 'moxfield.com') {
+      // Public deck IDs are 22-character base64url. The floor keeps routes such as
+      // /decks/public out, and a trailing segment (a primer, say) is still a deck link.
+      var moxfield = url.pathname.match(/^\/decks\/([A-Za-z0-9_-]{16,32})(?:\/[A-Za-z0-9_-]+)?\/?$/);
+      return moxfield ? { source: 'moxfield', label: 'Moxfield', id: moxfield[1],
+        url: 'https://api2.moxfield.com/v3/decks/all/' + moxfield[1] } : null;
     }
     return null;
+  },
+
+  downloadURL: function(value) {
+    var deck = this.parse(value);
+    return deck ? deck.url : null;
   },
 
   split: function(text) {
@@ -57,9 +72,9 @@ var DeckImport = {
   },
 
   load: async function(value) {
-    var url = this.downloadURL(value);
-    if (!url) throw new Error('Enter a valid MTGGoldfish or MTGTop8 deck URL.');
-    var response = await fetch(this.apiURL + '?source=' + (url.includes('mtggoldfish.com') ? 'mtggoldfish' : 'mtgtop8') + '&id=' + (url.includes('mtggoldfish.com') ? url.split('/').pop() : new URL(url).searchParams.get('d')), { signal: AbortSignal.timeout(20000) });
+    var deck = this.parse(value);
+    if (!deck) throw new Error('Enter a valid MTGGoldfish, MTGTop8 or Moxfield deck URL.');
+    var response = await fetch(this.apiURL + '?source=' + deck.source + '&id=' + encodeURIComponent(deck.id), { signal: AbortSignal.timeout(20000) });
     if (!response.ok) {
       var message = response.headers && response.headers.get('Content-Type')?.includes('text/plain')
         ? (await response.text()).slice(0, 300) : '';
@@ -78,13 +93,13 @@ $(function() {
   }
   function refresh() {
     var value = $('#deckimport').val().trim();
-    var url = DeckImport.downloadURL(value);
-    var source = url && (url.includes('mtggoldfish.com') ? 'MTGGoldfish' : 'MTGTop8');
+    var deck = DeckImport.parse(value);
+    var source = deck && deck.label;
     $('#deckimport-undo').prop('disabled', busy);
     button.prop('disabled', busy || !value).text(busy ? 'Importing…' : 'Import deck');
     $('#deckimport').attr('aria-busy', busy ? 'true' : 'false');
     $('#deckimport-help').text(source ? source + (busy ? ' deck link detected.' : ' deck link detected. Ready to import.') :
-      'Open a deck on either site, then copy its address here.');
+      'Open a deck on any of those sites, then copy its address here.');
   }
   function clearUndo() {
     undo = null;
@@ -102,15 +117,17 @@ $(function() {
     if (busy) return;
     var originalMain = $('#deckmain').val(), originalSide = $('#deckside').val();
     var originalURL = $('#deckimport').val(), requestRevision = revision;
-    var downloadURL = DeckImport.downloadURL(originalURL);
-    if (!downloadURL) {
+    var target = DeckImport.parse(originalURL);
+    if (!target) {
       $('#deckimport').attr('aria-invalid', 'true');
       message(/mtgtop8\.com/i.test(originalURL) ?
         'Choose a specific deck on MTGTop8, then copy its link. The link needs a d= deck ID.' :
-        'Enter a valid MTGGoldfish or MTGTop8 deck URL.', 'error');
+        /moxfield\.com/i.test(originalURL) ?
+        'Open a single deck on Moxfield, then copy its link. It should look like moxfield.com/decks/\u2026' :
+        'Enter a valid MTGGoldfish, MTGTop8 or Moxfield deck URL.', 'error');
       return;
     }
-    var source = downloadURL.includes('mtggoldfish.com') ? 'MTGGoldfish' : 'MTGTop8';
+    var source = target.label;
     busy = true;
     refresh();
     $('#deckimport').attr('aria-invalid', 'false');
