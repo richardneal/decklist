@@ -179,6 +179,17 @@ function parseGET() {
   }
 }
 
+// The format the deck is checked against: the one chosen, or Auto-detect's guess
+function currentDeckFormat(parsedInput) {
+  return $('#deckformat').val() || Decklist.detectFormat(parsedInput);
+}
+
+// Sorts the sideboard for the sheet. A Commander deck's sideboard keeps the order it
+// was entered in, so an imported deck's commander stays on its first line
+function sortSideboard(parsedInput) {
+  return currentDeckFormat(parsedInput) === 'commander' ? parsedInput['side'] : Decklist.sort(parsedInput['side']);
+}
+
 // Calls the appropriate decklist function based on user selection and returns resulting jsPDF object
 function generateDecklistLayout(parsedInput) {
   const decksheetFormat = $('#decksheetformatselector input[name=decksheetformat]:checked').prop('id').replace('decksheet-', '');
@@ -205,7 +216,7 @@ function generateSCGDecklist(parsedInput) {
   // Create deck variables
   const maindeck = parsedInput['main'],
     maindeck_count = Decklist.count(maindeck),
-    sideboard = Decklist.sort(parsedInput['side']),
+    sideboard = sortSideboard(parsedInput),
     sideboard_count = Decklist.count(sideboard),
     letter_page_h = 792; // width is 612pt but not referenced, so no variable
 
@@ -744,7 +755,7 @@ function generateStandardDecklist(parsedInput) {
   // Create deck variables
   const maindeck = Decklist.section(Decklist.sort(parsedInput['main'])),
     maindeck_count = Decklist.count(maindeck),
-    sideboard = Decklist.sort(parsedInput['side']),
+    sideboard = sortSideboard(parsedInput),
     sideboard_count = Decklist.count(sideboard);
 
   // Add the logo from cache
@@ -1365,7 +1376,7 @@ function validateInput(parsedLists) {
   // check the deck against its format (size, copies, legality); Auto-detect guesses
   // the format from the deck's shape, and says which it chose
   const chosenFormat = $('#deckformat').val(),
-    deckFormat = chosenFormat || Decklist.detectFormat(parsedLists),
+    deckFormat = currentDeckFormat(parsedLists),
     formatCheck = Decklist.check(parsedLists, deckFormat);
   $('#deckformat option[value=""]').text(chosenFormat || maindeck_count + sideboard_count === 0 ? 'Auto-detect' :
     'Auto-detect (' + Decklist.formats[deckFormat].name + ')');

@@ -33,7 +33,7 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
    - PDF generation using jsPDF
    - URL parameter parsing for direct linking
    - History state management for permalinks
-   - Input validation with debounced updates (400ms for validation, 1500ms for PDF generation); deck size, copy and legality checks come from `Decklist.check()` for the format in `#deckformat` (empty means auto-detect, and the Auto-detect option's text names the format it picked)
+   - Input validation with debounced updates (400ms for validation, 1500ms for PDF generation); deck size, copy and legality checks come from `Decklist.check()` for the format in `#deckformat` (empty means auto-detect, and the Auto-detect option's text names the format it picked). Both sheets sort the sideboard with the main deck's sort order, except a Commander deck's (`sortSideboard()`), which keeps the order it was entered in so an imported commander stays on its first line
 
 3. **deckimport.js** - MTGGoldfish / MTGTop8 / Moxfield / Archidekt / Scryfall deck importing
    - `DeckImport.parse(value)` - Describes a recognized deck link as `{source, label, id, url}`; returns `null` for any other host, a URL carrying credentials or an explicit port, a non-http(s) scheme, or a missing/malformed deck ID. A Moxfield ID must be 16–32 base64url characters, which keeps routes such as `/decks/public` from reading as a deck; an Archidekt ID is numeric, optionally followed by the deck's name slug; a Scryfall ID is the UUID in `scryfall.com/@user/decks/<uuid>`, lowercased
@@ -125,7 +125,7 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 - `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection, export splitting, and the imported deck's format
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, the `X-Deck-Format` header, and failure handling
-- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
+- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, a Commander sideboard's order, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
 
   ```bash
   npm ci --prefix tests/browser
