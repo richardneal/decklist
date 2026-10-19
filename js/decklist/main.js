@@ -1637,25 +1637,36 @@ function loadLogos() {
 function initDarkMode() {
   const darkModeToggle = document.getElementById('darkModeToggle');
   const darkModeIcon = document.getElementById('darkModeIcon');
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-  // Check localStorage for dark mode preference
-  const isDarkMode = localStorage.getItem('darkMode') === 'true';
-
-  if (isDarkMode) {
-    document.body.classList.add('dark-mode');
-    darkModeIcon.textContent = '☀️';
+  function applyDarkMode(isDark) {
+    document.body.classList.toggle('dark-mode', isDark);
+    darkModeIcon.textContent = isDark ? '☀️' : '🌙';
   }
+
+  // A saved choice wins; with none, follow the system setting
+  const saved = localStorage.getItem('darkMode');
+  applyDarkMode(saved === null ? systemDark.matches : saved === 'true');
+
+  // Follow system changes while there's no saved choice
+  systemDark.addEventListener('change', function(e) {
+    if (localStorage.getItem('darkMode') === null) {
+      applyDarkMode(e.matches);
+    }
+  });
 
   // Toggle dark mode on button click
   darkModeToggle.addEventListener('click', function() {
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
+    const isDark = !document.body.classList.contains('dark-mode');
+    applyDarkMode(isDark);
 
-    // Update icon
-    darkModeIcon.textContent = isDark ? '☀️' : '🌙';
-
-    // Save preference
-    localStorage.setItem('darkMode', isDark);
+    // Save only a choice that differs from the system, so switching
+    // back to the system's mode resumes following it
+    if (isDark === systemDark.matches) {
+      localStorage.removeItem('darkMode');
+    } else {
+      localStorage.setItem('darkMode', isDark);
+    }
 
     // Track dark mode toggle
     if (typeof posthog !== 'undefined') {

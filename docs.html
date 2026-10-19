@@ -97,33 +97,40 @@
 
   <!-- Dark mode script -->
   <script>
-    // Initialize dark mode from localStorage before page renders
-    if (localStorage.getItem('darkMode') === 'true') {
-      document.documentElement.classList.add('dark-mode');
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
       const body = document.body;
       const darkModeToggle = document.getElementById('darkModeToggle');
       const darkModeIcon = document.getElementById('darkModeIcon');
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-      // Apply saved dark mode preference
-      const isDarkMode = localStorage.getItem('darkMode') === 'true';
-      if (isDarkMode) {
-        body.classList.add('dark-mode');
-        darkModeIcon.textContent = '☀️';
+      function applyDarkMode(isDark) {
+        body.classList.toggle('dark-mode', isDark);
+        darkModeIcon.textContent = isDark ? '☀️' : '🌙';
       }
+
+      // A saved choice wins; with none, follow the system setting
+      const saved = localStorage.getItem('darkMode');
+      applyDarkMode(saved === null ? systemDark.matches : saved === 'true');
+
+      // Follow system changes while there's no saved choice
+      systemDark.addEventListener('change', function(e) {
+        if (localStorage.getItem('darkMode') === null) {
+          applyDarkMode(e.matches);
+        }
+      });
 
       // Toggle dark mode
       darkModeToggle.addEventListener('click', function() {
-        body.classList.toggle('dark-mode');
-        const isDark = body.classList.contains('dark-mode');
+        const isDark = !body.classList.contains('dark-mode');
+        applyDarkMode(isDark);
 
-        // Update icon
-        darkModeIcon.textContent = isDark ? '☀️' : '🌙';
-
-        // Save preference
-        localStorage.setItem('darkMode', isDark);
+        // Save only a choice that differs from the system, so switching
+        // back to the system's mode resumes following it
+        if (isDark === systemDark.matches) {
+          localStorage.removeItem('darkMode');
+        } else {
+          localStorage.setItem('darkMode', isDark);
+        }
       });
 
       // Update year
