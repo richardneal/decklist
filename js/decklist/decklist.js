@@ -400,5 +400,98 @@ var Decklist = {
       }
       return include;
     });
+  },
+
+  // The formats a deck can be checked against. code is the letter the card data's
+  // b (not legal) and r (restricted) fields write the format as; Other constructed
+  // and Limited have no card pool to check
+  formats: {
+    standard:    { name: 'Standard',          rules: 'constructed', code: 's' },
+    pioneer:     { name: 'Pioneer',           rules: 'constructed', code: 'p' },
+    modern:      { name: 'Modern',            rules: 'constructed', code: 'm' },
+    legacy:      { name: 'Legacy',            rules: 'constructed', code: 'l' },
+    vintage:     { name: 'Vintage',           rules: 'constructed', code: 'v' },
+    pauper:      { name: 'Pauper',            rules: 'constructed', code: 'u' },
+    commander:   { name: 'Commander',         rules: 'commander',   code: 'c' },
+    constructed: { name: 'Other constructed', rules: 'constructed' },
+    limited:     { name: 'Limited',           rules: 'limited' }
+  },
+
+  // Guesses a parsed deck's format. A Commander deck shows by its shape: 99 or so
+  // cards in the main deck, and only its commanders and a companion in the sideboard.
+  // Any other deck gets the narrowest format it passes the checks for, so a guess
+  // never reports a card as illegal; only a chosen format can
+  // Accepts a parse() result
+  // Returns a key of Decklist.formats
+  detectFormat: function(deck) {
+    if (Decklist.count(deck.main) >= 90 && Decklist.count(deck.side) <= 3) {
+      return 'commander';
+    }
+    if (!deck.main.length && !deck.side.length) {
+      return 'constructed';
+    }
+    const narrowest = ['standard', 'pioneer', 'pauper', 'modern', 'legacy', 'vintage'].find(function(format) {
+      const problems = Decklist.check(deck, format).deckmain;
+      return !problems.some(function(problem) { return problem['error'] === 'illegal' || problem['error'] === 'restricted'; });
+    });
+    return narrowest || 'constructed';
+  },
+
+  // Checks a parsed deck against the rules of a format
+  // Accepts a parse() result and a key of Decklist.formats
+  // Returns {deckmain: [...], deckside: [...]}, each a list of validation objects
+  // ({error: type} or {warning: type}, with data where the message needs it)
+  check: function(deck, format) {
+    const definition = Decklist.formats[format] || Decklist.formats.constructed,
+      main = Decklist.count(deck.main),
+      side = Decklist.count(deck.side),
+      result = { deckmain: [], deckside: [] };
+
+    if (definition.rules === 'commander') {
+      // 100 cards, commanders included; a companion starts outside the game, so a
+      // sideboard of two or more may hold one beyond the 100
+      if (main + side < 100) {
+        result.deckmain.push({ error: 'commandertoosmall', data: main + side });
+      } else if (main + side > (side >= 2 ? 101 : 100)) {
+        result.deckmain.push({ error: 'commandertoolarge', data: main + side });
+      }
+      if (side === 0)    { result.deckside.push({ warning: 'nocommander' });   }
+      else if (side > 3) { result.deckside.push({ warning: 'commanderside' }); }
+    } else if (definition.rules === 'limited') {
+      if (main < 40) { result.deckmain.push({ error: 'toosmall', data: 40 }); }
+      return result;
+    } else {
+      if ((main === 0) || (main > 60)) { result.deckmain.push({ warning: 'size' });             }
+      else if (main < 60)              { result.deckmain.push({ error: 'toosmall', data: 60 }); }
+      if (side > 15) { result.deckside.push({ error: 'toolarge' });   }
+      if (side < 15) { result.deckside.push({ warning: 'toosmall' }); }
+    }
+
+    // copies across the main deck and sideboard: a card's own text (x) beats the
+    // format's limit, and a card restricted in the format is limited to one
+    const totals = new Map(), excess = [], restricted = [], illegal = [];
+    deck.main.concat(deck.side).forEach(function(card) {
+      const total = totals.get(card['n']);
+      if (total) { total['q'] += card['q']; } else { totals.set(card['n'], Object.assign({}, card)); }
+    });
+    totals.forEach(function(card) {
+      const isRestricted = definition.code && (card['r'] || '').includes(definition.code),
+        limit = 'x' in card ? (card['x'] || Infinity) :
+          (definition.rules === 'commander' || isRestricted) ? 1 : 4;
+      if (card['q'] > limit) {
+        if (isRestricted && !('x' in card)) {
+          restricted.push(card['n']);
+        } else {
+          excess.push('x' in card ? card['n'] + ' (up to ' + limit + ')' : card['n']);
+        }
+      }
+      if (definition.code && (card['b'] || '').includes(definition.code)) {
+        illegal.push(card['n']);
+      }
+    });
+    if (excess.length)     { result.deckmain.push({ error: 'quantity', data: { cards: excess, rules: definition.rules } }); }
+    if (restricted.length) { result.deckmain.push({ error: 'restricted', data: { cards: restricted, format: definition.name } }); }
+    if (illegal.length)    { result.deckmain.push({ error: 'illegal', data: { cards: illegal, format: definition.name } }); }
+    return result;
   }
 }

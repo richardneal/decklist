@@ -78,3 +78,63 @@ test('finds double-faced and adventure cards spelled out in full', () => {
   // Split cards are stored under both halves, so they still match in full.
   assert.equal(decklist.parse('1 Fire // Ice', '').main[0].n, 'Fire // Ice');
 });
+
+// Arrays made inside the vm don't deep-equal ours, so copy them out
+const deckOf = (main, side = '') => decklist.parse(main, side);
+const errors = (deck, format) => {
+  const result = decklist.check(deck, format);
+  return [...result.deckmain, ...result.deckside].map(problem => problem.error || problem.warning);
+};
+
+test('detects a Commander deck by its shape, with the commander in the sideboard', () => {
+  const deck = deckOf('1 Sol Ring\n1 Arcane Signet\n97 Island', "1 Atraxa, Praetors' Voice");
+  assert.equal(decklist.detectFormat(deck), 'commander');
+  assert.deepEqual(errors(deck, 'commander'), []);
+  // Before the commander moved to the sideboard, imports put it in the main deck
+  const unmoved = deckOf("1 Atraxa, Praetors' Voice\n1 Sol Ring\n1 Arcane Signet\n97 Island");
+  assert.equal(decklist.detectFormat(unmoved), 'commander');
+  assert.deepEqual(errors(unmoved, 'commander'), ['nocommander']);
+});
+test('holds a Commander deck to 100 singleton cards legal in Commander', () => {
+  assert.deepEqual(errors(deckOf('1 Sol Ring\n97 Island', "1 Atraxa, Praetors' Voice"), 'commander'), ['commandertoosmall']);
+  // A companion may sit beside the commander, beyond the 100
+  assert.deepEqual(errors(deckOf('1 Sol Ring\n98 Island', "1 Atraxa, Praetors' Voice\n1 Lurrus of the Dream-Den"), 'commander'), []);
+  assert.deepEqual(errors(deckOf('1 Sol Ring\n99 Island', "1 Atraxa, Praetors' Voice"), 'commander'), ['commandertoolarge']);
+  const deck = deckOf('2 Sol Ring\n1 Dockside Extortionist\n7 Seven Dwarves\n89 Island', "1 Atraxa, Praetors' Voice");
+  const problems = decklist.check(deck, 'commander').deckmain;
+  assert.deepEqual([...problems].map(problem => problem.error), ['quantity', 'illegal']);
+  assert.deepEqual([...problems[0].data.cards], ['Sol Ring']);
+  assert.deepEqual([...problems[1].data.cards], ['Dockside Extortionist']);
+});
+test('detects the narrowest constructed format a deck is legal in', () => {
+  assert.equal(decklist.detectFormat(deckOf('4 Llanowar Elves\n56 Forest')), 'standard');
+  assert.equal(decklist.detectFormat(deckOf('4 Counterspell\n56 Island')), 'pauper');
+  assert.equal(decklist.detectFormat(deckOf('4 Goblin Guide\n4 Lightning Bolt\n52 Mountain')), 'modern');
+  assert.equal(decklist.detectFormat(deckOf('4 Brainstorm\n4 Force of Will\n52 Island')), 'legacy');
+  assert.equal(decklist.detectFormat(deckOf('1 Black Lotus\n1 Brainstorm\n58 Island')), 'vintage');
+  assert.equal(decklist.detectFormat(deckOf('4 Black Lotus\n56 Island')), 'constructed');
+  assert.equal(decklist.detectFormat(deckOf('')), 'constructed');
+});
+test('reports cards a chosen format bans or restricts', () => {
+  const deck = deckOf('4 Brainstorm\n4 Force of Will\n4 Goblin Guide\n48 Island', '15 Island');
+  assert.deepEqual(errors(deck, 'legacy'), []);
+  const vintage = decklist.check(deck, 'vintage').deckmain;
+  assert.deepEqual([...vintage].map(problem => problem.error), ['restricted']);
+  assert.deepEqual([...vintage[0].data.cards], ['Brainstorm']);
+  const modern = decklist.check(deck, 'modern').deckmain;
+  assert.deepEqual([...modern].map(problem => problem.error), ['illegal']);
+  assert.deepEqual([...modern[0].data.cards], ['Brainstorm', 'Force of Will']);
+  // Other constructed checks only sizes and copies
+  assert.deepEqual(errors(deckOf('5 Brainstorm\n55 Island', '15 Island'), 'constructed'), ['quantity']);
+});
+test('honors the copy limits cards set for themselves', () => {
+  assert.deepEqual(errors(deckOf('7 Seven Dwarves\n53 Mountain', '15 Mountain'), 'modern'), []);
+  const problems = decklist.check(deckOf('8 Seven Dwarves\n52 Mountain', '15 Mountain'), 'modern').deckmain;
+  assert.deepEqual([...problems[0].data.cards], ['Seven Dwarves (up to 7)']);
+});
+test('checks Limited decks for size alone', () => {
+  assert.deepEqual(errors(deckOf('6 Grizzly Bears\n17 Forest\n17 Mountain', '30 Lightning Bolt'), 'limited'), []);
+  assert.deepEqual(errors(deckOf('6 Grizzly Bears\n33 Forest'), 'limited'), ['toosmall']);
+  // Constructed would also hold the Bears to 4 copies
+  assert.deepEqual(errors(deckOf('6 Grizzly Bears\n33 Forest'), 'constructed'), ['toosmall', 'quantity', 'toosmall']);
+});

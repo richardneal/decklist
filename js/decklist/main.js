@@ -39,7 +39,7 @@ $(document).ready(function() {
   logosReady = loadLogos();
 
   // bind events to all the input fields on the left side, to generate a PDF on change
-  $('div.left input:not([type="checkbox"]), div.left textarea').on('input', pdfChangeWait);
+  $('div.left input:not([type="checkbox"]), div.left textarea, div.left select').on('input', pdfChangeWait);
   $('#eventdate').change(pdfChangeWait);
   // radios and checkboxes are single clicks, not typing, so regenerate right away
   $('input[type="radio"], input[type="checkbox"]').change(function() {
@@ -139,6 +139,7 @@ function parseGET() {
     'eventlocation',
     'deckname',
     'deckdesigner',
+    'deckformat',
     'deckimport',
     'deckmain',
     'deckside'
@@ -156,6 +157,11 @@ function parseGET() {
       }
     }
   });
+
+  // an unknown deckformat selects no option at all; fall back to Auto-detect
+  if ($('#deckformat').val() === null) {
+    $('#deckformat').val('');
+  }
 
   // Generate the preview once the artwork is in the cache
   logosReady.then(function() {
@@ -1187,7 +1193,7 @@ function generatePermalinkSync(includeBlank = false) {
   // Use current origin to avoid SecurityError on localhost
   let rv = window.location.origin + '/';
 
-  const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner'];
+  const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
   let firstParam = true; // flag to track if any parameter has been appended
   params.forEach(function(param) {
     const field = '#' + param;
@@ -1212,7 +1218,7 @@ async function generatePermalink(includeBlank = false) {
   // Always use production URL for sharing, even on localhost
   let rv = 'https://decklist.nealston.com/';
 
-  const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner'];
+  const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
   let firstParam = true;
   params.forEach(function(param) {
     const field = '#' + param;
@@ -1304,7 +1310,8 @@ function validateInput(parsedLists) {
   // value = array of error objects: {error_level: error_type}
   // error levels include 'warning' and 'error'
   // error types include 'blank', 'nonnum', 'toolarge', 'toosmall',
-  //       'size', 'unrecognized', 'quantity', 'futuredate', 'continued'
+  //       'size', 'unrecognized', 'quantity', 'futuredate', 'continued',
+  //       and the format checks from Decklist.check()
   // error objects may have other keys (eg. data) which contain extra information
   const validate = {
     'firstname': [],
@@ -1355,9 +1362,17 @@ function validateInput(parsedLists) {
     if ($('#eventlocation').val() === '') { validate.eventlocation.push({ warning: 'blank' }); }
   }
 
-  // check maindeck (size, number of unique cards)
-  if ((maindeck_count === 0) || (maindeck_count > 60)) { validate.deckmain.push({ warning: 'size' });   }
-  else if (maindeck_count < 60)                        { validate.deckmain.push({ error: 'toosmall' }); }
+  // check the deck against its format (size, copies, legality); Auto-detect guesses
+  // the format from the deck's shape, and says which it chose
+  const chosenFormat = $('#deckformat').val(),
+    deckFormat = chosenFormat || Decklist.detectFormat(parsedLists),
+    formatCheck = Decklist.check(parsedLists, deckFormat);
+  $('#deckformat option[value=""]').text(chosenFormat || maindeck_count + sideboard_count === 0 ? 'Auto-detect' :
+    'Auto-detect (' + Decklist.formats[deckFormat].name + ')');
+  validate.deckmain.push(...formatCheck.deckmain);
+  validate.deckside.push(...formatCheck.deckside);
+
+  // check maindeck (fits the sheet)
   if (decksheetFormat === 'wotc') {
     const separateBasicLands = $('#separate-basic-lands').is(':checked'),
       rows = standardMainDeckRows(Decklist.section(Decklist.sort(maindeck.slice())), separateBasicLands),
@@ -1370,23 +1385,7 @@ function validateInput(parsedLists) {
     }
   }
 
-  // check sideboard (size)
-  if (sideboard_count > 15) { validate.deckside.push({ error: 'toolarge' });   }
-  if (sideboard_count < 15) { validate.deckside.push({ warning: 'toosmall' }); }
-
-  // check combined main/sb (quantity of each unique card, unrecognized cards)
-  const mainPlusSide = combineDecks(parsedLists['main'], parsedLists['side']),
-    excessCards = [];
-  const allowedDupes = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
-    'Snow-Covered Plains', 'Snow-Covered Island', 'Snow-Covered Swamp', 'Snow-Covered Mountain',
-    'Snow-Covered Forest', 'Wastes', 'Relentless Rats', 'Shadowborn Apostle'];
-  mainPlusSide.forEach(function(card) {
-    if (card['q'] > 4 && !allowedDupes.includes(card['n'])) {
-      excessCards.push(card['n']);
-    }
-  });
-  if (excessCards.length) { validate.deckmain.push({ error: 'quantity', data: excessCards }); }
-
+  // check for unrecognized and unparseable cards
   if (unrecognized.length !== 0) {
     validate.deckmain.push({ warning: 'unrecognized', data: unrecognized });
   }
@@ -1396,32 +1395,6 @@ function validateInput(parsedLists) {
 
   // pass validation data to output status/tooltip information
   statusAndTooltips(validate);
-
-  // functions
-
-  // combines any number of decks into one deck (combines quantities for duplicate entries)
-  function combineDecks(...lists) {
-    const combinedList = [];
-    lists.forEach(function (list) {
-      list.forEach(function (card) {
-        let inCombinedList = false;
-        for (var i = 0; i < combinedList.length; i++) {
-          if (card['n'] === combinedList[i]['n']) {
-            inCombinedList = true;
-            break;
-          }
-        }
-        if (inCombinedList) {
-          combinedList[i]['q'] += card['q'];
-        } else {
-          // deep clone object when adding to list to avoid pointer issues when
-          // incrementing its size if it is duplicated
-          combinedList.push(Object.assign({}, card));
-        }
-      });
-    });
-    return combinedList;
-  }
 }
 
 
@@ -1503,7 +1476,10 @@ function statusAndTooltips(valid) {
         if (validationObject['warning'] === 'size') {
           notifications.push(prop, ['Most decks consist of exactly 60 cards', validType]); }
         else if (validationObject['error'] === 'toosmall') {
-          notifications.push(prop, ['Decks may not consist of less than 60 cards', validType]);
+          notifications.push(prop, ['Decks may not consist of less than ' + validationObject['data'] + ' cards', validType]);
+        } else if (validationObject['error'] === 'commandertoosmall' || validationObject['error'] === 'commandertoolarge') {
+          notifications.push(prop, ['Commander decks consist of exactly 100 cards, counting the commander (this one has ' +
+            validationObject['data'] + ')', validType]);
         } else if (validationObject['warning'] === 'continued') {
           const extraPages = validationObject['data'];
           notifications.push(prop, ['The first page has room for 44 rows (including spaces), so the main deck continues on ' +
@@ -1511,9 +1487,19 @@ function statusAndTooltips(valid) {
         } else if (validationObject['error'] === 'sectiontoolarge') {
           notifications.push(prop, ['This PDF only has space for up to 15 cards per section (including spaces)', validType]);
         } else if (validationObject['error'] === 'quantity') {
-          // include a list of cards that exceed 4 across the main/side
-          const excessCardsHtml = '<ul><li>' + validationObject['data'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['The following cards exceed 4 copies:' + excessCardsHtml, validType]);
+          // include a list of cards that exceed their limit across the main/side
+          const excessCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
+          notifications.push(prop, [(validationObject['data']['rules'] === 'commander' ?
+            'Commander decks may hold only one copy of each card other than basic lands:' :
+            'The following cards exceed 4 copies:') + excessCardsHtml, validType]);
+        } else if (validationObject['error'] === 'restricted') {
+          const restrictedCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
+          notifications.push(prop, ['The following cards are restricted in ' + validationObject['data']['format'] +
+            ', so a deck may hold only one copy:' + restrictedCardsHtml, validType]);
+        } else if (validationObject['error'] === 'illegal') {
+          const illegalCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
+          notifications.push(prop, ['The following cards are not legal in ' + validationObject['data']['format'] + ':' +
+            illegalCardsHtml, validType]);
         } else if (validationObject['warning'] === 'unrecognized') {
           // include a list of unrecognized card names
           const unrecognizedCardsHtml = '<ul><li>' + validationObject['data'].join('</li><li>') + '</li></ul>';
@@ -1528,6 +1514,10 @@ function statusAndTooltips(valid) {
           notifications.push(prop, ['Most sideboards consist of exactly 15 cards', validType]);
         } else if (validationObject['error'] === 'toolarge') {
           notifications.push(prop, ['Sideboards may not consist of more than 15 cards', validType]);
+        } else if (validationObject['warning'] === 'nocommander') {
+          notifications.push(prop, ['List your commander in the sideboard', validType]);
+        } else if (validationObject['warning'] === 'commanderside') {
+          notifications.push(prop, ['A Commander deck\'s sideboard holds only its commander and any companion', validType]);
         }
       }
     }
@@ -1721,6 +1711,7 @@ function initDeckManagement() {
       deckdesigner: $('#deckdesigner').val(),
       deckmain: $('#deckmain').val(),
       deckside: $('#deckside').val(),
+      deckformat: $('#deckformat').val(),
       sortorder: $('input[name="sortorder"]:checked').prop('id'),
       decksheet: $('input[name="decksheetformat"]:checked').prop('id'),
       separateBasicLands: $('#separate-basic-lands').is(':checked'),
@@ -1761,6 +1752,8 @@ function initDeckManagement() {
     $('#deckdesigner').val(deckData.deckdesigner || '');
     $('#deckmain').val(deckData.deckmain || '');
     $('#deckside').val(deckData.deckside || '');
+    $('#deckformat').val(deckData.deckformat || '');
+    if ($('#deckformat').val() === null) { $('#deckformat').val(''); }
     $('#separate-basic-lands').prop('checked', deckData.separateBasicLands || false);
 
     // Restore sort order
@@ -1791,7 +1784,7 @@ function initDeckManagement() {
     }
 
     // Clear all input fields
-    $('#firstname, #lastname, #event, #eventdate, #eventlocation, #deckname, #deckdesigner, #deckimport, #deckmain, #deckside').val('');
+    $('#firstname, #lastname, #event, #eventdate, #eventlocation, #deckname, #deckdesigner, #deckformat, #deckimport, #deckmain, #deckside').val('');
     $('#separate-basic-lands').prop('checked', false);
 
     // Reset to default sort order

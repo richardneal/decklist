@@ -52,6 +52,16 @@ export function upstreamURL(source, id) {
   return definition && definition.id.test(id || '') ? definition.url(id) : null;
 }
 
+// The formats the frontend checks a deck against, as Moxfield and Scryfall name them;
+// Archidekt numbers its formats instead. A deck in any other format reports none.
+const FORMATS = new Set(['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander']);
+const ARCHIDEKT_FORMATS = new Map([[1, 'standard'], [2, 'modern'], [3, 'commander'], [4, 'legacy'],
+  [5, 'vintage'], [6, 'pauper'], [15, 'pioneer']]);
+
+function knownFormat(name) {
+  return typeof name === 'string' && FORMATS.has(name.toLowerCase()) ? name.toLowerCase() : null;
+}
+
 // Writes main and side boards of [name, quantity] pairs as quantity-prefixed decklist
 // text, merging separate printings of one card, since a decklist names each card once.
 function deckText(main, side) {
@@ -67,7 +77,8 @@ function deckText(main, side) {
   return lines(main).concat(sideLines.length ? ['Sideboard'].concat(sideLines) : []).join('\n');
 }
 
-// Collapses the boards of a Moxfield deck into quantity-prefixed decklist text.
+// Collapses the boards of a Moxfield deck into quantity-prefixed decklist text, and
+// reads its format.
 export function moxfieldDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Moxfield did not return deck data.'); }
@@ -76,22 +87,25 @@ export function moxfieldDeck(text) {
   }
   const board = names => names.flatMap(name => Object.values(deck.boards[name]?.cards || {}))
     .map(entry => [entry?.card?.name, entry?.quantity]);
-  // A commander belongs on the main decklist; a companion is played from the sideboard.
-  return deckText(board(['commanders', 'mainboard']), board(['sideboard', 'companions']));
+  // Commander has no sideboard, so the commander leads it, where sorting the main deck
+  // cannot bury it among the other creatures; a companion is played from there too.
+  return { text: deckText(board(['mainboard']), board(['commanders', 'sideboard', 'companions'])),
+    format: knownFormat(deck.format) };
 }
 
-// Collapses an Archidekt deck into quantity-prefixed decklist text. Archidekt keeps its
-// boards as categories, and a card's first category is the one that places it: the
-// Sideboard category is the sideboard, and any other category marked as left out of the
-// deck (the Maybeboard, say) is dropped. A companion is played from the sideboard,
-// whether Archidekt flags it or the player filed it under a Companion category.
+// Collapses an Archidekt deck into quantity-prefixed decklist text, and reads its
+// format. Archidekt keeps its boards as categories, and a card's first category is the
+// one that places it: the Sideboard category is the sideboard, and any other category
+// marked as left out of the deck (the Maybeboard, say) is dropped. The commander leads
+// the sideboard, and a companion is played from there, whether Archidekt flags it or the
+// player filed it under a Companion category.
 export function archidektDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Archidekt did not return deck data.'); }
   if (!deck || !Array.isArray(deck.cards)) throw new Error('Archidekt did not return deck data.');
   const categories = Array.isArray(deck.categories) ? deck.categories.filter(Boolean) : [];
   const excluded = new Set(categories.filter(category => category.includedInDeck === false).map(category => category.name));
-  // Premier categories hold the commander, which leads the main deck.
+  // Premier categories hold the commander, which leads the sideboard.
   const premier = new Set(categories.filter(category => category.isPremier).map(category => category.name));
   const commanders = [], main = [], side = [];
   for (const entry of deck.cards) {
@@ -101,21 +115,22 @@ export function archidektDeck(text) {
     else if (premier.has(category)) commanders.push(card);
     else if (!excluded.has(category)) main.push(card);
   }
-  return deckText(commanders.concat(main), side);
+  return { text: deckText(main, commanders.concat(side)), format: ARCHIDEKT_FORMATS.get(deck.deckFormat) || null };
 }
 
-// Collapses a Scryfall deck into quantity-prefixed decklist text. The sections follow the
-// deck's layout: a constructed deck has a mainboard and a sideboard, a Commander deck its
-// commanders, nonlands and lands, plus cards from outside the game (a companion, say),
-// which a registration sheet lists as the sideboard. The maybeboard is dropped, as are
-// blank entries Scryfall could not match to a card.
+// Collapses a Scryfall deck into quantity-prefixed decklist text, and reads its format.
+// The sections follow the deck's layout: a constructed deck has a mainboard and a
+// sideboard, a Commander deck its nonlands and lands, plus its commanders and cards from
+// outside the game (a companion, say), which a registration sheet lists as the sideboard.
+// The maybeboard is dropped, as are blank entries Scryfall could not match to a card.
 export function scryfallDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Scryfall did not return deck data.'); }
   if (!deck || !deck.entries || typeof deck.entries !== 'object') throw new Error('Scryfall did not return deck data.');
   const board = names => names.flatMap(name => Array.isArray(deck.entries[name]) ? deck.entries[name] : [])
     .map(entry => [entry?.card_digest?.name, entry?.count]);
-  return deckText(board(['commanders', 'mainboard', 'nonlands', 'lands']), board(['sideboard', 'outside']));
+  return { text: deckText(board(['mainboard', 'nonlands', 'lands']), board(['commanders', 'sideboard', 'outside'])),
+    format: knownFormat(deck.format) };
 }
 
 async function readBody(response, limit = MAX_BYTES) {
@@ -164,7 +179,7 @@ export async function handle(request, env, ctx, services = {}) {
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Vary': 'Origin',
-      ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+      ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Expose-Headers': 'X-Deck-Format' } : {}),
       ...extra
     } });
   }
@@ -183,7 +198,10 @@ export async function handle(request, env, ctx, services = {}) {
   const cache = services.cache || caches.default;
   const key = new Request(url.origin + '/api/import?source=' + source + '&id=' + id);
   const cached = await cache.match(key);
-  if (cached) return reply(await cached.text());
+  if (cached) {
+    const format = cached.headers.get('X-Deck-Format');
+    return reply(await cached.text(), 200, format ? { 'X-Deck-Format': format } : {});
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
@@ -197,12 +215,14 @@ export async function handle(request, env, ctx, services = {}) {
       return reply('The deck source returned HTTP ' + response.status + '. Try exporting and pasting the deck text.', 502);
     }
     const body = await readBody(response, definition.limit);
-    const text = validateDeck(definition.convert ? definition.convert(body) : body);
+    // The JSON sources also name the deck's format; the text exports carry none.
+    const deck = definition.convert ? definition.convert(body) : { text: body };
+    const text = validateDeck(deck.text), format = deck.format ? { 'X-Deck-Format': deck.format } : {};
     // Cache only validated data; add origin-specific headers after retrieving it.
     ctx.waitUntil(cache.put(key, new Response(text, {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=300' }
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=300', ...format }
     })).catch(() => {}));
-    return reply(text);
+    return reply(text, 200, format);
   } catch (error) {
     console.error('Deck import failed:', error.name, error.message);
     if (controller.signal.aborted) return reply('The deck source timed out. Please try again.', 504);

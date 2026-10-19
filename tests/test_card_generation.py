@@ -58,8 +58,8 @@ class CardGenerationTests(unittest.TestCase):
         playtest = card('Pick Your Poison', ['CMB1'], types=['Sorcery'], colors=['B', 'G'])[0]
         playtest.update(isFunny=True, convertedManaCost=5.0)
         real = card('Pick Your Poison', ['MKM'], types=['Sorcery'], colors=['G'])[0]
-        real.update(convertedManaCost=1.0, legalities={
-            'standard': 'Legal', 'modern': 'Legal', 'legacy': 'Legal'})
+        real.update(convertedManaCost=1.0, legalities=dict.fromkeys(
+            ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander'], 'Legal'))
         unsanctioned = card('Everythingamajig', ['UST'], types=['Artifact'], colors=[])
         unsanctioned[0]['convertedManaCost'] = 5.0
         unsanctioned.append(dict(unsanctioned[0], convertedManaCost=6.0))
@@ -109,9 +109,9 @@ class CardGenerationTests(unittest.TestCase):
                      colors=['U'], convertedManaCost=1.0)],
         })
         self.assertEqual(result['the mightstone and weakstone'],
-                         {'c': 'G', 't': '5', 'm': 5.0, 'b': 'sml', 'n': 'The Mightstone and Weakstone'})
+                         {'c': 'G', 't': '5', 'm': 5.0, 'b': 'spmlvuc', 'n': 'The Mightstone and Weakstone'})
         self.assertEqual(result['urza, lord protector'],
-                         {'c': 'F', 't': '2', 'm': 3.0, 'b': 'sml', 'n': 'Urza, Lord Protector'})
+                         {'c': 'F', 't': '2', 'm': 3.0, 'b': 'spmlvuc', 'n': 'Urza, Lord Protector'})
         self.assertEqual(result['urza, planeswalker']['n'], 'Urza, Planeswalker')
         self.assertNotIn('the mightstone and weakstone // urza, planeswalker', result)
         self.assertNotIn('urza, lord protector // urza, planeswalker', result)
@@ -172,9 +172,9 @@ class CardGenerationTests(unittest.TestCase):
             'Forest': card('Forest', types=['Land'], colors=[]),
         })
         self.assertEqual(result['akki lavarunner'],
-                         {'c': 'D', 't': '2', 'm': 4.0, 'b': 'sml', 'n': 'Akki Lavarunner'})
+                         {'c': 'D', 't': '2', 'm': 4.0, 'b': 'spmlvuc', 'n': 'Akki Lavarunner'})
         self.assertEqual(result['emeritus of woe'],
-                         {'c': 'C', 't': '2', 'm': 4.0, 'b': 'sml', 'n': 'Emeritus of Woe'})
+                         {'c': 'C', 't': '2', 'm': 4.0, 'b': 'spmlvuc', 'n': 'Emeritus of Woe'})
         self.assertEqual(result['demonic tutor']['n'], 'Demonic Tutor')
         self.assertEqual(result['demonic tutor']['t'], '3')
         # Coloured by the spell too, as adventure cards are
@@ -184,6 +184,37 @@ class CardGenerationTests(unittest.TestCase):
         self.assertEqual(sorted(result), ['akki lavarunner', 'bloomvine regent',
                                           'blossom-blessed angel', 'demonic tutor',
                                           'emeritus of woe', 'forest'])
+
+    def test_records_legality_restrictions_and_copy_limits(self):
+        def legal(name, legalities, text='', supertypes=()):
+            entry = card(name)
+            entry[0].update(legalities=legalities, text=text, supertypes=list(supertypes))
+            return entry
+        result = generate({
+            # MTGJSON leaves out the formats a card is not legal in
+            'Brainstorm': legal('Brainstorm', {'legacy': 'Legal', 'vintage': 'Restricted',
+                                               'pauper': 'Legal', 'commander': 'Legal'}),
+            'Oko, Thief of Crowns': legal('Oko, Thief of Crowns', {
+                'standard': 'Banned', 'pioneer': 'Banned', 'modern': 'Banned', 'legacy': 'Banned',
+                'vintage': 'Legal', 'pauper': 'Not Legal', 'commander': 'Legal'}),
+            'Forest': legal('Forest', {}, supertypes=['Basic']),
+            'Relentless Rats': legal('Relentless Rats', {},
+                'This creature gets +1/+1 for each other creature on the battlefield named Relentless Rats.\n'
+                'A deck can have any number of cards named Relentless Rats.'),
+            'Seven Dwarves': legal('Seven Dwarves', {},
+                'A deck can have up to seven cards named Seven Dwarves.'),
+            'Once More with Feeling': legal('Once More with Feeling', {},
+                'A deck can have only one card named Once More with Feeling.'),
+        })
+        self.assertEqual(result['brainstorm']['b'], 'spm')
+        self.assertEqual(result['brainstorm']['r'], 'v')
+        self.assertEqual(result['oko, thief of crowns']['b'], 'spmlu')
+        self.assertNotIn('r', result['oko, thief of crowns'])
+        self.assertEqual(result['forest']['x'], 0)
+        self.assertEqual(result['relentless rats']['x'], 0)
+        self.assertEqual(result['seven dwarves']['x'], 7)
+        self.assertEqual(result['once more with feeling']['x'], 1)
+        self.assertNotIn('x', result['brainstorm'])
 
 if __name__ == '__main__':
     unittest.main()

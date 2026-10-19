@@ -71,7 +71,7 @@ test('does not cache source errors, HTML, oversized exports or network failures'
 });
 
 const MOXFIELD_ID = 'psDQiUrXLkSfMEyEc3oDTw';
-const MOXFIELD_JSON = JSON.stringify({ boards: {
+const MOXFIELD_JSON = JSON.stringify({ format: 'commander', boards: {
   commanders: { cards: { a: { quantity: 1, card: { name: 'Atraxa, Praetors\u2019 Voice' } } } },
   mainboard: { cards: {
     b: { quantity: 2, card: { name: 'Swamp' } },
@@ -85,15 +85,29 @@ const MOXFIELD_JSON = JSON.stringify({ boards: {
   maybeboard: { cards: { i: { quantity: 9, card: { name: 'Not In The Deck' } } } }
 } });
 
+test('reports the format of a JSON deck, from the cache too, and exposes it to the page', async () => {
+  const s = setup({ body: MOXFIELD_JSON });
+  for (let i = 0; i < 2; i++) {
+    const response = await s.run('?source=moxfield&id=' + MOXFIELD_ID);
+    assert.equal(response.headers.get('X-Deck-Format'), 'commander');
+    assert.equal(response.headers.get('Access-Control-Expose-Headers'), 'X-Deck-Format');
+  }
+  assert.equal(s.calls.length, 1);
+  // Formats the page cannot check, and the text exports, report none
+  const brawl = setup({ body: JSON.stringify({ ...JSON.parse(MOXFIELD_JSON), format: 'brawl' }) });
+  assert.equal((await brawl.run('?source=moxfield&id=' + MOXFIELD_ID)).headers.get('X-Deck-Format'), null);
+  assert.equal((await setup().run()).headers.get('X-Deck-Format'), null);
+});
+
 test('converts Moxfield deck JSON and sends the allowlisted User-Agent', async () => {
   const s = setup({ body: MOXFIELD_JSON });
   const response = await s.run('?source=moxfield&id=' + MOXFIELD_ID);
   assert.equal(response.status, 200);
-  // Commanders lead the main deck, printings of one card merge, and a companion
+  // Commanders lead the sideboard, printings of one card merge, and a companion
   // joins the sideboard; the maybeboard and zero-quantity entries are dropped.
   assert.equal(await response.text(), [
-    '1 Atraxa, Praetors\u2019 Voice', '4 Swamp', '4 Thoughtseize',
-    'Sideboard', '3 Negate', '1 Lurrus of the Dream-Den'
+    '4 Swamp', '4 Thoughtseize',
+    'Sideboard', '1 Atraxa, Praetors\u2019 Voice', '3 Negate', '1 Lurrus of the Dream-Den'
   ].join('\n'));
   assert.equal(s.calls[0].url, 'https://api2.moxfield.com/v3/decks/all/' + MOXFIELD_ID);
   assert.equal(s.calls[0].init.headers['User-Agent'], 'decklist-test/1.0');
@@ -128,7 +142,7 @@ test('accepts Moxfield JSON larger than the text-export cap, but not unbounded',
   const big = setup({ body: padded });
   const response = await big.run('?source=moxfield&id=' + MOXFIELD_ID);
   assert.equal(response.status, 200);
-  assert.match(await response.text(), /^1 Atraxa/);
+  assert.match(await response.text(), /^4 Swamp/);
 
   const huge = setup({ body: JSON.stringify({ note: 'x'.repeat(3 * 1024 * 1024) }) });
   assert.equal((await huge.run('?source=moxfield&id=' + MOXFIELD_ID)).status, 502);
@@ -136,6 +150,7 @@ test('accepts Moxfield JSON larger than the text-export cap, but not unbounded',
 });
 
 const ARCHIDEKT_JSON = JSON.stringify({
+  deckFormat: 3,
   categories: [
     { name: 'Commander', isPremier: true, includedInDeck: true },
     { name: 'Ramp', isPremier: false, includedInDeck: true },
@@ -161,13 +176,14 @@ test('converts Archidekt deck JSON, placing each card by its first category', as
   const s = setup({ body: ARCHIDEKT_JSON });
   const response = await s.run('?source=archidekt&id=123456');
   assert.equal(response.status, 200);
-  // The commander leads the main deck, uncategorized cards are main deck, printings
+  // The commander leads the sideboard, uncategorized cards are main deck, printings
   // merge, a card whose first category is excluded (the Maybeboard) is dropped, and a
   // companion joins the sideboard by flag or by category, even an excluded one.
   assert.equal(await response.text(), [
-    '1 Atraxa, Praetors’ Voice', '4 Swamp', '4 Thoughtseize',
-    'Sideboard', '1 Lurrus of the Dream-Den', '1 Yorion, Sky Nomad', '3 Negate'
+    '4 Swamp', '4 Thoughtseize',
+    'Sideboard', '1 Atraxa, Praetors’ Voice', '1 Lurrus of the Dream-Den', '1 Yorion, Sky Nomad', '3 Negate'
   ].join('\n'));
+  assert.equal(response.headers.get('X-Deck-Format'), 'commander');
   assert.equal(s.calls[0].url, 'https://archidekt.com/api/decks/123456/');
   assert.equal(s.calls[0].init.headers.Accept, 'application/json');
   assert.equal(s.calls[0].init.headers['User-Agent'], undefined);
@@ -191,7 +207,7 @@ const SCRYFALL_ID = '5b088ae5-153e-48a9-8a38-b59c68fb5739';
 const entry = (name, count) => ({ count, card_digest: { name } });
 
 test('converts a constructed Scryfall deck and names itself to the API', async () => {
-  const s = setup({ body: JSON.stringify({ layout: 'constructed', entries: {
+  const s = setup({ body: JSON.stringify({ format: 'pioneer', layout: 'constructed', entries: {
     mainboard: [entry('Island', 10), entry('Island', 7), entry('Spectral Sailor', 4), { count: 1, card_digest: null }],
     sideboard: [entry('Brazen Borrower // Petty Theft', 2)],
     maybeboard: [entry('Not In The Deck', 1)]
@@ -201,18 +217,19 @@ test('converts a constructed Scryfall deck and names itself to the API', async (
   // Printings merge, a blank entry Scryfall could not match is skipped, and the
   // maybeboard is dropped.
   assert.equal(await response.text(), '17 Island\n4 Spectral Sailor\nSideboard\n2 Brazen Borrower // Petty Theft');
+  assert.equal(response.headers.get('X-Deck-Format'), 'pioneer');
   assert.equal(s.calls[0].url, 'https://api.scryfall.com/decks/' + SCRYFALL_ID + '/export/json');
   assert.equal(s.calls[0].init.headers.Accept, 'application/json');
   assert.equal(s.calls[0].init.headers['User-Agent'], 'decklist-generic/1.0');
 });
-test('puts a Scryfall commander first and cards from outside the game in the sideboard', async () => {
+test('puts a Scryfall commander and cards from outside the game in the sideboard', async () => {
   const s = setup({ body: JSON.stringify({ layout: 'commander', entries: {
     nonlands: [entry('Sol Ring', 1)], lands: [entry('Plains', 30)],
     commanders: [entry('Rin and Seri, Inseparable', 1)],
     outside: [entry('Kaheera, the Orphanguard', 1)], maybeboard: [entry('Not In The Deck', 9)]
   } }) });
   assert.equal(await (await s.run('?source=scryfall&id=' + SCRYFALL_ID)).text(),
-    '1 Rin and Seri, Inseparable\n1 Sol Ring\n30 Plains\nSideboard\n1 Kaheera, the Orphanguard');
+    '1 Sol Ring\n30 Plains\nSideboard\n1 Rin and Seri, Inseparable\n1 Kaheera, the Orphanguard');
 });
 test('rejects malformed Scryfall IDs and decks with no usable cards', async () => {
   const s = setup();
