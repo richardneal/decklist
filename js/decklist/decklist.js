@@ -259,9 +259,7 @@ var Decklist = {
     }
     // sort by mana value, then alphabetically
     function manaValueCardSort(a, b) {
-      var manaValueA = a['m'] || 100,
-        manaValueB = b['m'] || 100;
-      return manaValueA - manaValueB || alphabeticalCardSort(a, b);
+      return Decklist.manaValueGroup(a) - Decklist.manaValueGroup(b) || alphabeticalCardSort(a, b);
     }
     // sort by color of cards, then alphabetically
     function colorCardSort(a, b) {
@@ -311,31 +309,41 @@ var Decklist = {
     sectionType = typeof sectionType === 'string' ? sectionType || formSectionType : formSectionType;
 
     if (sectionType === 'manavalue') {
-      return addSections(deck, 'm');
+      return addSections(deck, Decklist.manaValueGroup);
     } else if (sectionType ==='color') {
-      return addSections(deck, 'c');
+      return addSections(deck, function(card) { return card['c']; });
     } else if (sectionType === 'type') {
-      return addSections(deck, 't');
+      return addSections(deck, function(card) { return card['t']; });
     } else {
       // no-op
       return deck;
     }
 
     // Adds spacers based on delimiters
-    // See section(), except delimiter is the card property name (eg. 'c', not 'color') and is not optional
+    // See section(), except delimiter is a function returning the card's section (eg. its 'c' property) and is not optional
     function addSections(list, delimiter) {
       var numAdded = 0,
         listLength = list.length;
       for (var i = 1; i < listLength; i++) {
         var index = i + numAdded,
           emptyCard = { n: '', q: 0 };
-        if (list[index][delimiter] !== list[index - 1][delimiter]) {
+        if (delimiter(list[index]) !== delimiter(list[index - 1])) {
           list.splice(index, 0, emptyCard);
           numAdded++;
         }
       }
       return list;
     }
+  },
+
+  // Accepts a card object
+  // Returns the group it sorts and sections under by mana value: its mana value for spells,
+  // then 99 for lands (whose mana value is 0) and 100 for unrecognized cards
+  manaValueGroup: function(card) {
+    if (card['t'] === '1') {
+      return 99;
+    }
+    return typeof card['m'] === 'number' ? card['m'] : 100;
   },
 
   // Accepts a deck list (array of card objects)

@@ -22,7 +22,7 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
    - `Decklist.count(deck)` - Counts total cards in a deck
    - `Decklist.searchKey(name)` / `Decklist.searchIndex()` - Loose card-name form (case, accents and split-card slashes ignored) and a lazily built map from it to cards; used as the parser's last-resort lookup and by the deck autocomplete
    - Returns objects with structure: `{main: [], side: [], unrecognized: [], unparseable: []}`
-   - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (mana value), `q` (quantity), `b` (legal formats)
+   - Each card object has properties: `n` (name), `c` (color), `t` (type), `m` (mana value), `q` (quantity), `b` (formats it is not legal in)
 
 2. **main.js** - Main application logic
    - Event handling for form inputs
@@ -47,8 +47,8 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
 - Value: object with properties:
   - `c`: color code (A=White, B=Blue, C=Black, D=Red, E=Green, F=Gold, G=Artifact, Z=Land)
   - `t`: type code (1=Land, 2=Creature, 3=Sorcery, 4=Instant, 5=Other)
-  - `m`: mana value (99 for lands)
-  - `b`: formats the card is legal in (any combination of s/m/l for Standard/Modern/Legacy); generated but not yet read by the frontend
+  - `m`: mana value (99 when MTGJSON gives none; lands are 0)
+  - `b`: formats the card is not legal in (any combination of s/m/l for Standard/Modern/Legacy); generated but not yet read by the frontend
   - `n`: actual card name with proper capitalization
 
 ### URL Parameters for Direct Linking
@@ -102,7 +102,7 @@ For iframe preview testing, the app uses `srcdoc` attribute to render the deckli
 
 ### Automated Tests
 
-Four suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+Five suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
 
 ```bash
 npm ci --prefix worker
@@ -117,6 +117,7 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 
 - `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`)
 - `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection and export splitting
+- `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, and failure handling
 - `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved. This is the gate the card-refresh workflow runs before committing.
 
