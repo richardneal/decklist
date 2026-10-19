@@ -1821,6 +1821,14 @@ function initAutocomplete() {
 
   // Attach autocomplete to deck textareas
   $('#deckmain, #deckside').on('input', function(e) {
+    // Only suggest while the user is typing: programmatic fills (deck import,
+    // undo, picking a suggestion) and pasted or dropped lists shouldn't open it
+    const inputType = e.originalEvent && e.originalEvent.inputType;
+    if (!inputType || inputType === 'insertFromPaste' || inputType === 'insertFromDrop') {
+      hideAutocomplete();
+      return;
+    }
+
     const textarea = $(this);
     const cursorPos = textarea[0].selectionStart;
     const text = textarea.val();

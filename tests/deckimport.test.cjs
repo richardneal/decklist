@@ -102,3 +102,37 @@ test('button updates textareas, refreshes the preview, and preserves edits durin
   assert.match($('#deckimport-status').message, /Network unavailable/);
   assert.equal($('#deckimport-button').prop('disabled'), false);
 });
+
+const MOXFIELD_ID = 'psDQiUrXLkSfMEyEc3oDTw';
+
+test('recognizes Moxfield deck URLs, including a trailing primer segment', () => {
+  for (const url of ['https://moxfield.com/decks/' + MOXFIELD_ID,
+    'https://www.moxfield.com/decks/' + MOXFIELD_ID + '/',
+    'https://www.moxfield.com/decks/' + MOXFIELD_ID + '/primer',
+    'moxfield.com/decks/' + MOXFIELD_ID]) {
+    assert.equal(importer.downloadURL(url), 'https://api2.moxfield.com/v3/decks/all/' + MOXFIELD_ID);
+  }
+  // Spread into this realm: the importer runs in a vm, so its prototype differs.
+  assert.deepEqual({ ...importer.parse('https://moxfield.com/decks/' + MOXFIELD_ID) }, {
+    source: 'moxfield', label: 'Moxfield', id: MOXFIELD_ID,
+    url: 'https://api2.moxfield.com/v3/decks/all/' + MOXFIELD_ID
+  });
+});
+test('rejects Moxfield routes and lookalike hosts that carry no deck ID', () => {
+  for (const url of ['https://moxfield.com/decks/public', 'https://moxfield.com/decks/public?q=eyJ9',
+    'https://moxfield.com/decks/', 'https://moxfield.com/', 'https://moxfield.com/users/someone',
+    'https://moxfield.com/decks/' + MOXFIELD_ID + '/primer/extra',
+    'https://moxfield.com.evil.test/decks/' + MOXFIELD_ID,
+    'https://moxfield.com:8443/decks/' + MOXFIELD_ID]) {
+    assert.equal(importer.downloadURL(url), null);
+  }
+});
+test('asks the API for the Moxfield source and deck ID', async () => {
+  context.fetch = async (url) => {
+    assert.equal(url, importer.apiURL + '?source=moxfield&id=' + MOXFIELD_ID);
+    return { ok: true, text: async () => '4 Island\nSideboard\n2 Negate' };
+  };
+  const deck = await importer.load('https://moxfield.com/decks/' + MOXFIELD_ID);
+  assert.equal(deck.main, '4 Island');
+  assert.equal(deck.side, '2 Negate');
+});
