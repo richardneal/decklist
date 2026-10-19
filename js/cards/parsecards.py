@@ -33,6 +33,19 @@ class Type(str, Enum):
     INSTANT  = '4'
     OTHER    = '5'
 
+# The MTGJSON layouts the generator treats specially; any other is read as a
+# single-faced card
+class Layout(str, Enum):
+    SPLIT     = 'split'
+    TRANSFORM = 'transform'
+    MODAL_DFC = 'modal_dfc'
+    ADVENTURE = 'adventure'
+    FLIP      = 'flip'
+    PREPARE   = 'prepare'
+    MELD      = 'meld'
+    TOKEN     = 'token'
+    REVERSIBLE_CARD = 'reversible_card'
+
 MTGJSON_COLORS = {'W': Color.WHITE, 'U': Color.BLUE, 'B': Color.BLACK, 'R': Color.RED, 'G': Color.GREEN}
 
 # Checked in order: an artifact creature is a creature, an artifact land a land
@@ -44,17 +57,17 @@ NO_MANA_VALUE = 99
 FORMATS = ('standard', 'modern', 'legacy')
 
 # A card with a second face or spell, written down by its front face and
-# coloured by both. Kamigawa flip cards ('flip') and prepare cards (a creature
+# coloured by both. Kamigawa flip cards and prepare cards (a creature
 # with a spell it can cast a copy of) are named 'Front // Back' by MTGJSON.
-FLIP_LAYOUTS = ('transform', 'modal_dfc', 'adventure', 'flip', 'prepare')
+FLIP_LAYOUTS = (Layout.TRANSFORM, Layout.MODAL_DFC, Layout.ADVENTURE, Layout.FLIP, Layout.PREPARE)
 
 # MTGJSON names each meld front 'Front // Melded result', and gives the melded
 # result an entry of its own; the front is the card a deck lists.
-FACE_NAME_LAYOUTS = FLIP_LAYOUTS + ('meld',)
+FACE_NAME_LAYOUTS = FLIP_LAYOUTS + (Layout.MELD,)
 
 # Reversible cards print one card on both sides and only reprint cards that
 # have entries of their own, under doubled names such as 'Forest // Forest'
-SKIPPED_LAYOUTS = ('token', 'reversible_card')
+SKIPPED_LAYOUTS = (Layout.TOKEN, Layout.REVERSIBLE_CARD)
 
 def getLegalities(face):
     legalities = face.get('legalities', {})
@@ -73,10 +86,11 @@ def getColorCode(colors):
     return MTGJSON_COLORS.get(colors[0], Color.COLORLESS)
 
 def getFace(card):
-    # We only care about the first face
-    if 'side' not in card[0] or len(card) == 1:
-        return card[0]
-    return card[0] if card[0]['side'] == 'a' else card[1]
+    # We only care about the front face. MTGJSON can list more than one card
+    # under a name, such as a Mystery Booster playtest Pick Your Poison beside
+    # the real one; the first with legalities is the one decks register.
+    fronts = [face for face in card if face.get('side', 'a') == 'a'] or card
+    return min(fronts, key=lambda face: not face.get('legalities'))
 
 def isFlip(face):
     return face['layout'] in FLIP_LAYOUTS
@@ -102,7 +116,7 @@ def getColor(face):
     # MTGJSON always lists colors, as an empty list for colorless cards
     if 'Artifact' in face['types'] and not face.get('colors'):
         return Color.ARTIFACT
-    if face['layout'] == 'split' or isFlip(face):
+    if face['layout'] == Layout.SPLIT or isFlip(face):
         return getColorCode(face.get('colorIdentity', []))
     return getColorCode(face.get('colors', []))
 

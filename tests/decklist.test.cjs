@@ -64,3 +64,8 @@ test('drops doubled reversible-card names', () => {
   assert.deepEqual(Array.from(deck.main, card => card.n), ['Forest', 'Bloomvine Regent']);
   assert.equal(decklist.searchIndex().has('forest forest'), false);
 });
+test('finds the tournament card when a playtest card shares its name', () => {
+  const deck = decklist.parse('1 Pick Your Poison', '');
+  const { n, c, t, m } = deck.main[0];
+  assert.deepEqual({ n, c, t, m }, { n: 'Pick Your Poison', c: 'E', t: '3', m: 1 });
+});

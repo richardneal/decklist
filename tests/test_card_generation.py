@@ -52,6 +52,26 @@ class CardGenerationTests(unittest.TestCase):
         self.assertEqual(result['eldrazi devastator']['c'], 'X')
         self.assertEqual(result['darksteel citadel']['c'], 'Z')
 
+    def test_prefers_the_tournament_card_over_a_namesake(self):
+        # MTGJSON lists a Mystery Booster playtest card under the same name
+        # as the real one, and sometimes first
+        playtest = card('Pick Your Poison', ['CMB1'], types=['Sorcery'], colors=['B', 'G'])[0]
+        playtest.update(isFunny=True, convertedManaCost=5.0)
+        real = card('Pick Your Poison', ['MKM'], types=['Sorcery'], colors=['G'])[0]
+        real.update(convertedManaCost=1.0, legalities={
+            'standard': 'Legal', 'modern': 'Legal', 'legacy': 'Legal'})
+        unsanctioned = card('Everythingamajig', ['UST'], types=['Artifact'], colors=[])
+        unsanctioned[0]['convertedManaCost'] = 5.0
+        unsanctioned.append(dict(unsanctioned[0], convertedManaCost=6.0))
+        result = generate({
+            'Pick Your Poison': [playtest, real],
+            'Everythingamajig': unsanctioned,
+        })
+        self.assertEqual(result['pick your poison'],
+                         {'c': 'E', 't': '3', 'm': 1.0, 'n': 'Pick Your Poison'})
+        # With no tournament card among them, the first is kept
+        self.assertEqual(result['everythingamajig']['m'], 5.0)
+
     def test_meld_cards_are_keyed_by_their_own_face(self):
         # As MTGJSON gives them: each front is 'Front // Melded result', and
         # the melded result has an entry of its own
