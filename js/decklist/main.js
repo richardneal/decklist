@@ -1381,7 +1381,7 @@ function validateInput(parsedLists) {
 
 
 // shown in the status box until the user enters something; matches the markup in index.html
-const STATUS_PROMPT_HTML = '<li class="prompt">Fill in your details and add your deck to check your decklist.</li>';
+const STATUS_PROMPT_HTML = '<li class="prompt">Fill in the form to check your decklist.</li>';
 
 // Change tooltips and status box to reflect current errors/warnings (or lack thereof)
 function statusAndTooltips(valid) {
@@ -1637,25 +1637,36 @@ function loadLogos() {
 function initDarkMode() {
   const darkModeToggle = document.getElementById('darkModeToggle');
   const darkModeIcon = document.getElementById('darkModeIcon');
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-  // Check localStorage for dark mode preference
-  const isDarkMode = localStorage.getItem('darkMode') === 'true';
-
-  if (isDarkMode) {
-    document.body.classList.add('dark-mode');
-    darkModeIcon.textContent = '☀️';
+  function applyDarkMode(isDark) {
+    document.body.classList.toggle('dark-mode', isDark);
+    darkModeIcon.textContent = isDark ? '☀️' : '🌙';
   }
+
+  // A saved choice wins; with none, follow the system setting
+  const saved = localStorage.getItem('darkMode');
+  applyDarkMode(saved === null ? systemDark.matches : saved === 'true');
+
+  // Follow system changes while there's no saved choice
+  systemDark.addEventListener('change', function(e) {
+    if (localStorage.getItem('darkMode') === null) {
+      applyDarkMode(e.matches);
+    }
+  });
 
   // Toggle dark mode on button click
   darkModeToggle.addEventListener('click', function() {
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
+    const isDark = !document.body.classList.contains('dark-mode');
+    applyDarkMode(isDark);
 
-    // Update icon
-    darkModeIcon.textContent = isDark ? '☀️' : '🌙';
-
-    // Save preference
-    localStorage.setItem('darkMode', isDark);
+    // Save only a choice that differs from the system, so switching
+    // back to the system's mode resumes following it
+    if (isDark === systemDark.matches) {
+      localStorage.removeItem('darkMode');
+    } else {
+      localStorage.setItem('darkMode', isDark);
+    }
 
     // Track dark mode toggle
     if (typeof posthog !== 'undefined') {
@@ -1810,6 +1821,14 @@ function initAutocomplete() {
 
   // Attach autocomplete to deck textareas
   $('#deckmain, #deckside').on('input', function(e) {
+    // Only suggest while the user is typing: programmatic fills (deck import,
+    // undo, picking a suggestion) and pasted or dropped lists shouldn't open it
+    const inputType = e.originalEvent && e.originalEvent.inputType;
+    if (!inputType || inputType === 'insertFromPaste' || inputType === 'insertFromDrop') {
+      hideAutocomplete();
+      return;
+    }
+
     const textarea = $(this);
     const cursorPos = textarea[0].selectionStart;
     const text = textarea.val();
