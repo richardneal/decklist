@@ -24,3 +24,12 @@ test('search keys ignore case, accents and slashes', () => {
   assert.equal(decklist.searchKey('Lim-Dûl the Necromancer'), 'lim-dul the necromancer');
   assert.ok(decklist.searchIndex().get('fire ice'));
 });
+test('finds meld cards by their own name', () => {
+  const deck = decklist.parse('1 The Mightstone and Weakstone\n1 Urza, Lord Protector', '');
+  assert.equal(deck.unrecognized.length, 0);
+  const summary = Array.from(deck.main, ({ n, c, t, m }) => ({ n, c, t, m }));
+  assert.deepEqual(summary, [
+    { n: 'The Mightstone and Weakstone', c: 'G', t: '5', m: 5 },
+    { n: 'Urza, Lord Protector', c: 'F', t: '2', m: 3 },
+  ]);
+});

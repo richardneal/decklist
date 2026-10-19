@@ -45,6 +45,10 @@ FORMATS = ('standard', 'modern', 'legacy')
 
 FLIP_LAYOUTS = ('transform', 'modal_dfc', 'adventure')
 
+# MTGJSON names each meld front 'Front // Melded result', and gives the melded
+# result an entry of its own; the front is the card a deck lists.
+FACE_NAME_LAYOUTS = FLIP_LAYOUTS + ('meld',)
+
 def getLegalities(face):
     legalities = face.get('legalities', {})
     return ''.join(format[0] for format in FORMATS if legalities.get(format) != 'Legal')
@@ -71,8 +75,8 @@ def isFlip(face):
     return face['layout'] in FLIP_LAYOUTS
 
 def getName(face):
-    # Flip cards are played, and written down, by their front face
-    return face['faceName' if isFlip(face) else 'name']
+    # Flip and meld cards are played, and written down, by their front face
+    return face['faceName' if face['layout'] in FACE_NAME_LAYOUTS else 'name']
 
 def getKey(face):
     # We're going to store them in lowercase, without accents.
