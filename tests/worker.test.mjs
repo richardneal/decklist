@@ -104,14 +104,22 @@ test('converts Moxfield deck JSON and sends the allowlisted User-Agent', async (
   const response = await s.run('?source=moxfield&id=' + MOXFIELD_ID);
   assert.equal(response.status, 200);
   // Commanders lead the sideboard, printings of one card merge, and a companion
-  // joins the sideboard; the maybeboard and zero-quantity entries are dropped.
+  // joins the sideboard; Moxfield's own sideboard is dropped, since Commander has none,
+  // as are the maybeboard and zero-quantity entries.
   assert.equal(await response.text(), [
     '4 Swamp', '4 Thoughtseize',
-    'Sideboard', '1 Atraxa, Praetors\u2019 Voice', '3 Negate', '1 Lurrus of the Dream-Den'
+    'Sideboard', '1 Atraxa, Praetors\u2019 Voice', '1 Lurrus of the Dream-Den'
   ].join('\n'));
   assert.equal(s.calls[0].url, 'https://api2.moxfield.com/v3/decks/all/' + MOXFIELD_ID);
   assert.equal(s.calls[0].init.headers['User-Agent'], 'decklist-test/1.0');
   assert.equal(s.calls[0].init.headers.Accept, 'application/json');
+});
+test('keeps the sideboard of a Moxfield deck with no commander', async () => {
+  const { commanders, ...boards } = JSON.parse(MOXFIELD_JSON).boards;
+  const s = setup({ body: JSON.stringify({ format: 'modern', boards }) });
+  assert.equal(await (await s.run('?source=moxfield&id=' + MOXFIELD_ID)).text(), [
+    '4 Swamp', '4 Thoughtseize', 'Sideboard', '3 Negate', '1 Lurrus of the Dream-Den'
+  ].join('\n'));
 });
 test('omits the User-Agent for the text sources and when none is configured', async () => {
   const s = setup();

@@ -87,10 +87,14 @@ export function moxfieldDeck(text) {
   }
   const board = names => names.flatMap(name => Object.values(deck.boards[name]?.cards || {}))
     .map(entry => [entry?.card?.name, entry?.quantity]);
-  // Commander has no sideboard, so the commander leads it, where sorting the main deck
-  // cannot bury it among the other creatures; a companion is played from there too.
-  return { text: deckText(board(['mainboard']), board(['commanders', 'sideboard', 'companions'])),
-    format: knownFormat(deck.format) };
+  // Commander has no sideboard, so a deck with a commander drops Moxfield's (where
+  // players keep their cuts) as it does the maybeboard. The commander leads the
+  // sideboard instead, where sorting the main deck cannot bury it among the other
+  // creatures, and a companion is played from there too.
+  const commanders = board(['commanders']);
+  const hasCommander = commanders.some(([name, quantity]) => name && quantity > 0);
+  const side = board(hasCommander ? ['companions'] : ['sideboard', 'companions']);
+  return { text: deckText(board(['mainboard']), commanders.concat(side)), format: knownFormat(deck.format) };
 }
 
 // Collapses an Archidekt deck into quantity-prefixed decklist text, and reads its
