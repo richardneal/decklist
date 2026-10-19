@@ -53,7 +53,7 @@ Card data is stored in `js/cards/decklist-cards-min.js` as a minified JavaScript
 - Value: object with properties:
   - `c`: color code (A=White, B=Blue, C=Black, D=Red, E=Green, F=Gold, G=Artifact, Z=Land)
   - `t`: type code (1=Land, 2=Creature, 3=Sorcery, 4=Instant, 5=Other)
-  - `m`: mana value (99 for lands)
+  - `m`: mana value (99 when MTGJSON gives none; lands are 0)
   - `b`: banned status in formats (combination of s/m/l for Standard/Modern/Legacy)
   - `n`: actual card name with proper capitalization
 

@@ -5,12 +5,14 @@ import unicodedata
 
 # Just FYI!
 # b (banned) = [sml] (standard, modern, legacy)
-# c (color) = White = A, Blue = B, Black = C, Red = D, Green = E, Gold = F, Artifact = G , Split = S, Unknown = X, Land = Z
-# m (mana value) = N  (Split = 98, Land = 99)
+# c (color) = White = A, Blue = B, Black = C, Red = D, Green = E, Gold = F, Artifact = G, Unknown = X, Land = Z
+# m (mana value) = N
 # n (actual name) = 'true name nemesis' to 'True Name Nemesis'
 # t (type) = 1 = land, 2 = creature, 3 = sorcery, 4 = instant, 5 = other
 
 FORMATS = ('standard', 'modern', 'legacy')
+
+FLIP_LAYOUTS = ('transform', 'modal_dfc', 'adventure')
 
 def getLegalities(face):
     # Let's figure out legalities
@@ -35,81 +37,82 @@ def getColorCode(colors):
         return 'F'  # Gold for multiple colors
     return color_map.get(colors[0], 'X')
 
-# Open the JSON file
-jsonfh = open("AtomicCards.json", "r")
-
-# Load all the cards into a giant dictionary
-cards = json.load(jsonfh)
-
-# Atomic cards list their printing sets, but do not carry isOnlineOnly.
-with open("SetList.json", "r") as setfh:
-    online_sets = {item["code"] for item in json.load(setfh)["data"]
-                   if item.get("isOnlineOnly", False)}
-
-# Gotta store these cards in a dictionary
-ocards = {}
-
-# Okay, we need the colors but in a much shorter format
-for card in cards["data"].values():
+def getFace(card):
     # We only care about the first face
     if 'side' not in card[0] or len(card) == 1:
-        face = card[0]
-    else:
-        face = card[0] if card[0]['side'] == 'a' else card[1]
+        return card[0]
+    return card[0] if card[0]['side'] == 'a' else card[1]
 
-    # Rebalanced Arena cards can share a paper set code with the original.
-    # Keep cards with any paper (or unknown) printing; do not filter by legality.
-    printings = face.get("printings", [])
-    if face["name"].startswith("A-") or (printings and all(code in online_sets for code in printings)):
-        continue
+def isFlip(face):
+    return face['layout'] in FLIP_LAYOUTS
 
-    is_flip = face["layout"] in ("transform", "modal_dfc", "adventure")
+def getName(face):
+    # Flip cards are played, and written down, by their front face
+    return face['faceName' if isFlip(face) else 'name']
 
-    # We're going to store them in lowercase
-    ocard = face["faceName" if is_flip else "name"].lower()
-
-    # Remove accents from the card name
-    ocard = remove_accents(ocard)
+def getKey(face):
+    # We're going to store them in lowercase, without accents
+    key = remove_accents(getName(face).lower())
 
     # Python's Unicode support sucks, as does everybodies.  Manually
     # replace the Ae to lower case
-    ocard = ocard.replace(u'\xc6', u'\xe6')
+    return key.replace(u'\xc6', u'\xe6')
 
-    # Skip tokens
-    if face['layout'] == 'token':
-        continue
+def isDigital(face, online_sets):
+    # Rebalanced Arena cards can share a paper set code with the original.
+    # Keep cards with any paper (or unknown) printing; do not filter by legality.
+    printings = face.get('printings', [])
+    return face['name'].startswith('A-') or bool(printings and all(code in online_sets for code in printings))
 
-    # Create an entry in the output dictionary
-    ocards[ocard] = {}
-
+def getColor(face):
     if 'Land' in face['types']:
-        ocards[ocard]['c'] = 'Z'
-    elif 'Artifact' in face['types'] and 'colors' not in face:
-        ocards[ocard]['c'] = 'G'
-    elif (face.get("layout") == "split" or is_flip):
-        ocards[ocard]['c'] = getColorCode(face.get("colorIdentity", []))
-    else:
-        ocards[ocard]['c'] = getColorCode(face.get("colors", []))
+        return 'Z'
+    # MTGJSON always lists colors, as an empty list for colorless cards
+    if 'Artifact' in face['types'] and not face.get('colors'):
+        return 'G'
+    if face['layout'] == 'split' or isFlip(face):
+        return getColorCode(face.get('colorIdentity', []))
+    return getColorCode(face.get('colors', []))
 
-    if   'Land'     in face['types']:  ocards[ocard]['t'] = '1'
-    elif 'Creature' in face['types']:  ocards[ocard]['t'] = '2'
-    elif 'Sorcery'  in face['types']:  ocards[ocard]['t'] = '3'
-    elif 'Instant'  in face['types']:  ocards[ocard]['t'] = '4'
-    else:                              ocards[ocard]['t'] = '5'
+def getType(face):
+    if   'Land'     in face['types']:  return '1'
+    elif 'Creature' in face['types']:  return '2'
+    elif 'Sorcery'  in face['types']:  return '3'
+    elif 'Instant'  in face['types']:  return '4'
+    else:                              return '5'
 
-    # Now try to deal with mana value
-    if 'convertedManaCost' not in face: ocards[ocard]['m'] = 99
-    else: ocards[ocard]['m'] = face['convertedManaCost']
+def getManaValue(face):
+    return face.get('convertedManaCost', 99)
+
+def getEntry(face):
+    entry = {'c': getColor(face), 't': getType(face), 'm': getManaValue(face)}
 
     # Add it into the file if the banned list isn't empty
     legality = getLegalities(face)
-    if legality != "": ocards[ocard]['b'] = legality
+    if legality != '': entry['b'] = legality
 
     # And put the true name in there as well
-    ocards[ocard]['n'] = face["faceName" if is_flip else "name"]
+    entry['n'] = getName(face)
+    return entry
+
+# Load all the cards into a giant dictionary
+with open('AtomicCards.json', 'r') as jsonfh:
+    cards = json.load(jsonfh)
+
+# Atomic cards list their printing sets, but do not carry isOnlineOnly.
+with open('SetList.json', 'r') as setfh:
+    online_sets = {item['code'] for item in json.load(setfh)['data']
+                   if item.get('isOnlineOnly', False)}
+
+# Okay, we need the colors but in a much shorter format
+ocards = {}
+for card in cards['data'].values():
+    face = getFace(card)
+    if face['layout'] == 'token' or isDigital(face, online_sets):
+        continue
+    ocards[getKey(face)] = getEntry(face)
 
 # Print out the full list of cards
-ojsonfh = open("decklist-cards.js", "w")
-ojsonfh.write('cards=')
-json.dump(ocards, ojsonfh)
-ojsonfh.close()
+with open('decklist-cards.js', 'w') as ojsonfh:
+    ojsonfh.write('cards=')
+    json.dump(ocards, ojsonfh)
