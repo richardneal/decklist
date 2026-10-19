@@ -72,7 +72,8 @@ export function moxfieldDeck(text) {
 // Collapses an Archidekt deck into quantity-prefixed decklist text. Archidekt keeps its
 // boards as categories, and a card's first category is the one that places it: the
 // Sideboard category is the sideboard, and any other category marked as left out of the
-// deck (the Maybeboard, say) is dropped.
+// deck (the Maybeboard, say) is dropped. A companion is played from the sideboard,
+// whether Archidekt flags it or the player filed it under a Companion category.
 export function archidektDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Archidekt did not return deck data.'); }
@@ -85,7 +86,7 @@ export function archidektDeck(text) {
   for (const entry of deck.cards) {
     const category = Array.isArray(entry?.categories) ? entry.categories[0] : undefined;
     const card = [entry?.card?.oracleCard?.name, entry?.quantity];
-    if (category === 'Sideboard') side.push(card);
+    if (category === 'Sideboard' || category === 'Companion' || entry?.companion === true) side.push(card);
     else if (premier.has(category)) commanders.push(card);
     else if (!excluded.has(category)) main.push(card);
   }

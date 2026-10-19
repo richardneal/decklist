@@ -139,9 +139,12 @@ const ARCHIDEKT_JSON = JSON.stringify({
     { name: 'Commander', isPremier: true, includedInDeck: true },
     { name: 'Ramp', isPremier: false, includedInDeck: true },
     { name: 'Sideboard', isPremier: false, includedInDeck: false },
-    { name: 'Maybeboard', isPremier: false, includedInDeck: false }
+    { name: 'Maybeboard', isPremier: false, includedInDeck: false },
+    { name: 'Companion', isPremier: false, includedInDeck: false }
   ],
   cards: [
+    { quantity: 1, categories: ['Companion'], card: { oracleCard: { name: 'Lurrus of the Dream-Den' } } },
+    { quantity: 1, categories: ['Creature'], companion: true, card: { oracleCard: { name: 'Yorion, Sky Nomad' } } },
     { quantity: 2, categories: ['Ramp'], card: { oracleCard: { name: 'Swamp' } } },
     { quantity: 2, categories: null, card: { oracleCard: { name: 'Swamp' } } },
     { quantity: 1, categories: ['Commander'], card: { oracleCard: { name: 'Atraxa, Praetors’ Voice' } } },
@@ -158,9 +161,11 @@ test('converts Archidekt deck JSON, placing each card by its first category', as
   const response = await s.run('?source=archidekt&id=123456');
   assert.equal(response.status, 200);
   // The commander leads the main deck, uncategorized cards are main deck, printings
-  // merge, and a card whose first category is excluded (the Maybeboard) is dropped.
+  // merge, a card whose first category is excluded (the Maybeboard) is dropped, and a
+  // companion joins the sideboard by flag or by category, even an excluded one.
   assert.equal(await response.text(), [
-    '1 Atraxa, Praetors’ Voice', '4 Swamp', '4 Thoughtseize', 'Sideboard', '3 Negate'
+    '1 Atraxa, Praetors’ Voice', '4 Swamp', '4 Thoughtseize',
+    'Sideboard', '1 Lurrus of the Dream-Den', '1 Yorion, Sky Nomad', '3 Negate'
   ].join('\n'));
   assert.equal(s.calls[0].url, 'https://archidekt.com/api/decks/123456/');
   assert.equal(s.calls[0].init.headers.Accept, 'application/json');
