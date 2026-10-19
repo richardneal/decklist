@@ -190,3 +190,14 @@ test('the preview renders a PDF', async () => {
   await page.waitForFunction(() => document.querySelector('#decklist')?.getAttribute('src')?.startsWith('data:application/pdf'),
     null, { timeout: 5000 });
 });
+
+test("a Commander deck's sideboard keeps the commander first on the sheet", async () => {
+  importReply = { body: '1 Sol Ring\n96 Island\nSideboard\n1 Jace, Multiverse Architect\n1 Grizzly Bears\n1 Counterspell',
+    format: 'commander' };
+  await importDeck('https://moxfield.com/decks/y6-gAWsstnWUyIpXDf5SMQ');
+  const sideboard = () => page.evaluate(() => sortSideboard(Decklist.parse()).map(card => card.n));
+  assert.deepEqual(await sideboard(), ['Jace, Multiverse Architect', 'Grizzly Bears', 'Counterspell']);
+  // Any other format sorts the sideboard as it does the main deck, by type by default
+  await page.selectOption('#deckformat', 'constructed');
+  assert.deepEqual(await sideboard(), ['Grizzly Bears', 'Counterspell', 'Jace, Multiverse Architect']);
+});
