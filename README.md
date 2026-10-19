@@ -33,7 +33,6 @@ This fork includes additional features and improvements aimed at providing a mor
 ### Registration Sheets
 - **WotC Format**: Official Wizards of the Coast tournament registration sheets
 - **SCG Format**: Star City Games tournament registration sheets
-- **Custom Logos**: Support for multiple tournament organizer logos
 - **Direct Linking**: Pre-fill forms via URL parameters for tournament organizers
 
 ### Card Database
@@ -57,7 +56,6 @@ Interested in directly linking to [decklist.nealston.com](https://decklist.neals
 - **`deckside`**: the side itself; this can be in any format the website understands (use `%0A` for newlines)
 - **`decksort`**: change the order of the cards in the mainboard and sideboard (choices: `alphabetical`, `cmc`, `color`, `numeric`, `original`, `type`, defaults to `type`)
 - **`disableediting`**: prevent users from editing the fields above
-- **`logo`**: available logos for WotC format: `mtg`, `dci`, `elojodeugin`, or `custom`. Tournament stores can contact us to add their custom logo.
 
 Please note that any field not specifically set will simply be left blank on the form.
 

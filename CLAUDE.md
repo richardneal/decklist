@@ -62,7 +62,7 @@ The application supports extensive URL parameter support for pre-filling forms:
 - Personal: `firstname`, `lastname`
 - Event: `event`, `eventdate`, `eventlocation`
 - Deck: `deckname`, `deckdesigner`, `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish or MTGTop8 deck URL; ignored when `deckmain`/`deckside` are present)
-- Display: `decksheet` (wotc/scg), `logo`, `disableediting`
+- Display: `decksheet` (wotc/scg), `disableediting`
 
 Use `%0A` for newlines in deck data, `%20` for spaces.
 
@@ -135,10 +135,10 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 - Add corresponding UI radio button in `index.html`
 - Add case to sort switch statement
 
-**Adding a new logo:**
+**Adding sheet artwork:**
 - Place the image file in `images/logos/` (JPEG, PNG or WebP)
-- Add an entry to `LOGOS_CONFIG` at the top of `main.js`: `{ id, name, file, format }`, under `wotc` for selectable sheet logos or `scg` for the SCG sheet's fixed artwork (`format` is the jsPDF image format, e.g. `JPEG`)
-- `wotc` entries populate the `#logo-select` dropdown automatically, sorted by `name`, and become valid values for the `logo` URL parameter; `scg` entries are preloaded into the logo cache by `id` and need no `name`
+- Add an entry to `LOGOS_CONFIG` at the top of `main.js`: `{ id, file, format }` (`format` is the jsPDF image format, e.g. `JPEG`)
+- Every entry is preloaded into `logoCache` by `id` when the page loads; the layout functions draw from that cache. The WotC sheet always uses `mtg` — there is no logo picker or `logo` URL parameter
 
 ## Deployment
 
