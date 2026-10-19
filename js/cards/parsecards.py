@@ -66,10 +66,11 @@ def getColorCode(colors):
     return MTGJSON_COLORS.get(colors[0], Color.COLORLESS)
 
 def getFace(card):
-    # We only care about the first face
-    if 'side' not in card[0] or len(card) == 1:
-        return card[0]
-    return card[0] if card[0]['side'] == 'a' else card[1]
+    # We only care about the front face. MTGJSON can list more than one card
+    # under a name, such as a Mystery Booster playtest Pick Your Poison beside
+    # the real one; the first with legalities is the one decks register.
+    fronts = [face for face in card if face.get('side', 'a') == 'a'] or card
+    return min(fronts, key=lambda face: not face.get('legalities'))
 
 def isFlip(face):
     return face['layout'] in FLIP_LAYOUTS
