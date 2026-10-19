@@ -417,15 +417,20 @@ var Decklist = {
     limited:     { name: 'Limited',           rules: 'limited' }
   },
 
-  // Guesses a parsed deck's format. A Commander deck shows by its shape: 99 or so
-  // cards in the main deck, and only its commanders and a companion in the sideboard.
-  // Any other deck gets the narrowest format it passes the checks for, so a guess
-  // never reports a card as illegal; only a chosen format can
+  // Guesses a parsed deck's format. Commander and Limited decks show by their shape:
+  // a Commander deck keeps 99 or so cards in the main deck and only its commanders and
+  // a companion in the sideboard, and a Limited deck runs 40 cards, or a few more, which
+  // no constructed deck may. Any other deck gets the narrowest format it passes the
+  // checks for, so a guess never reports a card as illegal; only a chosen format can
   // Accepts a parse() result
   // Returns a key of Decklist.formats
   detectFormat: function(deck) {
-    if (Decklist.count(deck.main) >= 90 && Decklist.count(deck.side) <= 3) {
+    const main = Decklist.count(deck.main);
+    if (main >= 90 && Decklist.count(deck.side) <= 3) {
       return 'commander';
+    }
+    if (main >= 40 && main <= 45) {
+      return 'limited';
     }
     if (!deck.main.length && !deck.side.length) {
       return 'constructed';
