@@ -1345,24 +1345,30 @@ body.dark-mode #deckimport-status[data-state="error"] { color: #ffb4ab; }
   background: var(--accent-color);
   color: var(--bg-primary);
   border-color: var(--accent-color);
-  font-weight: 700;
   box-shadow: none;
   transform: none;
 }
-/* Animating font-weight steps between regular and bold, briefly resizing the button. */
+/* Selecting an option must not resize it: the checkmark sits in padding every
+   option reserves, and the weight stays put. Only the hover lift animates, since
+   cross-fading the fill and text color leaves both options washed out mid-way. */
 .generator-page #sortorderfloat label,
 .generator-page #decksheetformatselector label {
-  transition-property: background-color, border-color, color, box-shadow, transform;
+  position: relative;
+  padding-left: calc(1em + 12px);
+  padding-right: calc(1em + 12px);
+  transition-property: box-shadow, transform;
 }
 .generator-page #sortorderfloat label::before,
 .generator-page #decksheetformatselector label::before {
   content: '\2713';
-  display: none;
-  width: 1em;
-  margin-right: 6px;
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  visibility: hidden;
 }
 .generator-page #sortorderfloat input:checked + label::before,
-.generator-page #decksheetformatselector input:checked + label::before { display: inline-block; }
+.generator-page #decksheetformatselector input:checked + label::before { visibility: visible; }
 .generator-page #sortorderfloat input:focus-visible + label,
 .generator-page #decksheetformatselector input:focus-visible + label {
   outline: 2px solid var(--accent-color);
