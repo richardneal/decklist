@@ -12,7 +12,7 @@
   --on-accent: #ffffff;
   /* Status colors, tuned to sit beside the blue accent */
   --success: #1f5fa8;
-  --warning: #b7791f;
+  --warning: #c2621a;
   --error: #b42318;
   /* Status icons, drawn as masks so they take the status color */
   --icon-ok: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cmask id='m'%3E%3Crect width='24' height='24' fill='white'/%3E%3Cpath d='M7 12.4l3.3 3.3L17 9' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/mask%3E%3Ccircle cx='12' cy='12' r='12' mask='url(%23m)'/%3E%3C/svg%3E");
@@ -43,8 +43,8 @@ body.dark-mode {
   --accent-hover: #a8c8f5;
   --on-accent: #1a1a1a;
   --success: #8ab4f0;
-  --warning: #e3b766;
-  --error: #ffb4ab;
+  --warning: #f4a261;
+  --error: #f28b82;
 }
 
 .wrapper {
