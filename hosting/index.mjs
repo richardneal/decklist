@@ -1,9 +1,12 @@
 // Runs for every request. www.decklist.app redirects to decklist.app; a path that
 // matches a static asset is served as it is.
 // A permalink to a deck (/?deckname=…&deckmain=…) gets the page with its link preview
-// naming the deck. A deck link written after the site's address
-// (decklist.app/https://moxfield.com/decks/…) is sent on to the page's
-// deckimport parameter, which imports it on load; anything else is a 404.
+// naming the deck, and /preview.png draws that preview's image (preview.mjs). A deck
+// link written after the site's address (decklist.app/https://moxfield.com/decks/…) is
+// sent on to the page's deckimport parameter, which imports it on load; anything else
+// is a 404.
+
+import { render } from './preview.mjs';
 
 // The deck sites whose links may be written without https://, as DeckImport.parse
 // accepts them.
@@ -92,9 +95,24 @@ function clip(text, length) {
   return text.length > length ? text.slice(0, length - 1).trimEnd() + '…' : text;
 }
 
-// The link preview's title and description for a permalink's query, or null when it
-// holds no deck. The player's name and the event are left out: a preview is shown to
-// everyone the link is posted to.
+// The format and card counts a preview describes a deck by, as a list of parts
+function summarize(format, main, side) {
+  const plural = count => count + (count === 1 ? ' card' : ' cards');
+  const parts = format ? [FORMATS[format]] : [];
+  if (LED.has(format)) parts.push(plural(main + side));
+  else if (main || side) parts.push(plural(main) + (side ? ' + ' + side + ' sideboard' : ''));
+  return parts;
+}
+
+// Bump to make Discord and the cache fetch every deck's image again after its design changes
+const IMAGE_VERSION = '1';
+// The most cards the image lists, as preview.mjs fits them on its sheet
+const IMAGE_CARDS = 15;
+
+// The link preview for a permalink's query, or null when it holds no deck: its title and
+// description, and the path of its image, whose query carries only what the image draws.
+// The player's name and the event are left out: a preview is shown to everyone the link
+// is posted to.
 export function preview(params) {
   const deckname = (params.get('deckname') || '').trim();
   const deckmain = params.get('deckmain') || '', deckside = params.get('deckside') || '';
@@ -102,21 +120,40 @@ export function preview(params) {
 
   const format = Object.hasOwn(FORMATS, params.get('deckformat')) ? params.get('deckformat') : '';
   const deck = countDeck(deckmain, deckside);
-  const plural = count => count + (count === 1 ? ' card' : ' cards');
-  const summary = [];
-  if (format) summary.push(FORMATS[format]);
-  if (LED.has(format)) {
-    summary.push(plural(deck.main + deck.side));
-    if (deck.leaders.length) summary.push(deck.leaders.join(' + '));
-  } else if (deck.main || deck.side) {
-    summary.push(plural(deck.main) + (deck.side ? ' + ' + deck.side + ' sideboard' : ''));
-  }
+  const summary = summarize(format, deck.main, deck.side);
+  if (LED.has(format) && deck.leaders.length) summary.push(deck.leaders.join(' + '));
   const cards = deck.cards.slice(0, 8).map(card => card.q + ' ' + card.n).join(' · ')
     + (deck.cards.length > 8 ? ' · …' : '');
+  const title = clip(deckname || (format ? FORMATS[format] + ' decklist' : 'MTG decklist'), 100);
+
+  const image = new URLSearchParams({ v: IMAGE_VERSION, name: clip(deckname, 100), format, main: deck.main, side: deck.side });
+  if (LED.has(format) && deck.leaders.length) image.set('leaders', deck.leaders.slice(0, 3).map(n => clip(n, 60)).join('\n'));
+  image.set('cards', deck.cards.slice(0, IMAGE_CARDS).map(card => card.q + ' ' + clip(card.n, 60)).join('\n'));
 
   return {
-    title: clip(deckname || (format ? FORMATS[format] + ' decklist' : 'MTG decklist'), 100),
-    description: clip([summary.join(' · '), cards].filter(Boolean).join('. '), 300)
+    title,
+    description: clip([summary.join(' · '), cards].filter(Boolean).join('. '), 300),
+    image: '/preview.png?' + image,
+    alt: 'Decklist for ' + title
+  };
+}
+
+// What preview.mjs draws for an image's query, taking nothing on trust: the query is
+// whatever a visitor writes
+export function imageDeck(params) {
+  const count = name => Math.min(Math.max(parseInt(params.get(name), 10) || 0, 0), 9999);
+  const format = Object.hasOwn(FORMATS, params.get('format')) ? params.get('format') : '';
+  const main = count('main'), side = count('side');
+  const cards = (params.get('cards') || '').split('\n').slice(0, IMAGE_CARDS)
+    .map(line => /^(\d{1,4}) (.+)$/.exec(line.trim())).filter(Boolean)
+    .map(([, q, n]) => ({ q: Number(q), n: clip(n, 80) }));
+  return {
+    name: clip((params.get('name') || '').trim(), 150),
+    format: format ? FORMATS[format] : '',
+    summary: summarize(format, main, side).join(' · '),
+    leaders: (params.get('leaders') || '').split('\n').filter(n => n.trim()).slice(0, 3).map(n => clip(n.trim(), 80)),
+    cards,
+    more: Math.max(main - cards.reduce((n, card) => n + card.q, 0), 0)
   };
 }
 
@@ -124,14 +161,38 @@ function escapeAttribute(text) {
   return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Sets the page's Open Graph and Twitter title and description tags
-export function rewrite(html, { title, description }) {
-  const values = { title: escapeAttribute(title), description: escapeAttribute(description) };
-  return html.replace(/(<meta (?:property="og|name="twitter):(title|description)" content=")[^"]*(">)/g,
-    (_, start, field, end) => start + values[field] + end);
+// Sets the page's Open Graph and Twitter title, description, image and image text.
+// Accepts the page, preview()'s result, and the origin the image is served from, always
+// https, as the site is (wrangler dev reports http)
+export function rewrite(html, { title, description, image, alt }, origin) {
+  const values = { title, description, image: origin + image, 'image:alt': alt };
+  return html.replace(/(<meta (?:property="og|name="twitter):(title|description|image|image:alt)" content=")[^"]*(">)/g,
+    (_, start, field, end) => start + escapeAttribute(values[field]) + end);
 }
 
-export async function handle(request, env) {
+// A deck's preview image, from Cloudflare's cache when it was drawn before: each
+// image's query names everything it shows, so it never changes
+async function previewImage(request, url, env, ctx) {
+  const key = new Request(url, { method: 'GET' });
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  let response = cache && await cache.match(key);
+  if (!response) {
+    let png;
+    try {
+      png = await render(imageDeck(url.searchParams));
+    } catch (error) {
+      console.error('Could not draw a preview image:', error);
+      return env.ASSETS.fetch(new Request(new URL('/images/og-image.png', url)));
+    }
+    response = new Response(png, {
+      headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=31536000, immutable' }
+    });
+    if (cache && ctx) ctx.waitUntil(cache.put(key, response.clone()));
+  }
+  return request.method === 'HEAD' ? new Response(null, response) : response;
+}
+
+export async function handle(request, env, ctx) {
   const url = new URL(request.url);
   const read = request.method === 'GET' || request.method === 'HEAD';
 
@@ -149,11 +210,13 @@ export async function handle(request, env) {
     const page = await env.ASSETS.fetch(request);
     const tags = read && page.ok && preview(url.searchParams);
     if (!tags) return page;
-    const response = new Response(request.method === 'HEAD' ? null : rewrite(await page.text(), tags), page);
+    const response = new Response(request.method === 'HEAD' ? null : rewrite(await page.text(), tags, 'https://' + url.host), page);
     response.headers.delete('Content-Length');
     response.headers.delete('ETag');
     return response;
   }
+
+  if (read && url.pathname === '/preview.png') return previewImage(request, url, env, ctx);
 
   const link = read && deckLink(url);
   if (!link) return new Response('Not found.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
