@@ -625,45 +625,27 @@ h2 {
 }
 
 .statusmark {
-  font-family: "Roboto", "Roboto Fallback", sans-serif;
-  font-size: 60px;
-  font-weight: bold;
-  height: 80px;
-  margin: 10px;
-  text-shadow: grey 0 0 3px;
-}
-
-.statusmark:before {
-  content: "";
-  display: block;
-  height: 80px;
-  margin: auto auto;
-  width: 80px;
-  -webkit-mask: center / contain no-repeat;
-  mask: center / contain no-repeat;
-}
-
-.default .statusmark,
-.empty .statusmark {
   display: none;
 }
 
+/* A valid deck has no problems to list, so it gets one compact line saying so;
+   a warning or error is shown by the border and each problem's own icon */
+.valid .statusmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--success);
+  font-weight: 700;
+}
+
 .valid .statusmark:before {
+  content: "";
+  flex: none;
+  width: 20px;
+  height: 20px;
   background-color: var(--success);
-  -webkit-mask-image: var(--icon-ok);
-  mask-image: var(--icon-ok);
-}
-
-.warning .statusmark:before {
-  background-color: var(--warning);
-  -webkit-mask-image: var(--icon-warning);
-  mask-image: var(--icon-warning);
-}
-
-.error .statusmark:before {
-  background-color: var(--error);
-  -webkit-mask-image: var(--icon-error);
-  mask-image: var(--icon-error);
+  -webkit-mask: var(--icon-ok) center / contain no-repeat;
+  mask: var(--icon-ok) center / contain no-repeat;
 }
 
 .status .details {

@@ -108,6 +108,7 @@ test('auto-detect names the format it picked', async () => {
 
 test('a deck auto-detect reads correctly has no deck messages', async () => {
   assert.deepEqual((await deck(...LEGACY)).messages, []);
+  assert.equal(await page.innerText('.status.valid .statusmark'), 'Ready to print');
   // No 60-card or 15-card warnings for a Commander or Limited deck
   assert.deepEqual((await deck(...COMMANDER)).messages, []);
   assert.deepEqual((await deck('6 Grizzly Bears\n34 Forest')).messages, []);
