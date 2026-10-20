@@ -39,11 +39,10 @@ const ARCHETYPES = [
   ['Utility Belt', 'Rob Dougherty'],
   ['Nassiferson', 'Gabriel Nassif'],
   ['Boros Deck Wins', 'Tsuyoshi Fujita'],
-  ['Wafo-Tapa Control', 'Guillaume Wafo-Tapa']
+  ['Wafo-Tapa Control', 'Guillaume Wafo-Tapa'],
+  // Team ChannelFireball's ill-fated Pro Tour Dominaria deck
+  ['Simic Karn', 'Team ChannelFireball']
 ];
-
-// Shown once in 50 page loads: Team ChannelFireball's Pro Tour Dominaria deck
-const ARCHETYPE_EASTER_EGG = ['Simic Karn', 'Team ChannelFireball'];
 
 // Cache for loaded logo images
 var logoCache = {};
@@ -64,8 +63,7 @@ $(document).ready(function() {
   initDarkMode();
 
   // A famous archetype and its designer as the deck name and designer placeholders
-  const archetype = Math.random() < 0.02 ? ARCHETYPE_EASTER_EGG
-    : ARCHETYPES[Math.floor(Math.random() * ARCHETYPES.length)];
+  const archetype = ARCHETYPES[Math.floor(Math.random() * ARCHETYPES.length)];
   $('#deckname').attr('placeholder', archetype[0]);
   $('#deckdesigner').attr('placeholder', archetype[1]);
 
