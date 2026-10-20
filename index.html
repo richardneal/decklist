@@ -17,10 +17,6 @@
   <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
   <meta name="theme-color" content="#1f5fa8">
 
-  <!-- Preconnect to external domains -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
   <!-- LLM Discovery -->
   <link rel="alternate" type="text/plain" href="https://decklist.app/llms.txt" title="LLMs.txt">
 
@@ -43,9 +39,8 @@
   <meta name="twitter:image" content="https://decklist.app/images/og-image.png?v=2">
   <meta name="twitter:image:alt" content="decklist.app: No more decklist problems, with a sample Modern registration sheet">
 
-  <!-- Optimized Google Fonts loading -->
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"></noscript>
+  <!-- Roboto, declared in decklist.css; fetched now so it is usually in by the first paint -->
+  <link rel="preload" href="css/fonts/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
 
   <!-- JSON-LD Structured Data -->
   <script type="application/ld+json">
