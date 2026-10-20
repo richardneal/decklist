@@ -836,10 +836,10 @@ body.dark-mode .dark-mode-toggle .icon-sun {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg);
-  max-height: 200px;
+  box-sizing: border-box;
   overflow-y: auto;
+  overscroll-behavior: contain;
   z-index: 1000;
-  margin-top: -18px;
 }
 
 .autocomplete-suggestion {
@@ -1427,3 +1427,63 @@ body.dark-mode .dark-mode-toggle .icon-sun {
 .ui-datepicker.ui-widget .ui-state-highlight { background: var(--bg-primary); color: var(--accent-color); border-color: var(--accent-color); }
 .ui-datepicker.ui-widget .ui-state-active { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
+
+/* jQuery UI tooltips, in the site palette (its theme file loads after this one) */
+.ui-tooltip.tooltip { background: var(--bg-primary); color: var(--text-primary); border: 2px solid var(--border-color); }
+
+/* Each deck box's problems, listed beneath it in the one-column layout (statusAndTooltips) */
+.field-messages { display: none; grid-column: 1 / -1; margin: -6px 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.45; color: var(--text-primary); text-align: left; }
+.field-messages > li { position: relative; padding-left: 26px; margin: 0 0 6px; }
+.field-messages > li:last-child { margin-bottom: 0; }
+.field-messages > li::before { content: ""; position: absolute; left: 0; top: 1px; width: 18px; height: 18px; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
+.field-messages > li.warning::before { background-color: var(--warning); -webkit-mask-image: var(--icon-warning); mask-image: var(--icon-warning); }
+.field-messages > li.error::before { background-color: var(--error); -webkit-mask-image: var(--icon-error); mask-image: var(--icon-error); }
+.field-messages ul { margin: 4px 0 0; padding-left: 18px; }
+.generator-page .left #protip { grid-column: 1 / -1; }
+
+/* The native date picker on touch screens: iOS gives a date input a minimum width that
+   overflows the form, and centers its value */
+.generator-page #eventdate[type="date"] { -webkit-appearance: none; appearance: none; min-width: 0; display: block; text-align: left; }
+.generator-page #eventdate[type="date"]::-webkit-date-and-time-value { text-align: left; }
+
+/* The touch screen preview: the sheet drawn to canvases by PDF.js (drawPreview) */
+#decklistpreview.drawn { display: flex; flex-direction: column; gap: 12px; }
+#decklistpreview.drawn:empty { aspect-ratio: 8.5 / 11; background: var(--bg-tertiary); border-radius: var(--radius-md); }
+#decklistpreview.drawn canvas { display: block; width: 100%; height: auto; background: #fff; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+.preview-unavailable { margin: 0; padding: 24px 16px; font-size: 14px; color: var(--text-secondary); background: var(--bg-tertiary); border-radius: var(--radius-md); }
+
+@media (max-width: 1000px) {
+  /* The header in two lines: the brand over the tagline, then the links and toggle beside both */
+  .generator-page .navbar-container { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "brand links toggle" "tagline links toggle"; align-items: center; column-gap: 8px; row-gap: 2px; }
+  .generator-page .navbar-brand { grid-area: brand; }
+  .generator-page .navbar-container h1 { grid-area: tagline; }
+  .generator-page .navbar-links { grid-area: links; margin: 0; }
+  .generator-page .dark-mode-toggle { grid-area: toggle; margin: 0; }
+  .generator-page .left .field-messages:not(:empty) { display: block; }
+  /* The status comes before the download buttons, so it's read before the sheet is downloaded */
+  .generator-page .right { display: flex; flex-direction: column; }
+  /* flex margins don't collapse, so the headings take only what the block above leaves */
+  .generator-page .right > h2:not(:first-of-type) { margin-top: 8px; }
+  .generator-page .right > h2:last-of-type, .generator-page .right > .status { order: 1; }
+  .generator-page .right > .status { margin-bottom: 24px; }
+  .generator-page .right > form, .generator-page .right > .deck-actions { order: 2; }
+}
+
+@media (max-width: 600px) {
+  /* Deck boxes grow with the deck, rather than scrolling inside the scrolling page */
+  .generator-page .left textarea { height: 240px; }
+  .generator-page .left #deckside { height: 180px; }
+  @supports (field-sizing: content) {
+    .generator-page .left textarea, .generator-page .left #deckside { field-sizing: content; height: auto; min-height: 180px; max-height: 70vh; }
+    .generator-page .left #deckside { min-height: 120px; }
+  }
+  /* Sort orders in two even columns */
+  .generator-page #sortorderfloat { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .generator-page #sortorderfloat label { display: flex; align-items: center; justify-content: center; min-height: 44px; box-sizing: border-box; text-align: center; }
+}
+
+/* Touch targets at least 44px */
+@media (pointer: coarse) {
+  .generator-page .navbar-links a, .dark-mode-toggle { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  .autocomplete-suggestion { padding-top: 14px; padding-bottom: 14px; }
+}

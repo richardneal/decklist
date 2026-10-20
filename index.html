@@ -192,11 +192,11 @@
           </section>
           <label for="deckname">
             <span>Deck Name / Archetype:</span>
-            <input type="text" id="deckname" placeholder="(optional)">
+            <input type="text" id="deckname" placeholder="(optional)" autocorrect="off" spellcheck="false">
           </label>
           <label for="deckdesigner">
             <span>Deck Designer:</span>
-            <input type="text" id="deckdesigner" placeholder="(optional)">
+            <input type="text" id="deckdesigner" placeholder="(optional)" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <label for="deckformat">
             <span>Format (optional):</span>
@@ -225,13 +225,15 @@
           </label>
           <label for="deckmain">
             <span>Main Deck:</span>
-            <textarea id="deckmain"></textarea>
-            <span id="protip">(Pro tip: You can simply paste in MTG Arena, Moxfield, MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks, set codes and all, without separating out the sideboard!)</span>
+            <textarea id="deckmain" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckmain-messages protip"></textarea>
           </label>
+          <ul class="field-messages" id="deckmain-messages"></ul>
+          <p id="protip">(Pro tip: You can simply paste in MTG Arena, Moxfield, MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks, set codes and all, without separating out the sideboard!)</p>
           <label for="deckside">
             <span>Sideboard:</span>
-            <textarea id="deckside"></textarea>
+            <textarea id="deckside" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckside-messages"></textarea>
           </label>
+          <ul class="field-messages" id="deckside-messages"></ul>
           <label for="separate-basic-lands" class="checkbox-label">
             <span>Separate basic lands</span>
             <input type="checkbox" id="separate-basic-lands" name="separate-basic-lands">
@@ -240,16 +242,16 @@
           <h2>Personal Information</h2>
           <label for="firstname">
             <span>First Name:</span>
-            <input type="text" id="firstname">
+            <input type="text" id="firstname" autocomplete="given-name" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <label for="lastname">
             <span>Last Name:</span>
-            <input type="text" id="lastname">
+            <input type="text" id="lastname" autocomplete="family-name" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <h2>Event Information</h2>
           <label for="event">
             <span>Event:</span>
-            <input type="text" id="event">
+            <input type="text" id="event" autocapitalize="words">
           </label>
           <label for="eventdate">
             <span>Event Date:</span>
@@ -257,7 +259,7 @@
           </label>
           <label for="eventlocation">
             <span>Event Location:</span>
-            <input type="text" id="eventlocation">
+            <input type="text" id="eventlocation" autocapitalize="words">
           </label>
           <h2>Deck Sort Order</h2>
         </form>

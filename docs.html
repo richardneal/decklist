@@ -100,7 +100,8 @@
   <!-- jQuery -->
   <script type="text/javascript" src="js/jquery/jquery-3.1.1.min.js"></script>
 
-  <!-- Dark mode script -->
+  <!-- Dark mode script: the script at the top of <body> sets the starting mode before
+       the first paint; this follows the system and the toggle from then on -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const body = document.body;
@@ -115,9 +116,8 @@
         darkModeToggle.setAttribute('aria-label', label);
       }
 
-      // A saved choice wins; with none, follow the system setting
-      const saved = localStorage.getItem('darkMode');
-      applyDarkMode(saved === null ? systemDark.matches : saved === 'true');
+      // Label the toggle for the mode the script at the top of <body> chose
+      applyDarkMode(body.classList.contains('dark-mode'));
 
       // Follow system changes while there's no saved choice
       systemDark.addEventListener('change', function(e) {
