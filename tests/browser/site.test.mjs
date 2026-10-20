@@ -164,19 +164,30 @@ test('the format rides in the URL and falls back to Auto-detect when unknown', a
 const fields = () => page.$$eval('#firstname, #lastname, #event, #eventdate, #eventlocation, #deckname, #deckdesigner, #deckformat, #deckmain, #deckside',
   inputs => Object.fromEntries(inputs.map(input => [input.id, input.value])));
 
-test('Copy Permalink copies a link that reopens the deck, and sends it nowhere', async () => {
+// Clicks Copy Permalink and returns the link it copied, checking that nothing left the page
+async function copyPermalink() {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
-  await deck("1 Sol Ring\n1 +2 Mace\n1 Fire // Ice\n96 Island", "1 Atraxa, Praetors' Voice", 'commander');
-  await page.fill('#deckname', 'Atraxa & Friends 100%');
-  const filled = await fields();
-  const label = await page.inputValue('#permalink');
   outside.length = 0;
   await page.click('#permalink');
   await page.waitForFunction(() => document.querySelector('#permalink').value === 'Copied!');
   assert.deepEqual(outside, []);
-
   const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
   assert.equal(link.origin, 'https://decklist.nealston.com');
+  return link;
+}
+
+// The sheet and sort order radios that are checked
+const radios = () => page.evaluate(() => ({
+  sheet: document.querySelector('input[name=decksheetformat]:checked').id,
+  sort: document.querySelector('input[name=sortorder]:checked').id
+}));
+
+test('Copy Permalink copies a link that reopens the deck, and sends it nowhere', async () => {
+  await deck("1 Sol Ring\n1 +2 Mace\n1 Fire // Ice\n96 Island", "1 Atraxa, Praetors' Voice", 'commander');
+  await page.fill('#deckname', 'Atraxa & Friends 100%');
+  const filled = await fields();
+  const label = await page.inputValue('#permalink');
+  const link = await copyPermalink();
   // The button puts its own label back
   await page.waitForFunction(label => document.querySelector('#permalink').value === label, label, { timeout: 5000 });
 
@@ -184,6 +195,30 @@ test('Copy Permalink copies a link that reopens the deck, and sends it nowhere',
   await page.close();
   await newPage({}, '/index.html' + link.search);
   assert.deepEqual(await fields(), filled);
+});
+
+test('a permalink keeps the sheet and sort order, and back and forward restore them', async () => {
+  await page.fill('#deckmain', '4 Counterspell\n56 Island');
+  await page.waitForTimeout(600);
+  await page.click('label[for=decksheet-scg]');
+  await page.click('label[for=sort-manavalue]');
+  const link = await copyPermalink();
+  assert.equal(link.search, '?deckmain=4+Counterspell%0A56+Island&decksheet=scg&decksort=manavalue');
+  // Each radio is a step in the address bar's history
+  assert.equal(new URL(page.url()).search, link.search);
+
+  // Going back two steps undoes both radios at once and keeps the steps ahead
+  await page.evaluate(() => history.go(-2));
+  await page.waitForTimeout(200);
+  assert.deepEqual(await radios(), { sheet: 'decksheet-wotc', sort: 'sort-type' });
+  assert.equal(new URL(page.url()).search, '?deckmain=4+Counterspell%0A56+Island');
+  await page.evaluate(() => history.go(2));
+  await page.waitForTimeout(200);
+  assert.deepEqual(await radios(), { sheet: 'decksheet-scg', sort: 'sort-manavalue' });
+
+  await page.close();
+  await newPage({}, '/index.html' + link.search);
+  assert.deepEqual(await radios(), { sheet: 'decksheet-scg', sort: 'sort-manavalue' });
 });
 
 test('links with %20 for spaces still open', async () => {

@@ -41,9 +41,12 @@ $(document).ready(function() {
   // bind events to all the input fields on the left side, to generate a PDF on change
   $('div.left input:not([type="checkbox"]), div.left textarea, div.left select').on('input', pdfChangeWait);
   $('#eventdate').change(pdfChangeWait);
-  // radios and checkboxes are single clicks, not typing, so regenerate right away
+  // radios and checkboxes are single clicks, not typing, so regenerate right away.
+  // The sheet and sort order are in the link too; record it once the current event
+  // is done, so a back/forward restore that clicks several radios finishes first
   $('input[type="radio"], input[type="checkbox"]').change(function() {
     generateDecklistPDF();
+    setTimeout(pushHistoryState);
   });
 
   // bind a date picker to the event date (thanks, jQuery UI)
@@ -88,16 +91,21 @@ function pdfChangeWait() {
   decklistChangeTimer = setTimeout(function() {
     const parsedInput = Decklist.parse();
     validateInput(parsedInput);
-    const newState = generatePermalink(true);
-    if (newState !== history.state) {
-      console.log("pushing new state " + newState);
-      history.pushState(newState, document.title, generatePermalink());
-    }
+    pushHistoryState();
   }, 400);
 
   // Wait 1500 milliseconds to generate a new PDF
   if (pdfChangeTimer) { clearTimeout(pdfChangeTimer); }
   pdfChangeTimer = setTimeout(generateDecklistPDF, 1500);
+}
+
+// Records the form in the address bar and history, unless the current state already holds it
+function pushHistoryState() {
+  const newState = generatePermalink(true);
+  if (newState !== history.state) {
+    console.log("pushing new state " + newState);
+    history.pushState(newState, document.title, generatePermalink());
+  }
 }
 
 // Good ol' Javascript, not having a capitalize function on string objects
@@ -1203,27 +1211,22 @@ function drawStandardContinuationPage(dl, columns, page, pageCount) {
 // this page's own origin, so they work on localhost; a shared link always points
 // at the live site. Everything rides in the link itself and nothing is sent anywhere
 function generatePermalink(includeBlank = false, origin = window.location.origin) {
-  let rv = origin + '/';
-
   const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
-  let firstParam = true; // flag to track if any parameter has been appended
-  params.forEach(function(param) {
-    const field = '#' + param;
-    const value = $(field).val();
+  const values = params.map(param => [param, $('#' + param).val()])
+    .filter(([, value]) => value !== undefined && (includeBlank || value.length > 0));
 
-    if (value !== undefined && (includeBlank || value.length > 0)) {
-      if (firstParam) {
-        rv += '?'; // append ? before the first parameter
-        firstParam = false;
-      } else {
-        rv += '&'; // append & before subsequent parameters
-      }
-      // + for spaces keeps a long deck's link shorter; parseUrlIntoDict reads both
-      rv += param + '=' + encodeURIComponent(value).replace(/%20/g, '+');
-    }
-  });
+  // The sheet and sort order are radios, named as parseGET() clicks them (#decksheet-scg,
+  // #sort-color). A link leaves them out at their defaults; the history state keeps
+  // them, so going back to a state restores them
+  [['decksheet', 'decksheetformat', 'decksheet-', 'wotc'], ['decksort', 'sortorder', 'sort-', 'type']]
+    .forEach(([param, name, prefix, fallback]) => {
+      const value = $('input[name=' + name + ']:checked').prop('id').replace(prefix, '');
+      if (includeBlank || value !== fallback) values.push([param, value]);
+    });
 
-  return rv;
+  // + for spaces keeps a long deck's link shorter; parseUrlIntoDict reads both
+  const query = values.map(([param, value]) => param + '=' + encodeURIComponent(value).replace(/%20/g, '+')).join('&');
+  return origin + '/' + (query ? '?' + query : '');
 }
 
 // Shares the permalink: the native share sheet on a phone or tablet, the clipboard
