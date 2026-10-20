@@ -128,6 +128,16 @@
 </head>
 
 <body class="generator-page">
+  <!-- Set the theme before anything paints, so a dark page doesn't load light
+       and then fade over; the toggle's own script takes over once the page loads -->
+  <script>
+    try {
+      var savedDarkMode = localStorage.getItem('darkMode');
+      if (savedDarkMode === null ? matchMedia('(prefers-color-scheme: dark)').matches : savedDarkMode === 'true') {
+        document.body.classList.add('dark-mode');
+      }
+    } catch (e) {}
+  </script>
   <!-- Navigation Bar -->
   <nav class="navbar">
     <div class="navbar-container">
