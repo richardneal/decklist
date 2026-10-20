@@ -533,38 +533,6 @@ h2 {
   box-shadow: var(--shadow-sm);
 }
 
-#decksheetformatselector {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin-bottom: 24px;
-  padding: 12px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
-}
-
-#decksheetformatselector input[type="radio"] {
-  display: none;
-}
-
-#decksheetformatselector label {
-  padding: 10px 24px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: var(--transition);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-#decksheetformatselector label:hover {
-  background: var(--bg-secondary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
 #decklistpreview {
   margin-bottom: 20px;
 }
@@ -1424,6 +1392,13 @@ body.dark-mode .dark-mode-toggle .icon-sun {
 .generator-page .right h2 { font-size: 16px; text-align: left; border-bottom-width: 1px; }
 .generator-page iframe { width: 100%; box-shadow: none; }
 .generator-page #decklistpreview { width: 100%; }
+/* The preview is one letter page tall, so the sheet fills it without padding */
+.generator-page #decklist { display: block; width: 100%; height: auto; aspect-ratio: 8.5 / 11; }
+/* Beside the form, the preview sidebar stays in view as the page scrolls; a sidebar
+   taller than the window (a long status) scrolls on its own */
+@media (min-width: 1001px) {
+  .generator-page .right { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+}
 .generator-page #sortorderfloat label { font-size: 12px; padding: 10px 12px; box-shadow: none; }
 .generator-page #download { background: var(--accent-color); box-shadow: none; }
 .generator-page .deck-actions { background: none; padding: 0; }
@@ -1433,7 +1408,8 @@ body.dark-mode .dark-mode-toggle .icon-sun {
   .generator-page .wrapleft, .generator-page .right { width: 100%; box-sizing: border-box; }
   .generator-page .navbar-container { flex-wrap: wrap; }
   .generator-page .navbar-container h1 { flex: 1 0 100%; order: 10; font-size: 12px; text-align: left; line-height: 1.3; }
-  .generator-page iframe { height: 620px; }
+  /* One page, but no taller than it was in a box this wide */
+  .generator-page #decklist { width: min(100%, 480px); margin: 0 auto; }
 }
 @media (max-width: 600px) {
   .generator-page .wrapper { width: calc(100% - 24px); }
@@ -1450,8 +1426,7 @@ body.dark-mode .dark-mode-toggle .icon-sun {
 }
 
 /* Keep selected radio options distinct from the base ID-selector styles. */
-.generator-page #sortorderfloat input[type="radio"],
-.generator-page #decksheetformatselector input[type="radio"] {
+.generator-page #sortorderfloat input[type="radio"] {
   display: block;
   position: absolute;
   width: 1px;
@@ -1463,8 +1438,7 @@ body.dark-mode .dark-mode-toggle .icon-sun {
   white-space: nowrap;
   border: 0;
 }
-.generator-page #sortorderfloat input:checked + label,
-.generator-page #decksheetformatselector input:checked + label {
+.generator-page #sortorderfloat input:checked + label {
   background: var(--accent-color);
   color: var(--on-accent);
   border-color: var(--accent-color);
@@ -1474,15 +1448,13 @@ body.dark-mode .dark-mode-toggle .icon-sun {
 /* Selecting an option must not resize it: the check mark sits in padding every
    option reserves, and the weight stays put. Only the hover lift animates, since
    cross-fading the fill and text color leaves both options washed out mid-way. */
-.generator-page #sortorderfloat label,
-.generator-page #decksheetformatselector label {
+.generator-page #sortorderfloat label {
   position: relative;
   padding-left: calc(1em + 12px);
   padding-right: calc(1em + 12px);
   transition-property: box-shadow, transform;
 }
-.generator-page #sortorderfloat label::before,
-.generator-page #decksheetformatselector label::before {
+.generator-page #sortorderfloat label::before {
   /* In the line, just before the text, but taking no width of its own, so the
      text stays centered whether or not the option is checked */
   content: "";
@@ -1498,15 +1470,9 @@ body.dark-mode .dark-mode-toggle .icon-sun {
   mask: var(--icon-check) center / contain no-repeat;
   visibility: hidden;
 }
-.generator-page #sortorderfloat input:checked + label::before,
-.generator-page #decksheetformatselector input:checked + label::before { visibility: visible; }
+.generator-page #sortorderfloat input:checked + label::before{ visibility: visible; }
 .generator-page #sortorderfloat input:focus-visible + label,
-.generator-page #decksheetformatselector input:focus-visible + label {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 3px;
-}
-
-/* jQuery UI datepicker, in the site palette (its theme file loads after this one) */
+.generator-page /* jQuery UI datepicker, in the site palette (its theme file loads after this one) */
 .ui-datepicker.ui-widget.ui-widget-content { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); font-family: inherit; }
 .ui-datepicker.ui-widget .ui-widget-header { background: var(--bg-secondary); color: var(--text-primary); border: 0; border-radius: var(--radius-sm); }
 .ui-datepicker.ui-widget .ui-datepicker-prev-hover, .ui-datepicker.ui-widget .ui-datepicker-next-hover { background: var(--bg-tertiary); border: 0; }
