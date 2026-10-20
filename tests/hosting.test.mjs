@@ -15,7 +15,7 @@ const env = {
 
 // The site Worker sees the front page, and paths that match no static file.
 function run(path, method = 'GET') {
-  return handle(new Request('https://decklist.nealston.com' + path, { method }), env);
+  return handle(new Request('https://decklist.app' + path, { method }), env);
 }
 
 // The preview tags a page was served with
@@ -33,7 +33,7 @@ async function imported(path) {
   assert.equal(response.status, 302, path);
   const location = response.headers.get('Location');
   assert.match(location, /^\/\?deckimport=/);
-  return new URL(location, 'https://decklist.nealston.com').searchParams.get('deckimport');
+  return new URL(location, 'https://decklist.app').searchParams.get('deckimport');
 }
 
 test('a deck link after the site address redirects to deckimport', async () => {
@@ -102,7 +102,7 @@ test("a deck permalink's preview names the deck, its format and its cards", asyn
   assert.equal(meta['og:description'],
     'Modern · 60 cards + 15 sideboard. 4 Ragavan, Nimble Pilferer · 4 Murktide Regent · 4 Lightning Bolt · 48 Island');
   assert.equal(meta['twitter:description'], meta['og:description']);
-  assert.equal(meta['og:image'], 'https://decklist.nealston.com/images/og-image.png');
+  assert.equal(meta['og:image'], 'https://decklist.app/images/og-image.png');
   // The player and the event stay out of the preview
   assert.doesNotMatch(html, /Jace|Beleren|The Store/);
 });

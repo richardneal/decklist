@@ -5,11 +5,15 @@
   "main": "index.mjs",
   "compatibility_date": "2026-09-16",
   "workers_dev": false,
-  "routes": [{ "pattern": "deck-import.nealston.com", "custom_domain": true }],
+  "routes": [
+    { "pattern": "import.decklist.app", "custom_domain": true },
+    // The old host keeps answering for pages loaded before the move to decklist.app.
+    { "pattern": "deck-import.nealston.com", "custom_domain": true }
+  ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://decklist.nealston.com,https://nealston.com,https://www.nealston.com,http://localhost:8000,http://127.0.0.1:8000",
-    "MOXFIELD_USER_AGENT": "decklist.nealston.com (+https://decklist.nealston.com)",
-    "USER_AGENT": "decklist.nealston.com (+https://decklist.nealston.com)"
+    "ALLOWED_ORIGINS": "https://decklist.app,https://decklist.nealston.com,https://nealston.com,https://www.nealston.com,http://localhost:8000,http://127.0.0.1:8000",
+    "MOXFIELD_USER_AGENT": "decklist.app (+https://decklist.app)",
+    "USER_AGENT": "decklist.app (+https://decklist.app)"
   },
   "ratelimits": [{
     "name": "IMPORT_LIMITER",

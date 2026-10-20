@@ -12,7 +12,7 @@ import { chromium } from 'playwright';
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.svg': 'image/svg+xml' };
-const API = 'https://deck-import.nealston.com/api/import';
+const API = 'https://import.decklist.app/api/import';
 
 let server, browser, origin, page, pageErrors, importReply, outside;
 
@@ -208,7 +208,7 @@ async function copyPermalink() {
   await page.waitForFunction(() => document.querySelector('#permalink').value === 'Copied!');
   assert.deepEqual(outside, []);
   const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
-  assert.equal(link.origin, 'https://decklist.nealston.com');
+  assert.equal(link.origin, 'https://decklist.app');
   return link;
 }
 
@@ -275,7 +275,7 @@ test('on a phone, Copy Permalink opens the share sheet with the same link', asyn
   outside.length = 0;
   await page.click('#permalink');
   const shared = await page.waitForFunction(() => window.shared).then(handle => handle.jsonValue());
-  assert.equal(shared.url, 'https://decklist.nealston.com/?deckmain=4+Counterspell%0A56+Island');
+  assert.equal(shared.url, 'https://decklist.app/?deckmain=4+Counterspell%0A56+Island');
   assert.equal(await page.inputValue('#permalink'), label);
   assert.deepEqual(outside, []);
 });

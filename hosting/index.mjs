@@ -1,7 +1,7 @@
 // Runs for the front page, and for any other request that matches no static asset.
 // A permalink to a deck (/?deckname=…&deckmain=…) gets the page with its link preview
 // naming the deck. A deck link written after the site's address
-// (decklist.nealston.com/https://moxfield.com/decks/…) is sent on to the page's
+// (decklist.app/https://moxfield.com/decks/…) is sent on to the page's
 // deckimport parameter, which imports it on load; anything else is a 404.
 
 // The deck sites whose links may be written without https://, as DeckImport.parse

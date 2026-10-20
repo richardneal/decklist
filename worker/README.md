@@ -1,6 +1,6 @@
 # Deck import API
 
-A Cloudflare Worker at `deck-import.nealston.com` provides `GET /api/import?source=mtggoldfish&id=123` (or `source=mtgtop8`). The frontend calls this endpoint instead of CORS Anywhere. No website migration is required.
+A Cloudflare Worker at `import.decklist.app` (and at its original host, `deck-import.nealston.com`, kept for pages loaded before the move) provides `GET /api/import?source=mtggoldfish&id=123` (or `source=mtgtop8`). The frontend calls this endpoint instead of CORS Anywhere. No website migration is required.
 
 Only fixed export URLs are fetched. Redirects are rejected. Exports have a 15-second timeout and 64 KiB limit; HTML and invalid exports are rejected. Successful exports are cached for five minutes per Cloudflare location. The rate-limit binding allows 20 requests per minute per IP per location; this is abuse mitigation, not a global quota. CORS allows only the origins configured in `wrangler.jsonc`; it is not authentication.
 
@@ -16,9 +16,9 @@ npm run check
 npm run deploy
 ```
 
-Use the account for `richard@nealston.com` that owns the active `nealston.com` Cloudflare zone. If multiple accounts are available, set `account_id` in `wrangler.jsonc` to that account's ID. Deployment creates the custom domain and manages its DNS/certificate through Cloudflare. Do not replace an existing subdomain service without checking it first.
+Use the account for `richard@nealston.com` that owns the `decklist.app` and `nealston.com` Cloudflare zones. If multiple accounts are available, set `account_id` in `wrangler.jsonc` to that account's ID. Deployment creates the custom domain and manages its DNS/certificate through Cloudflare. Do not replace an existing subdomain service without checking it first.
 
-Set `ALLOWED_ORIGINS` to the exact origins hosting your frontend (no trailing slash or path). The current list supports `decklist.nealston.com`, `nealston.com`, `www.nealston.com`, and local HTTP development on port 8000. Add another origin if you host the fork elsewhere. `richardneal.github.io` was dropped when GitHub Pages was disabled for the repository; the site is served only from Cloudflare. The original author's `decklist.xyz` domain is not assumed to belong to this fork.
+Set `ALLOWED_ORIGINS` to the exact origins hosting your frontend (no trailing slash or path). The current list supports `decklist.app`, `decklist.nealston.com` (the site's old host, which now redirects to `decklist.app`), `nealston.com`, `www.nealston.com`, and local HTTP development on port 8000. Add another origin if you host the fork elsewhere. `richardneal.github.io` was dropped when GitHub Pages was disabled for the repository; the site is served only from Cloudflare. The original author's `decklist.xyz` domain is not assumed to belong to this fork.
 
 The browser endpoint is configured in `js/decklist/deckimport.js` as `DeckImport.apiURL`. Deploy the Worker before publishing that frontend change. Upstream anti-bot restrictions may still prevent downloads; the API reports failures and the UI offers manual paste as a fallback.
 
