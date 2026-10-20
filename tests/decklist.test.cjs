@@ -148,6 +148,18 @@ test('sends SB: lines to the sideboard from either input', () => {
     main: ['4 Brainstorm', '56 Island'], side: ['2 Blood Moon', '1 Duress', '1 Pyroblast'], unrecognized: [], unparseable: [],
   });
 });
+test('ignores comment lines', () => {
+  const mws = '// Deck file for Magic Workstation (http://www.magicworkstation.com)\n// NAME : Burn\n' +
+    '        4 [M10] Lightning Bolt\n// Lands\n        56 [M10] Mountain\nSB:  2 [M10] Blood Moon';
+  assert.deepEqual(sections(mws),
+    { main: ['4 Lightning Bolt', '56 Mountain'], side: ['2 Blood Moon'], unrecognized: [], unparseable: [] });
+  // A comment between the blank line and the sideboard leaves the switch in place
+  assert.deepEqual(sections('4 Brainstorm\n\n// Sideboard\n2 Blood Moon').side, ['2 Blood Moon']);
+});
+test('leaves out a maybeboard, up to the next header', () => {
+  assert.deepEqual(sections('Deck\n4 Brainstorm\n\nMaybeboard\n1 Force of Will\n\n1 Daze\n\nSideboard\n2 Blood Moon',
+    'MAYBEBOARD:\n1 Duress'), { main: ['4 Brainstorm'], side: ['2 Blood Moon'], unrecognized: [], unparseable: [] });
+});
 test('a blank line after main deck cards still starts the sideboard, unless a header follows', () => {
   assert.deepEqual(sections('4 Brainstorm\n56 Island\n\n2 Blood Moon\n13 Mountain'),
     { main: ['4 Brainstorm', '56 Island'], side: ['2 Blood Moon', '13 Mountain'], unrecognized: [], unparseable: [] });
