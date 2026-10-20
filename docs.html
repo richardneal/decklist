@@ -95,22 +95,17 @@
   <!-- jQuery -->
   <script type="text/javascript" src="js/jquery/jquery-3.1.1.min.js"></script>
 
-  <!-- Dark mode script -->
+  <!-- Dark mode script: the script at the top of <body> sets the starting mode before
+       the first paint; this follows the system and the toggle from then on -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const body = document.body;
       const darkModeToggle = document.getElementById('darkModeToggle');
-      const darkModeIcon = document.getElementById('darkModeIcon');
       const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
       function applyDarkMode(isDark) {
         body.classList.toggle('dark-mode', isDark);
-        darkModeIcon.textContent = isDark ? '☀️' : '🌙';
       }
-
-      // A saved choice wins; with none, follow the system setting
-      const saved = localStorage.getItem('darkMode');
-      applyDarkMode(saved === null ? systemDark.matches : saved === 'true');
 
       // Follow system changes while there's no saved choice
       systemDark.addEventListener('change', function(e) {
@@ -140,6 +135,16 @@
 </head>
 
 <body>
+  <!-- Dark mode before the first paint: a saved choice wins, else the system setting -->
+  <script>
+    try {
+      var savedDarkMode = localStorage.getItem('darkMode');
+      if (savedDarkMode === null ? matchMedia('(prefers-color-scheme: dark)').matches : savedDarkMode === 'true') {
+        document.body.classList.add('dark-mode');
+      }
+    } catch (e) {}
+  </script>
+
   <!-- Navigation Bar -->
   <nav class="navbar">
     <div class="navbar-container">
@@ -166,7 +171,7 @@
         <a href="/">← Generator</a>
       </div>
       <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle dark mode">
-        <span id="darkModeIcon">🌙</span>
+        <span id="darkModeIcon" aria-hidden="true"></span>
       </button>
     </div>
   </nav>

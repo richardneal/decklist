@@ -23,6 +23,13 @@ var logoCache = {};
 // Resolves once every logo has loaded (or failed to)
 var logosReady = null;
 
+// Phones and tablets: the preview is drawn by PDF.js, since iOS Safari shows a PDF in an
+// iframe at full size, cropped to the frame, and the event date uses the native picker
+const touchScreen = window.matchMedia('(pointer: coarse)').matches;
+
+// The one-column layout (decklist.css), where the deck boxes list their own problems
+const oneColumn = window.matchMedia('(max-width: 1000px)');
+
 // When the page loads, generate a blank deck list preview
 $(document).ready(function() {
   // Initialize dark mode from localStorage
@@ -46,18 +53,29 @@ $(document).ready(function() {
     generateDecklistPDF();
   });
 
-  // bind a date picker to the event date (thanks, jQuery UI)
+  // bind a date picker to the event date (thanks, jQuery UI); a touch screen gets its
+  // native one instead, since jQuery UI's opens alongside the keyboard. Both use ISO-8601
+  if (touchScreen) {
+    document.getElementById('eventdate').type = 'date';
+    $('#decklistpreview').empty().addClass('drawn');
+  } else {
+    $('#eventdate').datepicker({ dateFormat: 'yy-mm-dd' }); // ISO-8601, woohoo
+  }
+
   // also skin the download and permalink buttons
-  $('#eventdate').datepicker({ dateFormat: 'yy-mm-dd' }); // ISO-8601, woohoo
   $('#download').button();
   $('#permalink').button();
   $('input[type=radio]').checkboxradio({
     icon: false
   });
 
-  // initialize field tooltips, replace | with <br /> in tooltip content
+  // initialize field tooltips, replace | with <br /> in tooltip content. In the one-column
+  // layout the deck boxes list their problems beneath them, so they open none
   $('.left input, .left textarea').tooltip({
     content: function(callback) {
+      if (oneColumn.matches && $(this).is('#deckmain, #deckside')) {
+        return callback('');
+      }
       callback($(this).prop('title').replace(/\|/g, '<br />'));
     },
     position: {
@@ -1296,7 +1314,10 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
   const dl = generateDecklistLayout(parsedInput);
 
   // Output the dl as a blob to add to the DOM
-  if (outputtype === 'dataurlstring') {
+  if (outputtype === 'dataurlstring' && touchScreen) {
+    drawPreview(dl.output('arraybuffer'));
+  }
+  else if (outputtype === 'dataurlstring') {
     const domdl = dl.output('dataurlstring');
 
     // If we set the 'src' attr while the iframe is still part of the DOM, we generate
@@ -1310,6 +1331,61 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
   }
   else {
     dl.save('decklist.pdf');
+  }
+}
+
+// ==================== TOUCH SCREEN PREVIEW ====================
+
+// PDF.js and the worker it parses in, loaded for the first touch screen preview
+var pdfjsReady = null;
+
+// Numbers each preview, so one that finishes late can't replace a newer one
+var previewNumber = 0;
+
+function loadPdfjs() {
+  if (!pdfjsReady) {
+    pdfjsReady = import(new URL('js/pdfjs/pdf-5.7.284.min.js', document.baseURI).href).then(function(pdfjs) {
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL('js/pdfjs/pdf.worker-5.7.284.min.js', document.baseURI).href;
+      return { pdfjs: pdfjs, worker: new pdfjs.PDFWorker() };
+    });
+    // a failed load is tried again by the next preview
+    pdfjsReady.catch(function() { pdfjsReady = null; });
+  }
+  return pdfjsReady;
+}
+
+// Draws each page of the sheet to a canvas as wide as the preview
+async function drawPreview(data) {
+  const number = ++previewNumber;
+  const container = document.getElementById('decklistpreview');
+  try {
+    const { pdfjs, worker } = await loadPdfjs();
+    const pdf = await pdfjs.getDocument({ data: data, worker: worker, isEvalSupported: false }).promise;
+    const canvases = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      const scale = container.clientWidth * window.devicePixelRatio / page.getViewport({ scale: 1 }).width;
+      const viewport = page.getViewport({ scale: scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', 'Decklist preview, page ' + pageNumber + ' of ' + pdf.numPages);
+      await page.render({ canvas: canvas, viewport: viewport }).promise;
+      canvases.push(canvas);
+    }
+    await pdf.destroy();
+    if (number === previewNumber) {
+      container.replaceChildren(...canvases);
+    }
+  } catch (error) {
+    console.error('Preview failed', error);
+    if (number === previewNumber) {
+      const message = document.createElement('p');
+      message.className = 'preview-unavailable';
+      message.textContent = 'The preview couldn’t be drawn. Download the PDF to see your sheet.';
+      container.replaceChildren(message);
+    }
   }
 }
 
@@ -1550,7 +1626,7 @@ function statusAndTooltips(valid) {
   let allEmpty = true;
   $('.left input, .left textarea').tooltip('close');
   $('.left input, .left textarea').each(function() {
-    if ($(this).is('input[type="text"], input[type="url"], textarea') && $(this).val()) {
+    if ($(this).is('input[type="text"], input[type="url"], input[type="date"], textarea') && $(this).val()) {
       allEmpty = false;
     }
     $(this).prop('title', '');
@@ -1606,6 +1682,15 @@ function statusAndTooltips(valid) {
     statusBoxHtml = STATUS_PROMPT_HTML;
   }
 
+  // list each deck box's problems beneath it too; the one-column layout shows them there,
+  // a long scroll away from the status box
+  ['deckmain', 'deckside'].forEach(function(key) {
+    const fieldNotifications = allEmpty ? [] : (notifications[key] || []);
+    $('#' + key + '-messages').html(fieldNotifications.map(function(notification) {
+      return '<li class=\'' + notification[1] + '\'>' + notification[0] + '</li>';
+    }).join(''));
+  });
+
   // compute new status
   let newStatus = 'valid';
   if (errorLevel & 0x100)      { newStatus = 'error'; }
@@ -1660,19 +1745,15 @@ function loadLogos() {
 
 // ==================== DARK MODE FUNCTIONALITY ====================
 
+// The script at the top of <body> sets the starting mode before the first paint;
+// this follows the system and the toggle from then on. The icon is drawn by CSS
 function initDarkMode() {
   const darkModeToggle = document.getElementById('darkModeToggle');
-  const darkModeIcon = document.getElementById('darkModeIcon');
   const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
   function applyDarkMode(isDark) {
     document.body.classList.toggle('dark-mode', isDark);
-    darkModeIcon.textContent = isDark ? '☀️' : '🌙';
   }
-
-  // A saved choice wins; with none, follow the system setting
-  const saved = localStorage.getItem('darkMode');
-  applyDarkMode(saved === null ? systemDark.matches : saved === 'true');
 
   // Follow system changes while there's no saved choice
   systemDark.addEventListener('change', function(e) {
@@ -1820,14 +1901,28 @@ function initDeckManagement() {
 // ==================== AUTOCOMPLETE FUNCTIONALITY ====================
 
 function initAutocomplete() {
-  let autocompleteContainer = null;
-  let selectedIndex = -1;
-  let suggestions = [];
+  const MAX_SUGGESTIONS = 10;
+  const MAX_LIST_HEIGHT = 220;
+  const GAP = 4;
 
-  // Create autocomplete container
-  autocompleteContainer = $('<div class="autocomplete-suggestions"></div>');
-  $('body').append(autocompleteContainer);
-  autocompleteContainer.hide();
+  // The deck box the list belongs to, its suggestions ({name, rank}), and the highlighted
+  // one, which Enter and Tab take
+  let textarea = null;
+  let suggestions = [];
+  let selectedIndex = 0;
+
+  const container = $('<div class="autocomplete-suggestions" role="listbox"></div>');
+  $('body').append(container);
+  container.hide();
+
+  // Pressing on the list must not take focus from the deck box: the typing would go
+  // nowhere afterwards, and on a phone the keyboard would close
+  container.on('mousedown pointerdown', function(e) {
+    e.preventDefault();
+  });
+  container.on('click', '.autocomplete-suggestion', function() {
+    selectSuggestion($(this).index());
+  });
 
   // Attach autocomplete to deck textareas
   $('#deckmain, #deckside').on('input', function(e) {
@@ -1839,29 +1934,9 @@ function initAutocomplete() {
       return;
     }
 
-    const textarea = $(this);
-    const cursorPos = textarea[0].selectionStart;
-    const text = textarea.val();
-    const textBeforeCursor = text.substring(0, cursorPos);
-
-    // Get the current line being typed
-    const lines = textBeforeCursor.split('\n');
-    const currentLine = lines[lines.length - 1];
-
-    // Extract card name (after quantity like "4 " or "2x ")
-    const matchWithQuantity = currentLine.match(/^\s*\d+x?\s+(.+)$/i);
-    // Also match card name without quantity at the start of a line
-    const matchWithoutQuantity = currentLine.match(/^\s*([a-zA-Z].*)$/i);
-
-    let searchTerm = null;
-    if (matchWithQuantity && matchWithQuantity[1].length >= 2) {
-      searchTerm = matchWithQuantity[1].toLowerCase();
-    } else if (matchWithoutQuantity && matchWithoutQuantity[1].length >= 2) {
-      searchTerm = matchWithoutQuantity[1].toLowerCase();
-    }
-
+    const searchTerm = currentSearchTerm(this);
     if (searchTerm) {
-      showAutocomplete(textarea, searchTerm);
+      showAutocomplete($(this), searchTerm);
     } else {
       hideAutocomplete();
     }
@@ -1869,7 +1944,7 @@ function initAutocomplete() {
 
   // Handle keyboard navigation
   $('#deckmain, #deckside').on('keydown', function(e) {
-    if (!autocompleteContainer.is(':visible')) return;
+    if (!container.is(':visible') || e.isComposing) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -1879,9 +1954,14 @@ function initAutocomplete() {
       e.preventDefault();
       selectedIndex = Math.max(selectedIndex - 1, 0);
       updateSelection();
-    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      // Enter after a name typed in full ends the line, as it would with no list open
+      if (e.key === 'Enter' && selectedIndex === 0 && suggestions[0].rank === 0) {
+        hideAutocomplete();
+        return;
+      }
       e.preventDefault();
-      selectSuggestion($(this), suggestions[selectedIndex]);
+      selectSuggestion(selectedIndex);
     } else if (e.key === 'Escape') {
       hideAutocomplete();
     }
@@ -1894,89 +1974,179 @@ function initAutocomplete() {
     }
   });
 
-  function showAutocomplete(textarea, searchTerm) {
-    // Search for matching cards in the global cards object
-    suggestions = [];
+  // Keep the list beside the caret as the page scrolls, the deck box scrolls, or a phone's
+  // keyboard opens or closes, once a frame at most
+  let repositionFrame = null;
+  function reposition() {
+    if (repositionFrame || !container.is(':visible')) return;
+    repositionFrame = requestAnimationFrame(function() {
+      repositionFrame = null;
+      if (container.is(':visible')) positionList();
+    });
+  }
+  window.addEventListener('scroll', reposition, { passive: true });
+  window.addEventListener('resize', reposition);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('scroll', reposition);
+    window.visualViewport.addEventListener('resize', reposition);
+  }
+  $('#deckmain, #deckside').on('scroll', reposition);
 
-    if (typeof cards !== 'undefined') {
-      // Compare loose forms, so "fire ice" suggests Fire // Ice
-      const term = Decklist.searchKey(searchTerm);
-      for (const [key, card] of Decklist.searchIndex()) {
-        if (key.includes(term)) {
-          suggestions.push(card.n);
-          if (suggestions.length >= 10) break; // Limit to 10 suggestions
-        }
+  // The card name on the caret's line, after any quantity ("4 " or "2x "), once it is
+  // at least two characters long; otherwise null
+  function currentSearchTerm(box) {
+    const textBeforeCursor = box.value.substring(0, box.selectionStart);
+    const currentLine = textBeforeCursor.substring(textBeforeCursor.lastIndexOf('\n') + 1);
+    const matchWithQuantity = currentLine.match(/^\s*\d+x?\s+(.+)$/i);
+    const matchWithoutQuantity = currentLine.match(/^\s*([a-zA-Z].*)$/i);
+    const name = (matchWithQuantity || matchWithoutQuantity || [])[1];
+    return name && name.length >= 2 ? name : null;
+  }
+
+  // Every card whose loose name contains the term, best first: the name itself, then
+  // names starting with it, then names with a word starting with it, then the rest,
+  // alphabetically within each. Loose forms, so "fire ice" finds Fire // Ice
+  function searchCards(searchTerm) {
+    const term = Decklist.searchKey(searchTerm);
+    const matches = [];
+    if (!term || typeof cards === 'undefined') return matches;
+
+    for (const [key, card] of Decklist.searchIndex()) {
+      const at = key.indexOf(term);
+      if (at === -1) continue;
+      let rank = 3;
+      if (key === term) {
+        rank = 0;
+      } else if (at === 0) {
+        rank = 1;
+      } else if (startsWord(key, term, at)) {
+        rank = 2;
       }
+      matches.push({ key: key, name: card.n, rank: rank });
     }
 
+    matches.sort(function(a, b) {
+      return a.rank - b.rank || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+    });
+    return matches.slice(0, MAX_SUGGESTIONS);
+  }
+
+  // Whether the term starts a word of the name anywhere from `at` on
+  function startsWord(key, term, at) {
+    for (; at !== -1; at = key.indexOf(term, at + 1)) {
+      if (!/[a-z0-9]/.test(key[at - 1])) return true;
+    }
+    return false;
+  }
+
+  function showAutocomplete(box, searchTerm) {
+    suggestions = searchCards(searchTerm);
     if (suggestions.length === 0) {
       hideAutocomplete();
       return;
     }
 
-    // Position autocomplete below textarea
-    const offset = textarea.offset();
-    const textareaHeight = textarea.outerHeight();
-
-    autocompleteContainer.css({
-      top: offset.top + textareaHeight + 'px',
-      left: offset.left + 'px',
-      width: textarea.outerWidth() + 'px'
+    textarea = box;
+    selectedIndex = 0;
+    container.empty();
+    suggestions.forEach(function(suggestion) {
+      container.append($('<div class="autocomplete-suggestion" role="option"></div>').text(suggestion.name));
     });
+    updateSelection();
+    container.show();
+    container.scrollTop(0);
+    positionList();
+  }
 
-    // Populate suggestions
-    autocompleteContainer.empty();
-    suggestions.forEach((suggestion, index) => {
-      const item = $('<div class="autocomplete-suggestion"></div>')
-        .text(suggestion)
-        .on('click', function() {
-          selectSuggestion(textarea, suggestion);
-        });
+  // Puts the list under the caret's line, or above it when there's more room there inside
+  // what's visible: a phone's keyboard shrinks the visual viewport, and a list below the
+  // box would sit behind it
+  function positionList() {
+    const box = textarea[0];
+    const rect = box.getBoundingClientRect();
+    const caret = caretLine(box);
+    const lineTop = Math.min(Math.max(rect.top + caret.top, rect.top), rect.bottom);
+    const lineBottom = Math.min(lineTop + caret.height, rect.bottom);
 
-      autocompleteContainer.append(item);
+    const view = window.visualViewport;
+    const viewTop = view ? view.offsetTop : 0;
+    const viewBottom = view ? view.offsetTop + view.height : window.innerHeight;
+    const spaceBelow = viewBottom - lineBottom - 2 * GAP;
+    const spaceAbove = lineTop - viewTop - 2 * GAP;
+
+    container.css({ maxHeight: 'none', left: rect.left + window.scrollX + 'px', width: rect.width + 'px' });
+    const listHeight = Math.min(container.outerHeight(), MAX_LIST_HEIGHT);
+    const below = spaceBelow >= listHeight || spaceBelow >= spaceAbove;
+    const height = Math.max(Math.min(listHeight, below ? spaceBelow : spaceAbove), 0);
+
+    container.css({
+      maxHeight: height + 'px',
+      top: (below ? lineBottom + GAP : lineTop - GAP - height) + window.scrollY + 'px'
     });
+  }
 
-    selectedIndex = -1;
-    autocompleteContainer.show();
+  // The caret's line inside a textarea, as {top, height} from its border edge with its
+  // scroll applied, measured on a hidden copy with the same width and text styles so
+  // wrapped lines count
+  function caretLine(box) {
+    const style = getComputedStyle(box);
+    const mirror = document.createElement('div');
+    ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle',
+      'letterSpacing', 'wordSpacing', 'lineHeight', 'textTransform', 'textIndent', 'tabSize'].forEach(function(prop) {
+      mirror.style[prop] = style[prop];
+    });
+    Object.assign(mirror.style, {
+      position: 'absolute', visibility: 'hidden', top: '0', left: '-9999px', border: '0', boxSizing: 'border-box',
+      width: box.clientWidth + 'px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word'
+    });
+    mirror.textContent = box.value.substring(0, box.selectionEnd);
+    const marker = document.createElement('span');
+    marker.textContent = '​';
+    mirror.appendChild(marker);
+    document.body.appendChild(mirror);
+    const line = { top: box.clientTop + marker.offsetTop - box.scrollTop, height: marker.offsetHeight };
+    mirror.remove();
+    return line;
   }
 
   function hideAutocomplete() {
-    autocompleteContainer.hide();
-    selectedIndex = -1;
+    container.hide();
+    selectedIndex = 0;
     suggestions = [];
   }
 
   function updateSelection() {
-    autocompleteContainer.find('.autocomplete-suggestion').removeClass('selected');
-    if (selectedIndex >= 0) {
-      autocompleteContainer.find('.autocomplete-suggestion').eq(selectedIndex).addClass('selected');
-    }
+    container.find('.autocomplete-suggestion').each(function(index) {
+      $(this).toggleClass('selected', index === selectedIndex).attr('aria-selected', index === selectedIndex);
+    });
+    const selected = container.find('.selected')[0];
+    if (selected) selected.scrollIntoView({ block: 'nearest' });
   }
 
-  function selectSuggestion(textarea, cardName) {
-    const cursorPos = textarea[0].selectionStart;
-    const text = textarea.val();
+  function selectSuggestion(index) {
+    const box = textarea[0];
+    const cardName = suggestions[index].name;
+    const cursorPos = box.selectionStart;
+    const text = box.value;
     const textBeforeCursor = text.substring(0, cursorPos);
     const textAfterCursor = text.substring(cursorPos);
 
     // Get the current line
-    const lines = textBeforeCursor.split('\n');
     const currentLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
-    const currentLine = lines[lines.length - 1];
+    const currentLine = textBeforeCursor.substring(currentLineStart);
 
     // Extract quantity, default to "1 " if none present
     const match = currentLine.match(/^\s*(\d+x?\s+)/i);
     const quantity = match ? match[1] : '1 ';
 
     // Replace current line with selected card
-    const newText = text.substring(0, currentLineStart) + quantity + cardName + textAfterCursor;
-    textarea.val(newText);
+    box.value = text.substring(0, currentLineStart) + quantity + cardName + textAfterCursor;
 
-    // Set cursor position after card name
-    const newCursorPos = currentLineStart + quantity.length + cardName.length;
-    textarea[0].setSelectionRange(newCursorPos, newCursorPos);
-
+    // Keep typing in the deck box, with the cursor after the card name
     hideAutocomplete();
+    box.focus();
+    const newCursorPos = currentLineStart + quantity.length + cardName.length;
+    box.setSelectionRange(newCursorPos, newCursorPos);
 
     // Trigger change event
     textarea.trigger('input');

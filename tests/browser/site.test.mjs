@@ -37,11 +37,21 @@ after(async () => {
 });
 
 beforeEach(async () => {
-  page = await browser.newPage();
   pageErrors = [];
+  importReply = { body: '4 Island', format: null };
+  await newPage();
+});
+
+afterEach(async () => {
+  await page.close();
+  assert.deepEqual(pageErrors, []);
+});
+
+// Opens index.html in a new page, with the browser options given (a phone's viewport)
+async function newPage(options = {}) {
+  page = await browser.newPage(options);
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('dialog', dialog => dialog.accept());
-  importReply = { body: '4 Island', format: null };
   // Stay offline: serve the import API from the test, and drop everything else
   // that isn't the page itself (web fonts)
   await page.route(url => !url.href.startsWith(origin), route => {
@@ -53,12 +63,7 @@ beforeEach(async () => {
     } });
   });
   await open('/index.html');
-});
-
-afterEach(async () => {
-  await page.close();
-  assert.deepEqual(pageErrors, []);
-});
+}
 
 async function open(path) {
   await page.goto(origin + path);
@@ -109,6 +114,8 @@ test('a 59-card deck is still a card short', async () => {
   const { label, messages } = await deck('4 Counterspell\n55 Island', '15 Island');
   assert.equal(label, 'Auto-detect (Pauper)');
   assert.deepEqual(messages, ['Decks may not consist of less than 60 cards']);
+  // Beside the status box, the deck box doesn't list its problems again
+  assert.equal(await page.isVisible('#deckmain-messages'), false);
 });
 
 test('an Arena export with a companion pasted into the main deck fills both sections', async () => {
@@ -225,6 +232,96 @@ test('the preview renders a PDF', async () => {
   await deck(...COMMANDER);
   await page.waitForFunction(() => document.querySelector('#decklist')?.getAttribute('src')?.startsWith('data:application/pdf'),
     null, { timeout: 5000 });
+});
+
+test('a phone draws the preview, picks the date natively, and lists deck problems under the deck box', async () => {
+  await page.close();
+  await newPage({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+  assert.equal(await page.getAttribute('#eventdate', 'type'), 'date');
+  await deck('4 Lightning Bolt\n4 Not A Card\n52 Mountain', '15 Mountain');
+  const messages = await page.$$eval('#deckmain-messages > li', items => items.map(item => item.innerText));
+  assert.equal(messages.length, 1);
+  assert.match(messages[0], /^Couldn't recognize the following card\(s\):\s+Not A Card$/);
+  assert.ok(await page.isVisible('#deckmain-messages'));
+  assert.equal(await page.isVisible('#deckside-messages'), false);
+  // PDF.js draws the sheet in place of the iframe, and it isn't blank
+  await page.waitForSelector('#decklistpreview canvas', { timeout: 10000 });
+  assert.equal(await page.$('#decklist'), null);
+  const inked = await page.$eval('#decklistpreview canvas', canvas => {
+    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    let count = 0;
+    for (let i = 0; i < pixels.length; i += 4) if (pixels[i] < 128) count++;
+    return count;
+  });
+  assert.ok(inked > 1000, 'the drawn preview has ' + inked + ' dark pixels');
+  // The status comes before the download button
+  assert.ok((await page.locator('.status').boundingBox()).y < (await page.locator('#download').boundingBox()).y);
+});
+
+// Types at the end of the main deck as a player would, and returns the suggestions shown.
+// The deck box is focused directly: a click could land on an open list
+async function typeInDeck(text) {
+  await page.$eval('#deckmain', box => {
+    box.focus();
+    box.setSelectionRange(box.value.length, box.value.length);
+  });
+  await page.keyboard.type(text);
+  return page.$$eval('.autocomplete-suggestion', items => items.filter(item => item.offsetParent).map(item => item.textContent));
+}
+
+test('autocomplete puts the name typed, then names starting with it, first', async () => {
+  assert.equal((await typeInDeck('4 island'))[0], 'Island');
+  await page.fill('#deckmain', '');
+  const thought = await typeInDeck('2 thoughtse');
+  assert.equal(thought[0], 'Thoughtseize');
+  await page.fill('#deckmain', '');
+  // A word starting with the term beats the term inside a word
+  const bolt = await typeInDeck('4 bolt');
+  const firstInside = bolt.findIndex(name => !/(^|[^a-z0-9])bolt/i.test(name));
+  assert.ok(firstInside === -1 || bolt.slice(firstInside).every(name => !/(^|[^a-z0-9])bolt/i.test(name)), bolt.join(', '));
+  assert.ok(bolt.slice(0, firstInside === -1 ? bolt.length : firstInside).every(name => /(^|[^a-z0-9])bolt/i.test(name)));
+});
+
+test('picking a suggestion keeps typing in the deck box', async () => {
+  await typeInDeck('4 snapcas');
+  await page.click('.autocomplete-suggestion >> text=Snapcaster Mage');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'deckmain');
+  await page.keyboard.type('\n2 Island');
+  assert.equal(await page.inputValue('#deckmain'), '4 Snapcaster Mage\n2 Island');
+});
+
+test('Enter and Tab take the highlighted suggestion, and Enter after a full name ends the line', async () => {
+  await typeInDeck('4 snapcas');
+  await page.keyboard.press('Enter');
+  await typeInDeck('\n1 lightning bo');
+  await page.keyboard.press('ArrowDown');
+  const second = await page.textContent('.autocomplete-suggestion.selected');
+  await page.keyboard.press('Tab');
+  assert.equal(await page.inputValue('#deckmain'), '4 Snapcaster Mage\n1 ' + second);
+  await page.fill('#deckmain', '');
+  await typeInDeck('4 island');
+  await page.keyboard.press('Enter');
+  assert.equal(await page.inputValue('#deckmain'), '4 island\n');
+});
+
+test('the suggestions sit at the caret, inside the visible part of the page', async () => {
+  await page.close();
+  await newPage({ viewport: { width: 375, height: 500 }, hasTouch: true, isMobile: true });
+  await page.$eval('#deckmain', box => {
+    box.value = Array.from({ length: 20 }, () => '1 Island').join('\n');
+    box.scrollIntoView({ block: 'end' });
+  });
+  await typeInDeck('\n4 bolt');
+  const { list, box, caretLine, view } = await page.evaluate(() => {
+    const rect = element => element.getBoundingClientRect().toJSON();
+    const box = document.querySelector('#deckmain');
+    return { list: rect(document.querySelector('.autocomplete-suggestions')), box: rect(box),
+      caretLine: box.getBoundingClientRect().bottom, view: innerHeight };
+  });
+  // The caret is on the box's last line, so the list opens above it rather than below the box
+  assert.ok(list.bottom <= caretLine, JSON.stringify({ list, box }));
+  assert.ok(list.top >= 0 && list.bottom <= view, JSON.stringify({ list, view }));
+  assert.ok(list.height >= 44);
 });
 
 test("a Commander deck's sideboard keeps the commander first on the sheet", async () => {
