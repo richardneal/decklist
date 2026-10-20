@@ -79,37 +79,12 @@
   }
   </script>
 
-<!-- Critical CSS inlined for fastest initial render -->
-  <style>
-    :root{--bg-primary:#fff;--bg-secondary:#f8f9fa;--bg-tertiary:#e9ecef;--text-primary:#212529;--text-secondary:#495057;--border-color:#dee2e6;--border-color-hover:#adb5bd;--accent-color:#1f5fa8;--accent-hover:#184c87;--shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 6px rgba(0,0,0,.1);--shadow-lg:0 10px 20px rgba(0,0,0,.12);--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--transition:all .2s ease}
-    body.dark-mode{--bg-primary:#1a1a1a;--bg-secondary:#2d2d2d;--bg-tertiary:#3a3a3a;--text-primary:#e9ecef;--text-secondary:#adb5bd;--border-color:#495057;--border-color-hover:#6c757d;--shadow-sm:0 1px 3px rgba(0,0,0,.3);--shadow-md:0 4px 6px rgba(0,0,0,.4);--shadow-lg:0 10px 20px rgba(0,0,0,.5);--accent-color:#8ab4f0;--accent-hover:#a8c8f5}
-    body{padding:0;margin:0;font-family:"Roboto",sans-serif;background:var(--bg-secondary);color:var(--text-primary);transition:background .3s ease,color .3s ease;overflow-x:hidden}
-    .navbar{background:var(--bg-primary);box-shadow:var(--shadow-md);border-bottom:2px solid var(--accent-color)}
-    .navbar-container{max-width:1400px;margin:0 auto;padding:16px 40px;display:flex;align-items:center;justify-content:space-between;gap:20px}
-    .navbar-brand{display:flex;align-items:center;gap:12px;font-size:28px;font-weight:700;color:var(--text-primary);letter-spacing:-.5px}
-    .brand-icon{width:24px;height:24px;color:var(--accent-color);flex-shrink:0}
-    .brand-icon .bi-back{fill:var(--bg-primary)}
-    .brand-icon .bi-gap{fill:var(--bg-primary);stroke:var(--bg-primary)}
-    .brand-icon .bi-rules{stroke:var(--bg-primary)}
-    .brand-text{color:var(--accent-color);background:linear-gradient(135deg,var(--accent-color) 0%,var(--accent-hover) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:700}
-    .brand-highlight{color:var(--accent-color);font-weight:800;-webkit-text-fill-color:var(--accent-color)}
-    .navbar-container h1{font-size:13px;color:var(--text-secondary);font-weight:500;letter-spacing:.3px;margin:0;padding:0;flex:1;text-align:left;line-height:1.4}
-    .wrapper{width:95%;max-width:1400px;margin:0 auto;padding:20px 0}
-    .content-row{display:flex;gap:30px;align-items:flex-start;margin-bottom:20px}
-    .wrapleft{flex:1;min-width:0}
-    a{text-decoration:none;color:var(--accent-color);transition:var(--transition)}
-    a:hover{color:var(--accent-hover);text-decoration:underline}
-  </style>
-
-  <!-- Load non-critical CSS asynchronously -->
-  <link rel="preload" href="css/decklist.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <!-- The stylesheet blocks the first paint: loaded asynchronously, the page
+       painted unstyled and then visibly zoomed when it arrived -->
+  <link rel="stylesheet" type="text/css" href="css/decklist.css">
+  <!-- jQuery UI's styles are only for the date picker, so they can arrive late -->
   <link rel="preload" href="css/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-
-  <!-- Noscript fallback for users without JavaScript -->
-  <noscript>
-    <link rel="stylesheet" type="text/css" href="css/decklist.css">
-    <link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css">
-  </noscript>
+  <noscript><link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css"></noscript>
 
   <!-- jQuery - Load synchronously as it's a critical dependency -->
   <script type="text/javascript" src="js/jquery/jquery-3.1.1.min.js"></script>
@@ -266,12 +241,12 @@
       </div>
       <div id="sortorderwrapper">
         <div id="sortorderfloat">
+          <input type="radio" id="sort-type" name="sortorder" checked><label for="sort-type">Type (recommended)</label>
           <input type="radio" id="sort-alphabetical" name="sortorder"><label for="sort-alphabetical">Alphabetically</label>
           <input type="radio" id="sort-manavalue" name="sortorder"><label for="sort-manavalue">Mana Value</label>
           <input type="radio" id="sort-color" name="sortorder"><label for="sort-color">Color</label>
           <input type="radio" id="sort-numeric" name="sortorder"><label for="sort-numeric">Numerically</label>
           <input type="radio" id="sort-original" name="sortorder"><label for="sort-original">Original</label>
-          <input type="radio" id="sort-type" name="sortorder" checked><label for="sort-type">Type (recommended)</label>
         </div>
       </div>
     </div>
