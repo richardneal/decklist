@@ -35,7 +35,7 @@ The site supports direct linking with pre-filled data:
 - `firstname`, `lastname` - Player info
 - `event`, `eventdate`, `eventlocation` - Tournament details
 - `deckname`, `deckdesigner` - Deck name/archetype and designer
-- `deckformat` - Format to check the deck against (standard, pioneer, modern, legacy, vintage, pauper, commander, constructed, limited); auto-detected when absent
+- `deckformat` - Format to check the deck against (standard, pioneer, modern, legacy, vintage, pauper, premodern, oldschool, commander, duel, paupercommander, predh, oathbreaker, constructed, limited); auto-detected when absent
 - `deckmain`, `deckside` - Deck lists (use `%0A` for newlines)
 - `deckimport` - URL-encoded MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL, imported on page load (`deckmain`/`deckside` take precedence)
 - `decksheet` - Format (wotc/scg)

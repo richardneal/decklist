@@ -20,6 +20,13 @@ def generate(data):
         subprocess.run(['python3', str(GENERATOR)], cwd=root, check=True)
         return json.loads((root / 'decklist-cards.js').read_text()[6:])
 
+# MTGJSON's names for the formats the generator records, in the order of the
+# letters in b and r
+ALL_FORMATS = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander',
+               'premodern', 'oldschool', 'duel', 'paupercommander', 'predh', 'oathbreaker']
+# b for a card with no legalities at all
+NOWHERE = 'spmlvuceodaht'
+
 class CardGenerationTests(unittest.TestCase):
     def test_excludes_digital_cards_and_preserves_paper_cards(self):
         result = generate({
@@ -58,8 +65,7 @@ class CardGenerationTests(unittest.TestCase):
         playtest = card('Pick Your Poison', ['CMB1'], types=['Sorcery'], colors=['B', 'G'])[0]
         playtest.update(isFunny=True, convertedManaCost=5.0)
         real = card('Pick Your Poison', ['MKM'], types=['Sorcery'], colors=['G'])[0]
-        real.update(convertedManaCost=1.0, legalities=dict.fromkeys(
-            ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander'], 'Legal'))
+        real.update(convertedManaCost=1.0, legalities=dict.fromkeys(ALL_FORMATS, 'Legal'))
         unsanctioned = card('Everythingamajig', ['UST'], types=['Artifact'], colors=[])
         unsanctioned[0]['convertedManaCost'] = 5.0
         unsanctioned.append(dict(unsanctioned[0], convertedManaCost=6.0))
@@ -109,9 +115,9 @@ class CardGenerationTests(unittest.TestCase):
                      colors=['U'], convertedManaCost=1.0)],
         })
         self.assertEqual(result['the mightstone and weakstone'],
-                         {'c': 'G', 't': '5', 'm': 5.0, 'b': 'spmlvuc', 'n': 'The Mightstone and Weakstone'})
+                         {'c': 'G', 't': '5', 'm': 5.0, 'b': NOWHERE, 'n': 'The Mightstone and Weakstone'})
         self.assertEqual(result['urza, lord protector'],
-                         {'c': 'F', 't': '2', 'm': 3.0, 'b': 'spmlvuc', 'n': 'Urza, Lord Protector'})
+                         {'c': 'F', 't': '2', 'm': 3.0, 'b': NOWHERE, 'n': 'Urza, Lord Protector'})
         self.assertEqual(result['urza, planeswalker']['n'], 'Urza, Planeswalker')
         self.assertNotIn('the mightstone and weakstone // urza, planeswalker', result)
         self.assertNotIn('urza, lord protector // urza, planeswalker', result)
@@ -172,9 +178,9 @@ class CardGenerationTests(unittest.TestCase):
             'Forest': card('Forest', types=['Land'], colors=[]),
         })
         self.assertEqual(result['akki lavarunner'],
-                         {'c': 'D', 't': '2', 'm': 4.0, 'b': 'spmlvuc', 'n': 'Akki Lavarunner'})
+                         {'c': 'D', 't': '2', 'm': 4.0, 'b': NOWHERE, 'n': 'Akki Lavarunner'})
         self.assertEqual(result['emeritus of woe'],
-                         {'c': 'C', 't': '2', 'm': 4.0, 'b': 'spmlvuc', 'n': 'Emeritus of Woe'})
+                         {'c': 'C', 't': '2', 'm': 4.0, 'b': NOWHERE, 'n': 'Emeritus of Woe'})
         self.assertEqual(result['demonic tutor']['n'], 'Demonic Tutor')
         self.assertEqual(result['demonic tutor']['t'], '3')
         # Coloured by the spell too, as adventure cards are
@@ -193,7 +199,19 @@ class CardGenerationTests(unittest.TestCase):
         result = generate({
             # MTGJSON leaves out the formats a card is not legal in
             'Brainstorm': legal('Brainstorm', {'legacy': 'Legal', 'vintage': 'Restricted',
-                                               'pauper': 'Legal', 'commander': 'Legal'}),
+                                               'pauper': 'Legal', 'commander': 'Legal',
+                                               'premodern': 'Banned', 'duel': 'Legal',
+                                               'paupercommander': 'Legal', 'predh': 'Legal',
+                                               'oathbreaker': 'Legal'}),
+            # Old School has a restricted list of its own
+            'Black Lotus': legal('Black Lotus', {'legacy': 'Banned', 'vintage': 'Restricted',
+                                                 'commander': 'Banned', 'oldschool': 'Restricted',
+                                                 'duel': 'Banned', 'predh': 'Banned',
+                                                 'oathbreaker': 'Banned'}),
+            # Duel Commander restricts the cards that may not be the commander
+            'Derevi, Empyrial Tactician': legal('Derevi, Empyrial Tactician', {
+                'legacy': 'Legal', 'vintage': 'Legal', 'commander': 'Legal',
+                'duel': 'Restricted', 'oathbreaker': 'Legal'}),
             'Oko, Thief of Crowns': legal('Oko, Thief of Crowns', {
                 'standard': 'Banned', 'pioneer': 'Banned', 'modern': 'Banned', 'legacy': 'Banned',
                 'vintage': 'Legal', 'pauper': 'Not Legal', 'commander': 'Legal'}),
@@ -206,10 +224,14 @@ class CardGenerationTests(unittest.TestCase):
             'Once More with Feeling': legal('Once More with Feeling', {},
                 'A deck can have only one card named Once More with Feeling.'),
         })
-        self.assertEqual(result['brainstorm']['b'], 'spm')
+        self.assertEqual(result['brainstorm']['b'], 'spmeo')
         self.assertEqual(result['brainstorm']['r'], 'v')
-        self.assertEqual(result['oko, thief of crowns']['b'], 'spmlu')
+        self.assertEqual(result['oko, thief of crowns']['b'], 'spmlueodaht')
         self.assertNotIn('r', result['oko, thief of crowns'])
+        self.assertEqual(result['black lotus']['b'], 'spmlucedaht')
+        self.assertEqual(result['black lotus']['r'], 'vo')
+        self.assertEqual(result['derevi, empyrial tactician']['b'], 'spmueoah')
+        self.assertEqual(result['derevi, empyrial tactician']['r'], 'd')
         self.assertEqual(result['forest']['x'], 0)
         self.assertEqual(result['relentless rats']['x'], 0)
         self.assertEqual(result['seven dwarves']['x'], 7)

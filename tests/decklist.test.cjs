@@ -148,3 +148,63 @@ test('checks Limited decks for size alone', () => {
   // Constructed would also hold the Bears to 4 copies
   assert.deepEqual(errors(deckOf('6 Grizzly Bears\n33 Forest'), 'constructed'), ['toosmall', 'quantity', 'toosmall']);
 });
+test('checks Premodern and Old School against their own card pools and lists', () => {
+  // Brainstorm is banned in Premodern, and Tarmogoyf (2007) came after its card pool
+  const premodern = decklist.check(deckOf('4 Brainstorm\n4 Tarmogoyf\n4 Swords to Plowshares\n48 Island', '15 Island'), 'premodern').deckmain;
+  assert.deepEqual([...premodern].map(problem => problem.error), ['illegal']);
+  assert.deepEqual([...premodern[0].data.cards], ['Brainstorm', 'Tarmogoyf']);
+  assert.equal(premodern[0].data.format, 'Premodern');
+  // Old School has a restricted list of its own
+  assert.deepEqual(errors(deckOf('1 Sol Ring\n4 Swords to Plowshares\n55 Island', '15 Island'), 'oldschool'), []);
+  const oldschool = decklist.check(deckOf('2 Sol Ring\n4 Swords to Plowshares\n54 Island', '15 Island'), 'oldschool').deckmain;
+  assert.deepEqual([...oldschool].map(problem => problem.error), ['restricted']);
+  assert.deepEqual([...oldschool[0].data.cards], ['Sol Ring']);
+  assert.equal(oldschool[0].data.format, 'Old School');
+  // Auto-detect keeps to the broad formats: this deck is legal in Premodern and Old
+  // School too
+  const swords = deckOf('4 Swords to Plowshares\n56 Plains', '15 Plains');
+  assert.deepEqual(errors(swords, 'premodern'), []);
+  assert.deepEqual(errors(swords, 'oldschool'), []);
+  assert.equal(decklist.detectFormat(swords), 'legacy');
+});
+test('holds Duel Commander to its own ban list, and to the commanders it allows', () => {
+  // Sol Ring is legal in Commander and banned in Duel Commander
+  const deck = deckOf('1 Sol Ring\n98 Island', "1 Atraxa, Praetors' Voice");
+  assert.deepEqual(errors(deck, 'commander'), []);
+  const duel = decklist.check(deck, 'duel').deckmain;
+  assert.deepEqual([...duel].map(problem => problem.error), ['illegal']);
+  assert.deepEqual([...duel[0].data.cards], ['Sol Ring']);
+  assert.equal(duel[0].data.format, 'Duel Commander');
+  // Derevi may sit in a Duel Commander deck's 99, but may not be its commander
+  assert.deepEqual(errors(deckOf('1 Derevi, Empyrial Tactician\n98 Island', "1 Atraxa, Praetors' Voice"), 'duel'), []);
+  const led = decklist.check(deckOf('99 Island', '1 Derevi, Empyrial Tactician'), 'duel');
+  assert.deepEqual([...led.deckmain], []);
+  assert.deepEqual([...led.deckside].map(problem => problem.error), ['notcommander']);
+  assert.deepEqual([...led.deckside[0].data.cards], ['Derevi, Empyrial Tactician']);
+  assert.deepEqual(errors(deckOf('99 Island', '1 Derevi, Empyrial Tactician'), 'commander'), []);
+  // The size check names the format
+  const short = decklist.check(deckOf('97 Island', "1 Atraxa, Praetors' Voice"), 'duel').deckmain;
+  assert.deepEqual({ ...short[0].data }, { count: 98, format: 'Duel Commander' });
+});
+test("leaves a Pauper Commander deck's commander unchecked, but not its 99", () => {
+  // Its commander is a creature printed at uncommon, which the card data marks not legal
+  assert.deepEqual(errors(deckOf('1 Counterspell\n98 Island', '1 Tatyova, Benthic Druid'), 'paupercommander'), []);
+  const problems = decklist.check(deckOf('1 Sol Ring\n1 Tatyova, Benthic Druid\n97 Island', '1 Murmuring Mystic'), 'paupercommander').deckmain;
+  assert.deepEqual([...problems].map(problem => problem.error), ['illegal']);
+  assert.deepEqual([...problems[0].data.cards], ['Sol Ring', 'Tatyova, Benthic Druid']);
+});
+test('checks a PreDH commander against its card pool', () => {
+  // Atraxa (2016) came after PreDH's card pool
+  const problems = decklist.check(deckOf('1 Sol Ring\n98 Island', "1 Atraxa, Praetors' Voice"), 'predh').deckmain;
+  assert.deepEqual([...problems].map(problem => problem.error), ['illegal']);
+  assert.deepEqual([...problems[0].data.cards], ["Atraxa, Praetors' Voice"]);
+});
+test('holds an Oathbreaker deck to 60 singleton cards, led by its Oathbreaker and signature spell', () => {
+  const leaders = '1 Chandra, Torch of Defiance\n1 Lightning Bolt';
+  assert.deepEqual(errors(deckOf('58 Mountain', leaders), 'oathbreaker'), []);
+  assert.deepEqual(errors(deckOf('59 Mountain', leaders), 'oathbreaker'), ['oathbreakersize']);
+  assert.deepEqual(errors(deckOf('59 Mountain', '1 Chandra, Torch of Defiance'), 'oathbreaker'), ['nooathbreaker']);
+  assert.deepEqual(errors(deckOf('57 Mountain', leaders + '\n1 Shock'), 'oathbreaker'), ['oathbreakerside']);
+  const problems = decklist.check(deckOf('2 Shock\n56 Mountain', leaders), 'oathbreaker').deckmain;
+  assert.deepEqual([...problems[0].data.cards], ['Shock (2 copies; limit 1)']);
+});

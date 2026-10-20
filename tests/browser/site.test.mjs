@@ -137,6 +137,28 @@ test('a Commander deck is held to 100 singleton cards legal in Commander', async
     ['List your commander in the sideboard']);
 });
 
+test('each added format shows its own status messages', async () => {
+  assert.deepEqual((await deck('4 Brainstorm\n4 Swords to Plowshares\n52 Island', '15 Island', 'premodern')).messages,
+    ['The following cards are not legal in Premodern:\nBrainstorm']);
+  assert.deepEqual((await deck('2 Sol Ring\n58 Island', '15 Island', 'oldschool')).messages,
+    ['The following cards are restricted in Old School, so a deck may hold only one copy:\nSol Ring']);
+  // Sol Ring is legal in Commander, but not in Duel Commander
+  assert.deepEqual((await deck(...COMMANDER, 'duel')).messages,
+    ['The following cards are not legal in Duel Commander:\nSol Ring']);
+  assert.deepEqual((await deck('97 Island', COMMANDER[1], 'duel')).messages,
+    ['Duel Commander decks consist of exactly 100 cards, counting the commander (this one has 98)']);
+  assert.deepEqual((await deck('99 Island', '1 Derevi, Empyrial Tactician', 'duel')).messages,
+    ['The following cards may not be your commander in Duel Commander:\nDerevi, Empyrial Tactician']);
+  assert.deepEqual((await deck('1 Counterspell\n98 Island', '1 Tatyova, Benthic Druid', 'paupercommander')).messages, []);
+  assert.deepEqual((await deck(...COMMANDER, 'predh')).messages,
+    ["The following cards are not legal in PreDH:\nAtraxa, Praetors' Voice"]);
+  assert.deepEqual((await deck('58 Mountain', '1 Chandra, Torch of Defiance\n1 Lightning Bolt', 'oathbreaker')).messages, []);
+  assert.deepEqual((await deck('58 Mountain', '1 Chandra, Torch of Defiance', 'oathbreaker')).messages, [
+    'Oathbreaker decks consist of exactly 60 cards, counting the Oathbreaker and its signature spell (this one has 59)',
+    'List your Oathbreaker and its signature spell in the sideboard'
+  ]);
+});
+
 test('a Limited deck has no copy or sideboard limits', async () => {
   assert.deepEqual((await deck('6 Grizzly Bears\n34 Forest', '30 Lightning Bolt', 'limited')).messages, []);
   assert.deepEqual((await deck('6 Grizzly Bears\n33 Forest', '', 'limited')).messages,
@@ -200,4 +222,7 @@ test("a Commander deck's sideboard keeps the commander first on the sheet", asyn
   // Any other format sorts the sideboard as it does the main deck, by type by default
   await page.selectOption('#deckformat', 'constructed');
   assert.deepEqual(await sideboard(), ['Grizzly Bears', 'Counterspell', 'Jace, Multiverse Architect']);
+  // An Oathbreaker deck's sideboard holds its Oathbreaker and signature spell, and keeps its order too
+  await page.selectOption('#deckformat', 'oathbreaker');
+  assert.deepEqual(await sideboard(), ['Jace, Multiverse Architect', 'Grizzly Bears', 'Counterspell']);
 });
