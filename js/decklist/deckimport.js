@@ -83,6 +83,75 @@ var DeckImport = {
     return { main: main.join('\n'), side: side.join('\n') };
   },
 
+  // The largest deck file read. A 250-card text list is under 10 KB, and an MTGO .dek
+  // under 50 KB.
+  maxFileSize: 1024 * 1024,
+
+  // Reads an uploaded deck file into {main, side, name}: an MTGO .dek or Cockatrice .cod
+  // (both XML), or a text export. A plain list is split into the two deck boxes like an
+  // import; one with headers (Arena's Deck, Commander, About) goes into the main deck box
+  // whole, where Decklist.parse() reads its sections, with side set to null.
+  fromFile: function(text) {
+    text = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+    if (/\u0000/.test(text)) throw new Error('That file isn’t a text decklist.');
+    if (/^\s*<(?:\?xml|Deck\b|cockatrice_deck\b)/i.test(text)) return this.fromXML(text);
+    try {
+      var boards = this.split(text);
+      boards.name = '';
+      return boards;
+    } catch (_) {
+      text = text.trim();
+      if (/<\/?(?:html|head|body|!doctype)\b/i.test(text) || !/^\s*(?:SB:\s*)?\d+x?\s+\S/im.test(text)) {
+        throw new Error('That file doesn’t hold a decklist.');
+      }
+      var about = text.match(/^about\s*\n\s*name\s+(.+)$/im);
+      return { main: text, side: null, name: about ? about[1].trim() : '' };
+    }
+  },
+
+  // An MTGO .dek lists <Cards Quantity="4" Sideboard="false" Name="…"/>, one per
+  // printing; a Cockatrice .cod lists <card number="4" name="…"/> in a main or side
+  // <zone> (its tokens zone is dropped) and names the deck in <deckname>.
+  fromXML: function(xml) {
+    var decode = function(value) {
+      return value.replace(/&(?:#(\d+)|#x([0-9a-f]+)|(amp|lt|gt|quot|apos));/gi, function(all, dec, hex, named) {
+        if (named) return { amp: '&', lt: '<', gt: '>', quot: '"', apos: '\'' }[named.toLowerCase()];
+        return String.fromCodePoint(parseInt(dec || hex, dec ? 10 : 16));
+      });
+    };
+    var attributes = function(tag) {
+      var found = {}, attribute, re = /([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+      while ((attribute = re.exec(tag))) found[attribute[1].toLowerCase()] = decode(attribute[2] !== undefined ? attribute[2] : attribute[3]);
+      return found;
+    };
+    var boards = { main: [], side: [] }, counts = { main: {}, side: {} };
+    var add = function(board, quantity, name) {
+      quantity = parseInt(quantity, 10);
+      name = (name || '').trim();
+      if (!board || !name || !(quantity > 0)) return;
+      // Merge separate printings of one card.
+      if (!Object.prototype.hasOwnProperty.call(counts[board], name)) boards[board].push(name);
+      counts[board][name] = (counts[board][name] || 0) + quantity;
+    };
+    var zone = null, tag, re = /<(\/?)(zone|cards|card)\b([^>]*)>/gi;
+    while ((tag = re.exec(xml))) {
+      var element = tag[2].toLowerCase(), found = attributes(tag[3]);
+      if (element === 'zone') {
+        zone = tag[1] ? null : { main: 'main', side: 'side' }[(found.name || '').toLowerCase()] || null;
+      } else if (element === 'cards' && !tag[1]) {
+        add(found.sideboard === 'true' ? 'side' : 'main', found.quantity, found.name);
+      } else if (element === 'card' && !tag[1]) {
+        add(zone, found.number, found.name);
+      }
+    }
+    if (!boards.main.length) throw new Error('That file doesn’t hold a decklist.');
+    var text = function(board) {
+      return boards[board].map(function(name) { return counts[board][name] + ' ' + name; }).join('\n');
+    };
+    var name = xml.match(/<deckname>([^<]*)<\/deckname>/i);
+    return { main: text('main'), side: text('side'), name: name ? decode(name[1]).trim() : '' };
+  },
+
   importFromParameters: function(params) {
     if (!params || !params.deckimport) return;
     // Embedded deck text takes precedence over a remote deck, even when empty.
@@ -127,6 +196,7 @@ $(function() {
     var source = deck && deck.label;
     $('#deckimport-undo').prop('disabled', busy);
     button.prop('disabled', busy || !value).text(busy ? 'Importing…' : 'Import deck');
+    $('#deckfile-button').prop('disabled', busy);
     $('#deckimport').attr('aria-busy', busy ? 'true' : 'false');
     $('#deckimport-help').text(source ? source + (busy ? ' deck link detected.' : ' deck link detected. Ready to import.') :
       'Open a deck on any of those sites, then copy its address here.');
@@ -135,6 +205,91 @@ $(function() {
     undo = null;
     $('#deckimport-undo').prop('hidden', true);
   }
+  function snapshot() {
+    return { main: $('#deckmain').val(), side: $('#deckside').val(), format: $('#deckformat').val(),
+      name: $('#deckname').val() };
+  }
+  // Fills the form with an imported or uploaded deck, and keeps an undo of the one it
+  // replaces. A deck with no side (a file read whole) clears the sideboard box, and one
+  // with no format leaves the form's choice.
+  function apply(deck, originals, label) {
+    var side = deck.side === null ? '' : deck.side;
+    $('#deckmain').val(deck.main);
+    // A deck with no format of its own goes back to Auto-detect.
+    if (deck.format !== undefined) $('#deckformat').val(deck.format);
+    // A deck with no name keeps the one in the form, as does a name typed while the
+    // deck was on its way.
+    var previousName = $('#deckname').val();
+    if (deck.name && previousName === originals.name) $('#deckname').val(deck.name);
+    $('#deckside').val(side).trigger('input');
+    var count = function(text) {
+      return text.split('\n').reduce(function(total, line) {
+        return total + (parseInt(line.replace(/^SB:\s*/i, ''), 10) || 0);
+      }, 0);
+    };
+    message(label + ': ' + (deck.side === null ? count(deck.main) + ' cards.' :
+      count(deck.main) + ' main-deck cards and ' + count(side) + ' sideboard cards.'), 'success');
+    undo = { main: originals.main, side: originals.side, format: originals.format, name: previousName,
+      importedMain: deck.main, importedSide: side, importedName: $('#deckname').val() };
+    $('#deckimport-undo').prop('hidden', false);
+  }
+  async function upload(file) {
+    if (busy || !file) return;
+    var originals = snapshot(), requestRevision = revision;
+    try {
+      if (file.size > DeckImport.maxFileSize) throw new Error('That file is too big to be a decklist.');
+      var deck = DeckImport.fromFile(await file.text());
+      if (revision !== requestRevision) return;
+      apply(deck, originals, 'Loaded ' + file.name);
+    } catch (error) {
+      message(error.message + ' Your deck hasn’t changed.', 'error');
+    }
+  }
+
+  // The Deck link and Text file tabs, with arrow keys moving between them.
+  var tabs = $('.import-tabs [role="tab"]');
+  function selectTab(tab) {
+    tabs.each(function() {
+      var selected = this === tab;
+      $(this).attr({ 'aria-selected': selected ? 'true' : 'false', tabindex: selected ? null : '-1' });
+      $('#' + $(this).attr('aria-controls')).prop('hidden', !selected);
+    });
+  }
+  tabs.on('click', function() { selectTab(this); });
+  tabs.on('keydown', function(event) {
+    var index = tabs.index(this), next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1 }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    var tab = tabs.get((next + tabs.length) % tabs.length);
+    selectTab(tab);
+    tab.focus();
+  });
+
+  $('#deckfile-button').on('click', function() { $('#deckfile').trigger('click'); });
+  $('#deckfile').on('change', function() {
+    upload(this.files[0]);
+    // Let the same file be chosen again after it's edited.
+    this.value = '';
+  });
+  // A file dropped on the drop zone or either deck box is read like an upload. Text
+  // dragged in still goes to the deck box as usual.
+  var hasFile = function(event) {
+    var types = event.originalEvent.dataTransfer && event.originalEvent.dataTransfer.types;
+    return types && Array.prototype.indexOf.call(types, 'Files') !== -1;
+  };
+  $('#deckfile-drop, #deckmain, #deckside').on('dragover', function(event) {
+    if (!hasFile(event)) return;
+    event.preventDefault();
+    event.originalEvent.dataTransfer.dropEffect = 'copy';
+    $(this).addClass('dragover');
+  }).on('dragleave drop', function() {
+    $(this).removeClass('dragover');
+  }).on('drop', function(event) {
+    if (!hasFile(event)) return;
+    event.preventDefault();
+    upload(event.originalEvent.dataTransfer.files[0]);
+  });
+
   $('#deckimport').on('input', function() {
     revision++;
     if (!busy) message('');
@@ -145,8 +300,7 @@ $(function() {
   $('#clearDeck, #loadDeck').on('click', function() { revision++; clearUndo(); message(''); refresh(); });
   button.on('click', async function() {
     if (busy) return;
-    var originalMain = $('#deckmain').val(), originalSide = $('#deckside').val(), originalFormat = $('#deckformat').val();
-    var originalName = $('#deckname').val(), originalURL = $('#deckimport').val(), requestRevision = revision;
+    var originals = snapshot(), originalURL = $('#deckimport').val(), requestRevision = revision;
     var target = DeckImport.parse(originalURL);
     if (!target) {
       $('#deckimport').attr('aria-invalid', 'true');
@@ -169,26 +323,11 @@ $(function() {
     try {
       var deck = await DeckImport.load(originalURL);
       if (revision !== requestRevision || originalURL !== $('#deckimport').val() ||
-          originalMain !== $('#deckmain').val() || originalSide !== $('#deckside').val()) {
+          originals.main !== $('#deckmain').val() || originals.side !== $('#deckside').val()) {
         message('Import cancelled because the deck or link changed. Your edits are safe; import again when ready.');
         return;
       }
-      $('#deckmain').val(deck.main);
-      // A deck with no format of its own goes back to Auto-detect.
-      $('#deckformat').val(deck.format);
-      // A deck with no name keeps the one in the form, as does a name typed while the
-      // deck was on its way.
-      var previousName = $('#deckname').val();
-      if (deck.name && previousName === originalName) $('#deckname').val(deck.name);
-      $('#deckside').val(deck.side).trigger('input');
-      var count = function(text) {
-        return text.split('\n').reduce(function(total, line) { return total + (parseInt(line, 10) || 0); }, 0);
-      };
-      message('Imported from ' + source + ': ' + count(deck.main) + ' main-deck cards and ' +
-        count(deck.side) + ' sideboard cards.', 'success');
-      undo = { main: originalMain, side: originalSide, format: originalFormat, name: previousName,
-        importedMain: deck.main, importedSide: deck.side, importedName: $('#deckname').val() };
-      $('#deckimport-undo').prop('hidden', false);
+      apply(deck, originals, 'Imported from ' + source);
     } catch (error) {
       var timedOut = error.name === 'TimeoutError' || error.name === 'AbortError';
       var detail = timedOut ? 'The import timed out.' :

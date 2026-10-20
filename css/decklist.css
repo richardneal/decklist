@@ -811,6 +811,7 @@ button.icon-button[hidden] { display: none; }
 #clearDeck { --icon: var(--icon-trash); }
 #deckimport-button { --icon: var(--icon-import); }
 #deckimport-undo { --icon: var(--icon-undo); }
+#deckfile-button { --icon: var(--icon-open); }
 .icon-button.done::before { -webkit-mask-image: var(--icon-check); mask-image: var(--icon-check); }
 
 /* Dark mode toggle: a quiet icon button, like the navbar links */
@@ -1339,12 +1340,19 @@ body.dark-mode .dark-mode-toggle .icon-sun {
 .left .deck-import .import-label { display: block; width: auto; margin: 0 0 8px; padding: 0; text-align: left; font-size: 13px; font-weight: 600; }
 .import-controls { display: flex; gap: 10px; align-items: stretch; }
 .left .deck-import #deckimport { flex: 1; width: 0; min-width: 0; margin: 0; box-sizing: border-box; }
-#deckimport-button { border: 0; border-radius: var(--radius-sm); padding: 12px 18px; background: var(--accent-color); color: var(--on-accent); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-#deckimport-button:hover:not(:disabled) { background: var(--accent-hover); }
-#deckimport-button:disabled { opacity: .55; cursor: default; }
-#deckimport-button:focus-visible, #deckimport-undo:focus-visible { outline: 3px solid var(--accent-color); outline-offset: 3px; }
+#deckimport-button, #deckfile-button { border: 0; border-radius: var(--radius-sm); padding: 12px 18px; background: var(--accent-color); color: var(--on-accent); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+#deckimport-button:hover:not(:disabled), #deckfile-button:hover:not(:disabled) { background: var(--accent-hover); }
+#deckimport-button:disabled, #deckfile-button:disabled { opacity: .55; cursor: default; }
+#deckimport-button:focus-visible, #deckfile-button:focus-visible, #deckimport-undo:focus-visible, .import-tabs [role="tab"]:focus-visible { outline: 3px solid var(--accent-color); outline-offset: 3px; }
 .import-help, .import-alternative { font-size: 12px; color: var(--text-secondary); margin: 10px 0 0; }
 .import-alternative { border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 14px; }
+.import-tabs { display: flex; gap: 4px; margin: 0 0 14px; border-bottom: 1px solid var(--border-color); }
+.import-tabs [role="tab"] { border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 12px; background: none; color: var(--text-secondary); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.import-tabs [role="tab"]:hover { color: var(--text-primary); }
+.import-tabs [role="tab"][aria-selected="true"] { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+.import-drop { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 16px; border: 2px dashed var(--border-color); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); }
+.import-drop.dragover, textarea.dragover { border-color: var(--accent-color); }
+@media (pointer: coarse) { .import-drop { border: 0; padding: 0; } .import-drop span { display: none; } }
 #deckimport-status { font-size: 14px; margin: 12px 0 0; color: var(--text-primary); }
 #deckimport-status:empty { display: none; }
 #deckimport-status[data-state="error"] { color: var(--error); }
