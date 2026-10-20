@@ -17,6 +17,34 @@ const LOGOS_CONFIG = [
   { id: 'scglogo', file: 'starcitygames.webp', format: 'JPEG' }
 ];
 
+// Famous archetypes and their designers, one pair picked at random as the placeholders of
+// #deckname and #deckdesigner
+const ARCHETYPES = [
+  ['The Deck', 'Brian Weissman'],
+  ['Sligh', 'Jay Schneider'],
+  ['The Rock', 'Sol Malka'],
+  ['Turbo Xerox', 'Alan Comer'],
+  ['Miracle Grow', 'Alan Comer'],
+  ['Napster', 'Mike Flores'],
+  ['Jushi Blue', 'Mike Flores'],
+  ['Heezy Street', 'Mark Herberholz'],
+  ['Red Zone', 'Brian Kibler'],
+  ['Next Level Blue', 'Patrick Chapin'],
+  ['TurboZvi', 'Zvi Mowshowitz'],
+  ['The Solution', 'Zvi Mowshowitz'],
+  ['My Fires', 'Zvi Mowshowitz'],
+  ['Necro-Donate', 'Dan Burdick'],
+  ['Dragonstorm', 'Makihito Mihara'],
+  ['Draw-Go', 'Erik Lauer'],
+  ['Utility Belt', 'Rob Dougherty'],
+  ['Nassiferson', 'Gabriel Nassif'],
+  ['Boros Deck Wins', 'Tsuyoshi Fujita'],
+  ['Wafo-Tapa Control', 'Guillaume Wafo-Tapa']
+];
+
+// Shown once in 50 page loads: Team ChannelFireball's Pro Tour Dominaria deck
+const ARCHETYPE_EASTER_EGG = ['Simic Karn', 'Team ChannelFireball'];
+
 // Cache for loaded logo images
 var logoCache = {};
 
@@ -34,6 +62,12 @@ const oneColumn = window.matchMedia('(max-width: 1000px)');
 $(document).ready(function() {
   // Initialize dark mode from localStorage
   initDarkMode();
+
+  // A famous archetype and its designer as the deck name and designer placeholders
+  const archetype = Math.random() < 0.02 ? ARCHETYPE_EASTER_EGG
+    : ARCHETYPES[Math.floor(Math.random() * ARCHETYPES.length)];
+  $('#deckname').attr('placeholder', archetype[0]);
+  $('#deckdesigner').attr('placeholder', archetype[1]);
 
   // Initialize save/load functionality
   initDeckManagement();
