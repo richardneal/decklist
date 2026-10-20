@@ -260,6 +260,19 @@ test('a permalink keeps the sheet and sort order, and back and forward restore t
   assert.deepEqual(await radios(), { sheet: 'decksheet-scg', sort: 'sort-manavalue' });
 });
 
+test('clicking the brand scrolls to the top and keeps the deck', async () => {
+  await open('/index.html?deckname=Mono+Blue&deckmain=4+Counterspell%0A56+Island');
+  await page.fill('#deckdesigner', 'Jace');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const url = page.url();
+  await page.click('.navbar-brand');
+  await page.waitForFunction(() => window.scrollY === 0);
+  assert.equal(page.url(), url);
+  assert.equal(await page.inputValue('#deckdesigner'), 'Jace');
+  assert.equal(await page.inputValue('#deckmain'), '4 Counterspell\n56 Island');
+  assert.equal(await page.getAttribute('.navbar-brand', 'href'), '/');
+});
+
 test('links with %20 for spaces still open', async () => {
   await open('/index.html?deckname=Mono%20Blue&deckmain=4%20Counterspell%0A56%20Island');
   assert.equal(await page.inputValue('#deckname'), 'Mono Blue');
