@@ -19,6 +19,7 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
      - Header lines switch the section, in either textarea, in any case and with an optional colon or `(count)`: `Deck`/`Main`/`Mainboard`/`Maindeck`/`Main Deck` for the main deck, `Sideboard`/`Side Board`/`SB` (and, as before, any line starting with `Sideboard`) for the sideboard, `Commander(s)` and `Companion(s)`. Lookup is the `sections` table in `parse()`
      - Commander and Companion cards go to the sideboard, commanders first, then companions, then the rest of the sideboard, as the import Worker places them. A companion also listed under Sideboard (Arena lists it in both) is counted once
      - An `About` block (Arena's `Name <deck name>` line) is skipped up to the next blank line or header
+     - Lines starting with `//` (MWS and Scryfall comments) are ignored without touching any section state, and a `Maybeboard` section is dropped up to the next header, as the import Worker drops it
      - A blank line after main deck cards in the main textarea still starts the sideboard, unless a header follows it, so an Arena export's blank lines don't move the main deck
      - `SB: 2 Blood Moon` lines go to the sideboard from either textarea
      - A trailing printing, ` (SET) 123` and any `*F*`/`*E*` foil markers, is stripped before lookup (`printingRE`), unless the full name is itself a card key, as `Hazmat Suit (Used)` and `Imaginary Friends (Plane)` are
