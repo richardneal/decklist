@@ -103,10 +103,19 @@ The Node suites cover deck-URL validation, export parsing, and import failures, 
 
 ### Import directly from a link
 
-Use `deckimport` to automatically import an MTGGoldfish or MTGTop8 deck on page load:
+Put the site's address in front of an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck link, and the page opens with that deck imported:
 
 ```text
-https://decklist.nealston.com/?deckimport=https%3A%2F%2Fwww.mtggoldfish.com%2Fdeck%2F6837920
+https://decklist.nealston.com/https://www.mtggoldfish.com/deck/6837920
+decklist.nealston.com/moxfield.com/decks/<id>
 ```
 
-Encode the entire source URL with `encodeURIComponent`, especially MTGTop8 URLs containing `&`. Event and personal-information parameters can be combined with `deckimport`. Explicit `deckmain` or `deckside` parameters take precedence and suppress automatic importing. Invalid links display an error; you can edit the link and retry with **Import Deck**.
+The deck link's `https://` is optional and nothing needs encoding, MTGTop8's `?e=…&d=…&f=…` included. `hosting/index.mjs` redirects such a path to the `deckimport` parameter.
+
+To combine an import with event or player details, use `deckimport` directly:
+
+```text
+https://decklist.nealston.com/?event=FNM&deckimport=https%3A%2F%2Fwww.mtggoldfish.com%2Fdeck%2F6837920
+```
+
+Encode the deck link with `encodeURIComponent`, especially MTGTop8 URLs containing `&`. Explicit `deckmain` or `deckside` parameters take precedence and suppress automatic importing. Invalid links display an error; you can edit the link and retry with **Import Deck**.

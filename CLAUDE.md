@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 decklist.nealston.com is a static website that generates Magic: The Gathering tournament registration sheets and decklists. It's a fork of the original [decklist.org](https://github.com/april/decklist) project by April King, enhanced with additional features and improvements.
 
-The application runs entirely client-side using vanilla JavaScript, jQuery, and jsPDF. No build process is required to work on it — open `index.html` directly. Deployment adds two small Node pieces: `hosting/` (stages the static files and ships them to Cloudflare) and `worker/` (the Cloudflare Worker backing deck imports).
+The application runs entirely client-side using vanilla JavaScript, jQuery, and jsPDF. No build process is required to work on it — open `index.html` directly. Deployment adds two small Node pieces: `hosting/` (stages the static files and ships them to Cloudflare, with a small script that redirects deck links written after the site's address) and `worker/` (the Cloudflare Worker backing deck imports).
 
 ## Architecture
 
@@ -70,6 +70,7 @@ The application supports extensive URL parameter support for pre-filling forms:
 - Personal: `firstname`, `lastname`
 - Event: `event`, `eventdate`, `eventlocation`
 - Deck: `deckname`, `deckdesigner`, `deckformat` (a key of `Decklist.formats`; absent or unknown means auto-detect), `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; ignored when `deckmain`/`deckside` are present)
+- Path: a deck link written after the site's address, `decklist.nealston.com/https://moxfield.com/decks/<id>` (the `https://` optional, nothing encoded), redirects to `/?deckimport=<link>`; see Deployment
 - Display: `decksheet` (wotc/scg), `disableediting`
 
 Use `%0A` for newlines in deck data, `%20` for spaces.
@@ -115,7 +116,7 @@ For iframe preview testing, the app uses `srcdoc` attribute to render the deckli
 
 ### Automated Tests
 
-Six suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+Seven suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
 
 ```bash
 npm ci --prefix worker
@@ -132,6 +133,7 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 - `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection, export splitting, and the imported deck's format
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, the `X-Deck-Format` header, and failure handling
+- `tests/hosting.test.mjs` - Imports `handle` from `hosting/index.mjs`; covers which paths redirect to `deckimport` (with or without `https://`, a scheme with one slash, an encoded link, an MTGTop8 query) and which stay 404s
 - `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, a Commander sideboard's order, an Arena export pasted into the main deck, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
 
   ```bash
@@ -163,12 +165,14 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 
 The site is served by **Cloudflare Workers Static Assets**, not GitHub Pages. Two separate Workers are involved:
 
-- `nealston-decklist` — the static site at `decklist.nealston.com`, configured in `hosting/wrangler.jsonc`
+- `nealston-decklist` — the static site at `decklist.nealston.com`, configured in `hosting/wrangler.jsonc`, with `hosting/index.mjs` as its script
 - `decklist-import-api` — the import API at `deck-import.nealston.com`, source in `worker/index.mjs`, configured in `worker/wrangler.jsonc`
 
 ### Site
 
 `.github/workflows/deploy-site.yml` deploys on every push to `main`, and on manual dispatch. It runs `npm ci --prefix worker`, `node hosting/build.mjs`, then `wrangler deploy --config hosting/wrangler.jsonc` using the `CLOUDFLARE_API_TOKEN` secret. The daily card refresh ends with those same build-and-deploy steps.
+
+`hosting/index.mjs` is the site Worker's script. Static assets are served first, so it runs only for a path that matches no file: a path holding an http(s) link, or a link to one of the five deck sites without its scheme, gets a 302 to `/?deckimport=<encoded link>`, and the page imports it on load; anything else is a plain 404. It undoes a scheme whose `//` a proxy merged into `/`, and decodes a link pasted already encoded. It redirects any http(s) link, not only the supported sites, so a link from another site reaches the page's error message rather than a blank 404. Keep `not_found_handling` at `none`: another setting would answer unmatched paths before the script runs. To try it locally, `node hosting/build.mjs`, then `worker/node_modules/.bin/wrangler dev --config hosting/wrangler.jsonc`.
 
 `hosting/build.mjs` stages the public files into the git-ignored `hosting/dist/`: `index.html`, `docs.html`, `favicon.ico`, `robots.txt`, `sitemap.xml`, `llms.txt`, `LICENSE`, `css/`, `images/` and `js/`. It filters out `*.py`, `*.sh` and `*.map`, so the card generator scripts and source maps never ship.
 

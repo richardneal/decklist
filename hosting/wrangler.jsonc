@@ -2,6 +2,7 @@
   "$schema": "../worker/node_modules/wrangler/config-schema.json",
   "name": "nealston-decklist",
   "account_id": "f81e0f0d52bb815d2073e9e646641867",
+  "main": "index.mjs",
   "compatibility_date": "2026-09-16",
   "workers_dev": false,
   "routes": [{ "pattern": "decklist.nealston.com", "custom_domain": true }],
