@@ -1469,6 +1469,10 @@ body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
   .generator-page .right > form, .generator-page .right > .deck-actions { order: 2; }
 }
 
+/* Sort orders in three even columns, so no option wraps onto a row of its own */
+.generator-page #sortorderfloat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.generator-page #sortorderfloat label { display: flex; align-items: center; justify-content: center; min-height: 44px; box-sizing: border-box; text-align: center; }
+
 @media (max-width: 600px) {
   /* Deck boxes grow with the deck, rather than scrolling inside the scrolling page */
   .generator-page .left textarea { height: 240px; }
@@ -1478,8 +1482,7 @@ body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
     .generator-page .left #deckside { min-height: 120px; }
   }
   /* Sort orders in two even columns */
-  .generator-page #sortorderfloat { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .generator-page #sortorderfloat label { display: flex; align-items: center; justify-content: center; min-height: 44px; box-sizing: border-box; text-align: center; }
+  .generator-page #sortorderfloat { grid-template-columns: 1fr 1fr; }
 }
 
 /* Touch targets at least 44px */
