@@ -2,8 +2,9 @@
 // counts on the site's blue, and its first cards on a decklist sheet. The site Worker
 // runs on the Workers Free plan, 10 ms of CPU a request, so nothing here rasterizes:
 // text is copied from bitmaps drawn ahead of time (preview-font.mjs), the image is an
-// indexed PNG of a few dozen colors, and a run-length deflate written for it (zlib())
-// compresses it: CompressionStream's zlib alone takes more than half the budget.
+// indexed PNG of a few dozen colors, and a deflate encoder written for it (zlib())
+// compresses what is cheap to and stores the rest: CompressionStream's zlib alone took
+// more than half the budget.
 import { CHARS, FONTS, ICON } from './preview-font.mjs';
 
 export const WIDTH = 1200, HEIGHT = 630;
@@ -87,6 +88,8 @@ class Canvas {
     this.lookup = new Map([[BLUE.join(), 0]]);
     this.ramps = new Map();
     this.pixels = new Uint8Array(WIDTH * HEIGHT);
+    // Rows with text or the icon on them, which zlib() stores rather than compresses
+    this.detail = new Uint8Array(HEIGHT);
   }
 
   // The palette index of a color, added if there is room; else the nearest color
@@ -165,6 +168,7 @@ class Canvas {
     const pixels = this.pixels, ramp = this.ramp(color), table = ramp.table;
     const x0 = Math.max(0, -left), x1 = Math.min(w, WIDTH - left);
     const y0 = Math.max(0, -top), y1 = Math.min(h, HEIGHT - top);
+    this.detail.fill(1, top + y0, top + y1);
     for (let y = y0; y < y1; y++) {
       const row = (top + y) * WIDTH + left, start = offset + y * w;
       for (let x = x0; x < x1; x++) {
@@ -206,7 +210,7 @@ class Canvas {
     header.set([8, 3, 0, 0, 0], 8); // 8-bit indexed color
     chunks.push(chunk('IHDR', header));
     chunks.push(chunk('PLTE', Uint8Array.from(this.colors.flat())));
-    chunks.push(chunk('IDAT', zlib(this.pixels)));
+    chunks.push(chunk('IDAT', zlib(this.pixels, this.detail)));
     chunks.push(chunk('IEND', new Uint8Array(0)));
     const png = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
     let at = 0;
@@ -245,28 +249,62 @@ const BEFORE_COUNT = 5;
 const ABOVE_BITS = reverse(20, 5) | (STRIDE - 1025) << 5, ABOVE_COUNT = 14;
 const ROW_MATCHES = [258, 258, 258, 258, STRIDE - 4 * 258];
 
-// Compresses the image into a zlib stream of PNG rows: a row the same as the one above
-// is one match, and any other is runs of one color, each a literal and a match a pixel
-// back. That catches most of what zlib would, in one pass without hash chains. Rows are
-// compared, and runs scanned, a word (4 pixels) at a time, and the Adler-32 checksum
-// is summed a run at a time: a cold Worker's CPU limit leaves no room for byte loops
-function zlib(pixels) {
+// Compresses the image into a zlib stream of PNG rows, spending as little CPU as it can:
+// a cold Worker runs this before the JIT warms up, and the Free plan allows 10 ms.
+// - A row the same as the one above is one match, 1201 bytes back.
+// - A row with text on it (detail) is stored as it is: copying it costs next to
+//   nothing, where encoding its many short runs cost most of the budget. This makes
+//   the image about 600 KB, which is cached.
+// - Any other row (the background, the sheet, its rules) is runs of one color, each a
+//   literal and a match a byte back, found a word (4 pixels) at a time.
+// Matches and runs go in fixed-Huffman blocks, stored rows in stored blocks; a match
+// may reach back into an earlier block. The bit writer is written out inline, in
+// locals, since a call or a closure's variable per symbol costs more than the image
+function zlib(pixels, detail) {
   const words = new Uint32Array(pixels.buffer, pixels.byteOffset, pixels.length >> 2);
-  const out = new Uint8Array(Math.ceil(HEIGHT * STRIDE * 9 / 8) + 64);
-  out[0] = 0x78; out[1] = 0x01; // deflate, 32K window, no preset dictionary
-  // The bit writer is written out inline, in locals: before the JIT warms up, a call
-  // or a closure's variable per symbol costs more than the rest of the image together.
-  // Each write adds at most 24 bits to fewer than 8, and then writes out whole bytes
-  let at = 2, buffer = 0b011, count = 3; // the final block, with fixed codes
-  // Adler-32 adds a row of n bytes x[k] as a += Σx[k], b += n·a + Σx[k]·(n - k)
-  let a = 1, b = 0, sum = 0, weighted = 0;
   const ROW_WORDS = WIDTH >> 2;
+  // Each row: 0 the same as the one above, 1 runs, 2 stored
+  const kinds = new Uint8Array(HEIGHT);
   for (let y = 0; y < HEIGHT; y++) {
-    const row = y * WIDTH, rowWords = y * ROW_WORDS;
     let same = y > 0;
-    for (let w = 0; same && w < ROW_WORDS; w++) same = words[rowWords + w] === words[rowWords - ROW_WORDS + w];
-    if (same) {
-      // The row above, 1201 bytes back: four matches of 258 and one of 169
+    for (let w = y * ROW_WORDS, end = w + ROW_WORDS; same && w < end; w++) same = words[w] === words[w - ROW_WORDS];
+    kinds[y] = same ? 0 : detail[y] ? 2 : 1;
+  }
+
+  const out = new Uint8Array(HEIGHT * STRIDE + Math.ceil(HEIGHT * STRIDE / 8) + 1024);
+  out[0] = 0x78; out[1] = 0x01; // deflate, 32K window, no preset dictionary
+  // Each write adds at most 24 bits to fewer than 8, then writes out whole bytes
+  let at = 2, buffer = 0, count = 0, fixed = false;
+  for (let y = 0; y < HEIGHT;) {
+    if (kinds[y] === 2) {
+      // Stored rows, up to 54 to a block (its length is 16 bits)
+      let rows = 1;
+      while (y + rows < HEIGHT && kinds[y + rows] === 2 && rows < 54) rows++;
+      if (fixed) { // end the fixed block
+        buffer |= LITERAL_BITS[256] << count; count += LITERAL_COUNT[256];
+        fixed = false;
+      }
+      count += 3; // not final, stored: 0 00
+      while (count > 0) { out[at++] = buffer & 255; buffer >>>= 8; count -= 8; }
+      buffer = 0; count = 0;
+      const length = rows * STRIDE;
+      out[at++] = length & 255; out[at++] = length >> 8;
+      out[at++] = ~length & 255; out[at++] = ~length >> 8 & 255;
+      for (const last = y + rows; y < last; y++) {
+        const row = y * WIDTH;
+        out[at++] = 0; // filter: none
+        out.set(pixels.subarray(row, row + WIDTH), at);
+        at += WIDTH;
+      }
+      continue;
+    }
+
+    if (!fixed) { // start a fixed block: not final, fixed codes: 0 01
+      buffer |= 0b010 << count; count += 3;
+      fixed = true;
+    }
+    if (kinds[y] === 0) {
+      // The row above: four matches of 258 and one of 169, 1201 bytes back
       for (const take of ROW_MATCHES) {
         buffer |= LENGTH_BITS[take] << count; count += LENGTH_COUNT[take];
         while (count >= 8) { out[at++] = buffer & 255; buffer >>>= 8; count -= 8; }
@@ -274,18 +312,16 @@ function zlib(pixels) {
         while (count >= 8) { out[at++] = buffer & 255; buffer >>>= 8; count -= 8; }
       }
     } else {
+      const row = y * WIDTH;
       buffer |= LITERAL_BITS[0] << count; count += LITERAL_COUNT[0]; // filter: none
       while (count >= 8) { out[at++] = buffer & 255; buffer >>>= 8; count -= 8; }
-      sum = 0; weighted = 0;
       for (let i = row, end = row + WIDTH; i < end;) {
         const color = pixels[i], fill = color * 0x01010101 >>> 0;
         let j = i + 1;
         while (j < end && j & 3 && pixels[j] === color) j++;
         if (!(j & 3)) while (j + 4 <= end && words[j >> 2] === fill) j += 4;
         while (j < end && pixels[j] === color) j++;
-        const length = j - i, k = i - row + 1; // k: the run's place in the PNG row
-        sum += color * length;
-        weighted += color * (length * (STRIDE - k) - length * (length - 1) / 2);
+        const length = j - i;
         // The run's first pixel as a literal, the rest as matches one byte back (none
         // shorter than 3, so a long run leaves 3 at least), and any 1 or 2 left as literals
         const literalBits = LITERAL_BITS[color], literalCount = LITERAL_COUNT[color];
@@ -306,32 +342,55 @@ function zlib(pixels) {
         }
         i = j;
       }
-      sum %= 65521; weighted %= 65521;
     }
-    b = (b + STRIDE * a + weighted) % 65521;
-    a = (a + sum) % 65521;
+    y++;
   }
-  buffer |= LITERAL_BITS[256] << count; count += LITERAL_COUNT[256]; // end of block
+  if (fixed) { buffer |= LITERAL_BITS[256] << count; count += LITERAL_COUNT[256]; }
+  // The final block: an empty fixed one, 1 01 and the end of block
+  buffer |= 0b011 << count; count += 3;
+  buffer |= LITERAL_BITS[256] << count; count += LITERAL_COUNT[256];
   while (count > 0) { out[at++] = buffer & 255; buffer >>>= 8; count -= 8; }
-  new DataView(out.buffer).setUint32(at, (b << 16 | a) >>> 0);
+  new DataView(out.buffer).setUint32(at, adler32(pixels));
   return out.subarray(0, at + 4);
 }
 
-const CRC = new Uint32Array(256);
+// The Adler-32 of the PNG rows: each a filter byte, 0, then its pixels. A small function
+// of its own, which the JIT optimizes soon, where a loop inside zlib() ran cold
+function adler32(pixels) {
+  let a = 1, b = 0;
+  for (let row = 0; row < pixels.length; row += WIDTH) {
+    b += a; // the filter byte
+    for (let i = row, end = row + WIDTH; i < end; i++) { a += pixels[i]; b += a; }
+    a %= 65521; b %= 65521;
+  }
+  return (b << 16 | a) >>> 0;
+}
+
+// CRC-32 tables for four bytes a step (slicing by 4): a stored image is about 500 KB
+const CRC = new Uint32Array(1024);
 for (let n = 0; n < 256; n++) {
   let c = n;
   for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
   CRC[n] = c;
 }
+for (let n = 256; n < 1024; n++) CRC[n] = CRC[n - 256] >>> 8 ^ CRC[CRC[n - 256] & 255];
+function crc32(bytes) {
+  let crc = 0xffffffff, i = 0;
+  for (const end = bytes.length - 3; i < end; i += 4) {
+    crc ^= bytes[i] | bytes[i + 1] << 8 | bytes[i + 2] << 16 | bytes[i + 3] << 24;
+    crc = CRC[768 + (crc & 255)] ^ CRC[512 + (crc >>> 8 & 255)] ^ CRC[256 + (crc >>> 16 & 255)] ^ CRC[crc >>> 24];
+  }
+  for (; i < bytes.length; i++) crc = CRC[(crc ^ bytes[i]) & 255] ^ crc >>> 8;
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
 function chunk(type, data) {
   const out = new Uint8Array(12 + data.length);
   const view = new DataView(out.buffer);
   view.setUint32(0, data.length);
   for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
   out.set(data, 8);
-  let crc = 0xffffffff;
-  for (let i = 4; i < 8 + data.length; i++) crc = CRC[(crc ^ out[i]) & 0xff] ^ (crc >>> 8);
-  view.setUint32(8 + data.length, (crc ^ 0xffffffff) >>> 0);
+  view.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
   return out;
 }
 
