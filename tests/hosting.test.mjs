@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { inflateSync, crc32 } from 'node:zlib';
 import { handle, countDeck, preview, imageDeck } from '../hosting/index.mjs';
 
 // The assets binding: the front page, one other file, and a 404 for anything else
@@ -182,6 +183,20 @@ test('a pasted export is counted as the page parses it', () => {
   assert.equal(deck.side, 6);
 });
 
+// The data of a PNG's chunk of a type, checking its CRC
+function chunkData(png, type) {
+  const view = new DataView(png.buffer, png.byteOffset);
+  for (let at = 8; at < png.length;) {
+    const length = view.getUint32(at);
+    if (String.fromCharCode(...png.subarray(at + 4, at + 8)) === type) {
+      assert.equal(view.getUint32(at + 8 + length), crc32(png.subarray(at + 4, at + 8 + length)) >>> 0, type + ' CRC');
+      return png.subarray(at + 8, at + 8 + length);
+    }
+    at += 12 + length;
+  }
+  assert.fail('no ' + type + ' chunk');
+}
+
 // A PNG's width and height, from its IHDR chunk
 function size(png) {
   const view = new DataView(png.buffer, png.byteOffset);
@@ -197,6 +212,9 @@ test("a deck's preview image is a 1200×630 PNG", async () => {
   const png = new Uint8Array(await response.arrayBuffer());
   assert.deepEqual([...png.slice(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   assert.deepEqual(size(png), [1200, 630]);
+  // Node's zlib inflates the IDAT, checking the deflate stream and its Adler-32
+  assert.equal(inflateSync(chunkData(png, 'IDAT')).length, (1200 + 1) * 630);
+  assert.equal(chunkData(png, 'PLTE').length % 3, 0);
   assert.equal((await run(image, 'HEAD')).headers.get('Content-Type'), 'image/png');
 });
 
