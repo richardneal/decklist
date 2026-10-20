@@ -61,7 +61,24 @@ test('reads the deck format the Worker reports, or an MTGTop8 link names', async
   assert.equal((await importer.load('https://mtggoldfish.com/deck/123')).format, '');
 });
 
-test('button updates textareas, refreshes the preview, and preserves edits during a request', async () => {
+test('reads the deck name the Worker reports, and none from an older Worker', async () => {
+  const reply = name => async () => ({ ok: true, text: async () => '4 Island',
+    headers: { get: header => header === 'X-Deck-Name' ? name : null } });
+  context.fetch = reply(encodeURIComponent(' Ætherflux \u201cReservoir\u201d '));
+  assert.equal((await importer.load('https://archidekt.com/decks/123')).name, 'Ætherflux \u201cReservoir\u201d');
+  // A malformed encoding is no name, and doesn't fail the import
+  for (const name of [null, '', '%E0%A4%A']) {
+    context.fetch = reply(name);
+    const deck = await importer.load('https://archidekt.com/decks/123');
+    assert.equal(deck.name, '');
+    assert.equal(deck.main, '4 Island');
+  }
+  context.fetch = async () => ({ ok: true, text: async () => '4 Island' });
+  assert.equal((await importer.load('https://mtggoldfish.com/deck/123')).name, '');
+});
+
+// Runs deckimport.js against a stand-in for the page's form fields.
+function importerUI() {
   const elements = new Map();
   function $(selector) {
     if (typeof selector === 'function') { selector(); return; }
@@ -81,6 +98,11 @@ test('button updates textareas, refreshes the preview, and preserves edits durin
   }
   const ui = vm.createContext({ URL, AbortSignal, $ });
   vm.runInContext(fs.readFileSync('js/decklist/deckimport.js', 'utf8'), ui);
+  return { $, ui };
+}
+
+test('button updates textareas, refreshes the preview, and preserves edits during a request', async () => {
+  const { $, ui } = importerUI();
   $('#deckimport').val('https://mtggoldfish.com/deck/123');
   $('#deckside').val('old sideboard');
   $('#deckformat').val('legacy');
@@ -129,6 +151,43 @@ test('button updates textareas, refreshes the preview, and preserves edits durin
 });
 
 const MOXFIELD_ID = 'psDQiUrXLkSfMEyEc3oDTw';
+
+test('an import fills in the deck name, and undo restores the last one', async () => {
+  const { $, ui } = importerUI();
+  const named = name => async () => ({ ok: true, text: async () => '4 Island',
+    headers: { get: header => header === 'X-Deck-Name' ? (name && encodeURIComponent(name)) : null } });
+  $('#deckimport').val('https://moxfield.com/decks/' + MOXFIELD_ID);
+  $('#deckname').val('My Brew');
+  ui.fetch = named('Mono Blue \u201cTempo\u201d');
+  await $('#deckimport-button').trigger('click');
+  assert.equal($('#deckname').val(), 'Mono Blue \u201cTempo\u201d');
+  await $('#deckimport-undo').trigger('click');
+  assert.equal($('#deckname').val(), 'My Brew');
+  // A deck with no name, from an older Worker or MTGTop8, leaves the field as it is,
+  // and undo leaves it too
+  ui.fetch = named(null);
+  await $('#deckimport-button').trigger('click');
+  assert.equal($('#deckname').val(), 'My Brew');
+  await $('#deckimport-undo').trigger('click');
+  assert.equal($('#deckname').val(), 'My Brew');
+  // A name typed while the deck is on its way wins, and one typed after the import
+  // survives its undo
+  let finish;
+  ui.fetch = () => new Promise(resolve => { finish = resolve; });
+  const pending = $('#deckimport-button').trigger('click');
+  $('#deckname').val('Typed While Waiting');
+  await named('Source Name')().then(finish);
+  await pending;
+  assert.equal($('#deckmain').val(), '4 Island');
+  assert.equal($('#deckname').val(), 'Typed While Waiting');
+  ui.fetch = named('Source Name');
+  await $('#deckimport-button').trigger('click');
+  assert.equal($('#deckname').val(), 'Source Name');
+  $('#deckname').val('Renamed');
+  await $('#deckimport-undo').trigger('click');
+  assert.equal($('#deckname').val(), 'Renamed');
+  assert.equal($('#deckimport-undo').prop('hidden'), true);
+});
 
 test('recognizes Moxfield deck URLs, including a trailing primer segment', () => {
   for (const url of ['https://moxfield.com/decks/' + MOXFIELD_ID,
