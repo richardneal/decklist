@@ -225,6 +225,7 @@ A genuine refusal surfaces as the Worker's 502 and the UI tells the user to past
 
 - All card name matching is case-insensitive with accent normalization
 - The app HTML-encodes all user input to prevent XSS attacks
+- Roboto is served from `css/fonts/` (Google Fonts' latin and latin-ext variable files, each declared at 400 and 700 in `decklist.css`), with the latin file preloaded and a `Roboto Fallback` face, Arial adjusted to Roboto's metrics, so the text doesn't reflow when the font swaps in. The page makes no request to Google Fonts
 - PDF generation happens client-side using jsPDF library
 - The preview regenerates with debounced updates to avoid performance issues
 - `main.js` contains `posthog.capture(...)` analytics calls, all guarded by `typeof posthog !== 'undefined'`. No PostHog snippet is loaded in `index.html`, so they are inert; adding the snippet would switch analytics on site-wide
