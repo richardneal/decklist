@@ -173,6 +173,7 @@
               <button type="button" id="deckimport-undo" hidden>Undo import</button>
             </div>
             <p class="import-alternative">Have a text export? Paste it below.</p>
+            <p class="import-help">Shortcut: put <strong>decklist.nealston.com/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
           </section>
           <label for="deckname">
             <span>Deck Name / Archetype:</span>
@@ -210,7 +211,7 @@
           <label for="deckmain">
             <span>Main Deck:</span>
             <textarea id="deckmain"></textarea>
-            <span id="protip">(Pro tip: You can simply paste in MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks without separating out the sideboard!)</span>
+            <span id="protip">(Pro tip: You can simply paste in MTG Arena, Moxfield, MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks, set codes and all, without separating out the sideboard!)</span>
           </label>
           <label for="deckside">
             <span>Sideboard:</span>
@@ -276,7 +277,7 @@
       </div>
       <form>
         <input type="button" id="download" value="📥 Download PDF" onclick="generateDecklistPDF('dataurlnewwindow');">
-        <input type="button" id="permalink" value="🔗 Copy Permalink" onclick="copyPermalinkToClipboard()">
+        <input type="button" id="permalink" value="🔗 Copy Permalink" onclick="sharePermalink()">
       </form>
 
       <!-- Deck management actions -->

@@ -14,78 +14,154 @@ var Decklist = {
   parse: function(deckmain, deckside) {
     deckmain = deckmain || $('#deckmain').val(), deckmain = deckmain.split('\n'),
     deckside = deckside || $('#deckside').val(), deckside = deckside.split('\n');
-    var lists = {
-      main: [],
-      side: [],
-      unrecognized: [],
-      unparseable: [],
-    };
-    const cardRE = {
-      main: [
-        /^\s*(\d+)\s+\[.*\]\s+(.+?)\s*$/,      // MWS, what an ugly format
-        /^\s*(\d+)x*\s(.+?)\s*$/,              // MTGO deck format (4 Brainstorm) also TCG (4x Brainstorm)
-        /^\s*()?(.+?)\s*$/,                    // Single card
-      ],
-      side: [
-        /^\s*SB:\s*(\d+)\s+\[.*\]\s(.+?)\s*$/, // MWS, what an ugly format
-        /^\s*SB:\s+(\d+)\s(.+?)\s*$/,          // Sideboard lines begin with SB:
-        /^\s*()?(.+?)\s*$/,                    // Single card
-      ],
-    };
+    const cardRE = [
+      /^\s*(\d+)\s+\[.*\]\s+(.+?)\s*$/,      // MWS, what an ugly format
+      /^\s*(\d+)x*\s(.+?)\s*$/,              // MTGO deck format (4 Brainstorm) also TCG (4x Brainstorm)
+      /^\s*()?(.+?)\s*$/,                    // Single card
+    ];
+    // MWS and others mark each sideboard line instead: SB: 2 Blood Moon
+    const sbRE = /^\s*SB:\s*/i;
+    // MWS and Scryfall write comment lines: // Deck file for Magic Workstation
+    const commentRE = /^\s*\/\//;
+    // The printing Arena and Moxfield follow a name with: (2X2) 117, (MH2) 290 *F*
+    const printingRE = /(?:\s+\([a-z0-9]{2,8}\)(?:\s+[^\s()*]+)?)?(?:\s+\*[a-z]+\*)*$/i;
+    // Section headers, as Arena, MTGO and Moxfield export them: Deck, Sideboard:,
+    // Commander (1). About starts a block that names the deck, skipped to the next blank
+    // line, and cards under Maybeboard are left out, as the deck import leaves them
+    const headerRE = /^\s*([a-z]+(?: [a-z]+)?)\s*(?:\(\d+\))?\s*:?\s*$/i,
+      sections = {
+        deck: 'main', main: 'main', mainboard: 'main', maindeck: 'main',
+        sideboard: 'side', sb: 'side',
+        commander: 'commander', commanders: 'commander',
+        companion: 'companion', companions: 'companion',
+        maybeboard: 'maybe',
+        about: 'about',
+      };
 
     // Get cards from maindeck and sideboard inputs
-    lists = list_merge(lists, scan(deckmain, cardRE['main'].concat(cardRE['side'])));
-    lists = list_merge(lists, scan(deckside, cardRE['main'], 'side'));
+    const scans = [scan(deckmain, 'main'), scan(deckside, 'side')];
 
-    // de-duplicate unrecognized card names
-    lists['unrecognized'] = lists['unrecognized'].filter(onlyUnique);
+    // Commanders lead the sideboard, then a companion, as the deck import places them.
+    // Arena lists its companion again in the sideboard proper; that is the same card
+    const leaders = gather('commander', 'companion'),
+      sideboard = gather('side').filter(function(card) {
+        const leader = leaders.find(function(leader) { return leader['n'] === card['n']; });
+        if (leader) {
+          leader['q'] = Math.max(leader['q'], card['q']);
+        }
+        return !leader;
+      });
 
-    return lists;
+    return {
+      main: gather('main'),
+      side: leaders.concat(sideboard),
+      // de-duplicate unrecognized card names
+      unrecognized: gather('unrecognized').filter(onlyUnique),
+      unparseable: gather('unparseable'),
+    };
 
     // helper functions
 
+    // Collects one or more of the scans' lists into one, in order: each key from
+    // the maindeck input and then the sideboard input
+    // Accepts the keys of the lists to collect (see scan())
+    // Returns a single list, with duplicate cards merged by list_add()
+    function gather(...keys) {
+      var list = [];
+      keys.forEach(function(key) {
+        scans.forEach(function(scanned) {
+          scanned[key].forEach(function(card) {
+            list_add(list, card);
+          });
+        });
+      });
+      return list;
+    }
+
+    // Finds the section a header line starts
+    // Accepts an input string
+    // Returns 'main', 'side', 'commander', 'companion', 'maybe' or 'about', or null for any other line
+    function headerOf(line) {
+      // any line starting with Sideboard has always switched to it
+      if (/^\s*side ?board\b/i.test(line)) {
+        return 'side';
+      }
+      let match = headerRE.exec(line),
+        word = match && match[1].toLowerCase().replace(' ', '');
+      return word && sections.hasOwnProperty(word) ? sections[word] : null;
+    }
+
     // Scans lines of a given array for cards
-    // Accepts an array of input strings, an array of regexes to check against, and
-    // an optional "list" referring to the deck that should be used by default (default is 'main')
-    // Returns a "lists" object, structured like the one defined at the top of parse()
-    function scan(lines, regexes, list = 'main') {
+    // Accepts an array of input strings and the section its cards go to until a header
+    // says otherwise ('main' or 'side'). A blank line after main deck cards starts the
+    // sideboard, unless a header follows it. Comment lines and the maybeboard are skipped
+    // Returns an object structured like parse()'s result, with the cards listed under
+    // Commander and Companion headers in lists of their own
+    function scan(lines, section) {
       var identified = {
           main: [],
           side: [],
+          commander: [],
+          companion: [],
           unrecognized: [],
           unparseable: [],
         },
-        toSB = /^\s*Sideboard/,
         emptyLine = /^\s*$/,
         in_sb = false,
+        in_about = false,
         hasMainCards = false;
-    
-      // ensure list is actually a property of identified
-      if (!identified.hasOwnProperty(list)) {
-        list = 'main';
-      }
-    
+
       // main parsing loop
       linesLoop: for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
-    
-        // check for sideboard switch statement or empty line after main cards
-        if (list === 'main' && (toSB.test(line) || (emptyLine.test(line) && hasMainCards))) {
-          in_sb = true;
+        var line = lines[i],
+          header = headerOf(line);
+
+        // a comment changes nothing, not even a pending switch to the sideboard
+        if (commentRE.test(line)) {
           continue;
         }
-    
-        // check lines against passed regexes for cards
-        for (var j = 0; j < regexes.length; j++) {
-          let re = regexes[j];
+        // an empty line after main cards switches to the sideboard, once a card follows
+        if (emptyLine.test(line)) {
+          in_sb = in_sb || (section === 'main' && hasMainCards);
+          in_about = false;
+          continue;
+        }
+        if (header) {
+          in_about = header === 'about';
+          section = in_about ? section : header;
+          in_sb = false;
+          continue;
+        }
+        if (in_about || section === 'maybe') {
+          continue;
+        }
+        if (in_sb) {
+          section = 'side';
+          in_sb = false;
+        }
+
+        let list = section,
+          sb = sbRE.exec(line);
+        if (sb) {
+          line = line.slice(sb[0].length);
+          list = 'side';
+        }
+
+        // check lines against the card regexes
+        for (var j = 0; j < cardRE.length; j++) {
+          let re = cardRE[j];
           if (!re.test(line)) {
             continue;
           }
 
           let result = re.exec(line),
             quantity = parseInt(result[1]) || 1,
-            cardName = result[2],
-            card = getCard(cardName);
+            cardName = result[2];
+          // drop a trailing printing, unless it is part of the name (Hazmat Suit (Used))
+          if (!cards.hasOwnProperty(cardName.toLowerCase())) {
+            cardName = cardName.replace(printingRE, '');
+          }
+          let card = getCard(cardName);
           // add quantity field to card object
           if (card) {
             card['q'] = quantity;
@@ -101,14 +177,9 @@ var Decklist = {
               identified['unrecognized'].push(encodedCardName);
             }
           }
-           // Mark that we have encountered main deck cards
+          // Mark that we have encountered main deck cards
           if (list === 'main') {
             hasMainCards = true;
-          }
-
-          // switch to sideboard if sideboard switch has already been found
-          if (list === 'main' && in_sb) {
-            list = 'side';
           }
           // add card to identified list
           identified[list] = list_add(identified[list], card);
@@ -202,21 +273,6 @@ var Decklist = {
         }
         return -1;
       }
-    }
-    // Merges list objects
-    // Accepts two list objects (see lists of parse() for reference)
-    // Returns a single list with the items of b's list added to a's lists using list_add()
-    function list_merge(a, b) {
-      var list = {};
-      for (const keyA in a) {
-        if (!list.hasOwnProperty(keyA)) {
-          list[keyA] = a[keyA];
-        }
-        b[keyA].forEach(function (card) {
-          list_add(list[keyA], card);
-        });
-      }
-      return list;
     }
     // A uniqueness filtering function for use in array.filter()
     // Returns true only for unique values (the first value found for any duplicates)

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 decklist.nealston.com is a static website that generates Magic: The Gathering tournament registration sheets and decklists. It's a fork of the original [decklist.org](https://github.com/april/decklist) project by April King, enhanced with additional features and improvements.
 
-The application runs entirely client-side using vanilla JavaScript, jQuery, and jsPDF. No build process is required to work on it — open `index.html` directly. Deployment adds two small Node pieces: `hosting/` (stages the static files and ships them to Cloudflare) and `worker/` (the Cloudflare Worker backing deck imports).
+The application runs entirely client-side using vanilla JavaScript, jQuery, and jsPDF. No build process is required to work on it — open `index.html` directly. Deployment adds two small Node pieces: `hosting/` (stages the static files and ships them to Cloudflare, with a small script that redirects deck links written after the site's address) and `worker/` (the Cloudflare Worker backing deck imports).
 
 ## Architecture
 
@@ -15,7 +15,14 @@ The application runs entirely client-side using vanilla JavaScript, jQuery, and 
 The application is split into three main JavaScript modules in `js/decklist/`, all loaded by `index.html`:
 
 1. **decklist.js** - Core decklist parsing and manipulation
-   - `Decklist.parse(deckmain, deckside)` - Parses various deck formats (MTGO, MWS, MTG Goldfish, Tappedout, etc.) into structured card objects
+   - `Decklist.parse(deckmain, deckside)` - Parses various deck formats (MTG Arena, Moxfield, MTGO, MWS, MTG Goldfish, Tappedout, etc.) into structured card objects
+     - Header lines switch the section, in either textarea, in any case and with an optional colon or `(count)`: `Deck`/`Main`/`Mainboard`/`Maindeck`/`Main Deck` for the main deck, `Sideboard`/`Side Board`/`SB` (and, as before, any line starting with `Sideboard`) for the sideboard, `Commander(s)` and `Companion(s)`. Lookup is the `sections` table in `parse()`
+     - Commander and Companion cards go to the sideboard, commanders first, then companions, then the rest of the sideboard, as the import Worker places them. A companion also listed under Sideboard (Arena lists it in both) is counted once
+     - An `About` block (Arena's `Name <deck name>` line) is skipped up to the next blank line or header
+     - Lines starting with `//` (MWS and Scryfall comments) are ignored without touching any section state, and a `Maybeboard` section is dropped up to the next header, as the import Worker drops it
+     - A blank line after main deck cards in the main textarea still starts the sideboard, unless a header follows it, so an Arena export's blank lines don't move the main deck
+     - `SB: 2 Blood Moon` lines go to the sideboard from either textarea
+     - A trailing printing, ` (SET) 123` and any `*F*`/`*E*` foil markers, is stripped before lookup (`printingRE`), unless the full name is itself a card key, as `Hazmat Suit (Used)` and `Imaginary Friends (Plane)` are
    - `Decklist.sort(deck, sortorder)` - Sorts decks by alphabetical, mana value, color, numeric, or type
    - `Decklist.section(deck, sectionType)` - Adds visual spacers between card groups
    - `Decklist.filter(deck, field, values, mode)` - Filters cards by properties
@@ -33,7 +40,7 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
    - Event handling for form inputs
    - PDF generation using jsPDF
    - URL parameter parsing for direct linking
-   - History state management for permalinks
+   - History state management for permalinks: `generatePermalink()` builds the link from the form as query parameters (`+` for spaces), adding `decksheet` and `decksort` when they differ from the defaults (`wotc`, `type`). The address bar and history use it; the history state always keeps the sheet and sort, so Back restores a default one too. A sheet or sort click records its step in `pushHistoryState()` after the current event, so a Back that clicks several radios finishes first. Copy Permalink (`sharePermalink()`) shares that same link on the live origin, through the native share sheet on a touch device (`navigator.share` with a coarse pointer) and the clipboard everywhere else. The whole form rides in the link; nothing is sent to a shortener or any other service
    - Input validation with debounced updates (400ms for validation, 1500ms for PDF generation); deck size, copy and legality checks come from `Decklist.check()` for the format in `#deckformat` (empty means auto-detect, and the Auto-detect option's text names the format it picked). Both sheets sort the sideboard with the main deck's sort order, except a singleton deck's (Commander, its variants and Oathbreaker; `sortSideboard()`), which keeps the order it was entered in so an imported commander stays on its first line
 
 3. **deckimport.js** - MTGGoldfish / MTGTop8 / Moxfield / Archidekt / Scryfall deck importing
@@ -64,9 +71,10 @@ The application supports extensive URL parameter support for pre-filling forms:
 - Personal: `firstname`, `lastname`
 - Event: `event`, `eventdate`, `eventlocation`
 - Deck: `deckname`, `deckdesigner`, `deckformat` (a key of `Decklist.formats`; absent or unknown means auto-detect), `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; ignored when `deckmain`/`deckside` are present)
+- Path: a deck link written after the site's address, `decklist.nealston.com/https://moxfield.com/decks/<id>` (the `https://` optional, nothing encoded), redirects to `/?deckimport=<link>`; see Deployment
 - Display: `decksheet` (wotc/scg), `disableediting`
 
-Use `%0A` for newlines in deck data, `%20` for spaces.
+Use `%0A` for newlines in deck data, `%20` or `+` for spaces (generated permalinks use `+`).
 
 ## Card Data Regeneration
 
@@ -109,7 +117,7 @@ For iframe preview testing, the app uses `srcdoc` attribute to render the deckli
 
 ### Automated Tests
 
-Six suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+Seven suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
 
 ```bash
 npm ci --prefix worker
@@ -122,11 +130,12 @@ node --test tests/*.test.*
 python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 ```
 
-- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`, double-faced cards spelled out in full), front-face names for meld, flip and prepare cards, and the format checks and auto-detection. The format tests rely on current ban lists, so a ban or unban can break one
+- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`, double-faced cards spelled out in full), front-face names for meld, flip and prepare cards, pasted exports (Arena headers and companions, set codes and foil markers, `SB:` lines, the blank-line sideboard switch), and the format checks and auto-detection. The format tests rely on current ban lists, so a ban or unban can break one
 - `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection, export splitting, and the imported deck's format
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, the `X-Deck-Format` header, and failure handling
-- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, a Commander sideboard's order, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
+- `tests/hosting.test.mjs` - Imports `handle` from `hosting/index.mjs`; covers which paths redirect to `deckimport` (with or without `https://`, a scheme with one slash, an encoded link, an MTGTop8 query) and which stay 404s
+- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, Copy Permalink (it makes no outside request, the copied link reopens the same deck with its sheet and sort order, which Back and Forward also restore, and on a phone it opens the share sheet), a Commander sideboard's order, an Arena export pasted into the main deck, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
 
   ```bash
   npm ci --prefix tests/browser
@@ -157,12 +166,14 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 
 The site is served by **Cloudflare Workers Static Assets**, not GitHub Pages. Two separate Workers are involved:
 
-- `nealston-decklist` — the static site at `decklist.nealston.com`, configured in `hosting/wrangler.jsonc`
+- `nealston-decklist` — the static site at `decklist.nealston.com`, configured in `hosting/wrangler.jsonc`, with `hosting/index.mjs` as its script
 - `decklist-import-api` — the import API at `deck-import.nealston.com`, source in `worker/index.mjs`, configured in `worker/wrangler.jsonc`
 
 ### Site
 
 `.github/workflows/deploy-site.yml` deploys on every push to `main`, and on manual dispatch. It runs `npm ci --prefix worker`, `node hosting/build.mjs`, then `wrangler deploy --config hosting/wrangler.jsonc` using the `CLOUDFLARE_API_TOKEN` secret. The daily card refresh ends with those same build-and-deploy steps.
+
+`hosting/index.mjs` is the site Worker's script. Static assets are served first, so it runs only for a path that matches no file: a path holding an http(s) link, or a link to one of the five deck sites without its scheme, gets a 302 to `/?deckimport=<encoded link>`, and the page imports it on load; anything else is a plain 404. It undoes a scheme whose `//` a proxy merged into `/`, and decodes a link pasted already encoded. It redirects any http(s) link, not only the supported sites, so a link from another site reaches the page's error message rather than a blank 404. Keep `not_found_handling` at `none`: another setting would answer unmatched paths before the script runs. To try it locally, `node hosting/build.mjs`, then `worker/node_modules/.bin/wrangler dev --config hosting/wrangler.jsonc`.
 
 `hosting/build.mjs` stages the public files into the git-ignored `hosting/dist/`: `index.html`, `docs.html`, `favicon.ico`, `robots.txt`, `sitemap.xml`, `llms.txt`, `LICENSE`, `css/`, `images/` and `js/`. It filters out `*.py`, `*.sh` and `*.map`, so the card generator scripts and source maps never ship.
 

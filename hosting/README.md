@@ -12,6 +12,8 @@ worker/node_modules/.bin/wrangler deploy --config hosting/wrangler.jsonc --dry-r
 worker/node_modules/.bin/wrangler deploy --config hosting/wrangler.jsonc
 ```
 
+`index.mjs` is the site Worker's script. It runs only for paths that match no file, and redirects a deck link written after the site's address (`/https://moxfield.com/decks/…`) to `/?deckimport=…`; any other such path is a 404.
+
 The build copies only public website files into the ignored `hosting/dist` directory. Credentials, Worker source/configuration, tests, and card-generation scripts are excluded. The custom domain and certificate are managed by Cloudflare.
 
 For import API changes, use `npm run deploy --prefix worker`. Its origin allowlist includes `https://decklist.nealston.com`.

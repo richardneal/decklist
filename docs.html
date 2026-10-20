@@ -42,7 +42,7 @@
         "name": "How do I use the MTG decklist generator?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Simply paste your deck from MTGO, MTGGoldfish, TappedOut, or any supported format into the Main Deck field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events."
+          "text": "Simply paste your deck from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, or any supported format into the Main Deck field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events."
         }
       },
       {
@@ -50,7 +50,7 @@
         "name": "What deck formats are supported?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Our decklist generator supports MTGO (Magic Online), MTGGoldfish, TappedOut, MTG Salvation, Deckbox Print format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard."
+          "text": "Our decklist generator supports MTG Arena, MTGO (Magic Online), Moxfield, MTGGoldfish, TappedOut, MTG Salvation, Deckbox Print format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard."
         }
       },
       {
@@ -66,7 +66,7 @@
         "name": "How do I save and share my decklist?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Use the Copy Permalink button to generate a unique URL that pre-fills all your deck information. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the Save Decklist button."
+          "text": "Use the Copy Permalink button to copy a link that pre-fills all your deck information; on a phone it opens the share sheet instead. The link is built in your browser and carries the whole deck itself, so nothing is stored on a server or sent to a link shortener. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the Save Decklist button."
         }
       },
       {
@@ -192,7 +192,7 @@
           <ol>
             <li><strong>Enter your information:</strong> Fill in your first and last name</li>
             <li><strong>Add event details:</strong> Event name, date, and location</li>
-            <li><strong>Add your deck:</strong> Paste an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck link and click "Import deck", or copy your decklist from MTGO, MTGGoldfish, or TappedOut and paste it directly</li>
+            <li><strong>Add your deck:</strong> Paste an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck link and click "Import deck", or copy your decklist from MTG Arena, MTGO, Moxfield, MTGGoldfish, or TappedOut and paste it directly</li>
             <li><strong>Choose format:</strong> Select WotC (Wizards of the Coast) or SCG (Star City Games) sheet format</li>
             <li><strong>Download:</strong> Click "Download PDF" to get your tournament-ready registration sheet</li>
           </ol>
@@ -205,12 +205,12 @@
 
         <div class="faq-item">
           <h3>How do I use the MTG decklist generator?</h3>
-          <p>Simply paste your deck from MTGO, MTGGoldfish, TappedOut, or any supported format into the "Main Deck" field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events.</p>
+          <p>Simply paste your deck from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, or any supported format into the "Main Deck" field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events.</p>
         </div>
 
         <div class="faq-item">
           <h3>What deck formats are supported?</h3>
-          <p>Our decklist generator supports MTGO (Magic Online), MTGGoldfish, TappedOut, MTG Salvation, Deckbox "Print" format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard.</p>
+          <p>Our decklist generator supports MTG Arena, MTGO (Magic Online), Moxfield, MTGGoldfish, TappedOut, MTG Salvation, Deckbox "Print" format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard.</p>
         </div>
 
         <div class="faq-item">
@@ -220,7 +220,7 @@
 
         <div class="faq-item">
           <h3>How do I save and share my decklist?</h3>
-          <p>Use the "Copy Permalink" button to generate a unique URL that pre-fills all your deck information. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the "Save Decklist" button.</p>
+          <p>Use the "Copy Permalink" button to copy a link that pre-fills all your deck information; on a phone it opens the share sheet instead. The link is built in your browser and carries the whole deck itself, so nothing is stored on a server or sent to a link shortener. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the "Save Decklist" button.</p>
         </div>
 
         <div class="faq-item">
@@ -235,7 +235,7 @@
 
         <div class="faq-item">
           <h3>Do I need to create an account?</h3>
-          <p>No! decklist.nealston.com works entirely in your browser without any registration. Pasted decks are processed in your browser. Importing a link sends the deck source and ID to our import API; sharing a permalink includes your entered deck information in the link.</p>
+          <p>No! decklist.nealston.com works entirely in your browser without any registration. Pasted decks are processed in your browser. Importing a link sends the deck source and ID to our import API; copying a permalink sends nothing anywhere, but the link itself carries the name, event and deck you entered, so share it only with people who should see them.</p>
         </div>
       </section>
 
@@ -253,6 +253,27 @@
 Sideboard
 3 Negate
 2 Dispel</code></pre>
+          <p>Lines marked <code>SB:</code>, as Magic Workstation writes them, go to the sideboard wherever they appear, and lines starting with <code>//</code>, such as its comments, are ignored.</p>
+        </div>
+
+        <div class="docs-subsection">
+          <h3>MTG Arena</h3>
+          <p>Export your deck from MTG Arena, or copy it in Arena's format from a deck site, and paste the whole export into the "Main Deck" field. Its headers sort the cards: <code>Deck</code> is the main deck, <code>Sideboard</code> the sideboard, and a <code>Commander</code> or <code>Companion</code> goes to the sideboard, commander first. The About block that names the deck is skipped, and so are the set code and collector number after each card:</p>
+          <pre><code>About
+Name Mono-Red Burn
+
+Companion
+1 Jegantha, the Wellspring (IKO) 222
+
+Deck
+4 Lightning Bolt (2X2) 117
+4 Monastery Swiftspear (BRO) 144
+20 Mountain (ANA) 1
+
+Sideboard
+1 Jegantha, the Wellspring (IKO) 222
+2 Blood Moon (DMR) 123</code></pre>
+          <p>Arena lists a companion in the sideboard as well, and it is counted once. Headers are read in any case, with or without a colon, so <code>MAINBOARD:</code> and <code>Sideboard (15)</code> work too. A <code>Maybeboard</code> section is left out.</p>
         </div>
 
         <div class="docs-subsection">
@@ -263,6 +284,7 @@ Sideboard
         <div class="docs-subsection">
           <h3>Moxfield</h3>
           <p>Paste the deck's address (<code>moxfield.com/decks/…</code>) into "Import a deck". Commanders and a companion, or an Oathbreaker and its signature spell, are added to the sideboard, since Commander decks have none and a commander listed there stays easy to find; the maybeboard is ignored, and so is the sideboard of a deck with a commander, where Moxfield players keep their cuts. The deck's format is selected for you when it is one the generator checks.</p>
+          <p>You can also paste a deck copied from Moxfield's Export dialog, in plain text or for MTG Arena. Set codes, collector numbers and foil markers such as <code>*F*</code> are ignored, and the Commander, Companion and Sideboard headers are read as they are in an Arena export.</p>
         </div>
 
         <div class="docs-subsection">
@@ -300,6 +322,15 @@ Sideboard
         </ul>
 
         <div class="docs-subsection">
+          <h3>Import a Deck from Its Link</h3>
+          <p>Put <code>decklist.nealston.com/</code> in front of a deck's address on MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall, and the generator opens with that deck imported:</p>
+          <pre><code>https://decklist.nealston.com/https://www.mtggoldfish.com/deck/6837920
+decklist.nealston.com/moxfield.com/decks/…
+decklist.nealston.com/https://www.mtgtop8.com/event?e=…&amp;d=…&amp;f=MO</code></pre>
+          <p>The deck's <code>https://</code> can stay or go, and nothing needs encoding. To combine an import with event or player details, use the <code>deckimport</code> parameter below instead.</p>
+        </div>
+
+        <div class="docs-subsection">
           <h3>Available URL Parameters</h3>
           <p>Simply add these parameters to the URL to pre-fill form fields:</p>
 
@@ -322,14 +353,14 @@ Sideboard
             <li><strong>deckdesigner</strong> - Designer's name</li>
             <li><strong>deckformat</strong> - Format to check the deck against: <code>standard</code>, <code>pioneer</code>, <code>modern</code>, <code>legacy</code>, <code>vintage</code>, <code>pauper</code>, <code>premodern</code>, <code>oldschool</code>, <code>commander</code>, <code>duel</code> (Duel Commander), <code>paupercommander</code>, <code>predh</code>, <code>oathbreaker</code>, <code>constructed</code> (no ban list) or <code>limited</code> (defaults to auto-detect)</li>
             <li><strong>deckimport</strong> - URL-encoded MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
-            <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
-            <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
+            <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> or <code>+</code> for spaces)</li>
+            <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> or <code>+</code> for spaces)</li>
           </ul>
 
           <h4>Display Options</h4>
           <ul>
-            <li><strong>decksheet</strong> - Sheet format: <code>wotc</code> or <code>scg</code> (defaults to wotc)</li>
-            <li><strong>decksort</strong> - Sort order: <code>alphabetical</code>, <code>manavalue</code>, <code>color</code>, <code>numeric</code>, <code>original</code>, or <code>type</code> (defaults to type)</li>
+            <li><strong>decksheet</strong> - Sheet format: <code>wotc</code> or <code>scg</code> (defaults to wotc; a permalink includes it when it isn't the default)</li>
+            <li><strong>decksort</strong> - Sort order: <code>alphabetical</code>, <code>manavalue</code>, <code>color</code>, <code>numeric</code>, <code>original</code>, or <code>type</code> (defaults to type; a permalink includes it when it isn't the default)</li>
             <li><strong>disableediting</strong> - Prevent users from editing pre-filled fields</li>
           </ul>
         </div>
@@ -351,7 +382,7 @@ Sideboard
           <p>Everything together - personal info, event details, and full decklist:</p>
           <pre><code>https://decklist.nealston.com/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center&deckname=Miracles&deckdesigner=CubeApril&deckmain=4%20Brainstorm%0A4%20Force%20of%20Will%0A4%20Island</code></pre>
 
-          <p><strong>Important:</strong> When creating links, replace spaces with <code>%20</code> and use <code>%0A</code> for line breaks in deck lists.</p>
+          <p><strong>Important:</strong> When creating links, replace spaces with <code>%20</code> (or <code>+</code>) and use <code>%0A</code> for line breaks in deck lists.</p>
         </div>
       </section>
 

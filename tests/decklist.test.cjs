@@ -80,6 +80,97 @@ test('finds double-faced and adventure cards spelled out in full', () => {
 });
 
 // Arrays made inside the vm don't deep-equal ours, so copy them out
+const names = list => Array.from(list, card => card.q + ' ' + card.n);
+const sections = (main, side = '') => {
+  const deck = decklist.parse(main, side);
+  return { main: names(deck.main), side: names(deck.side),
+    unrecognized: [...deck.unrecognized], unparseable: [...deck.unparseable] };
+};
+const ARENA = `About
+Name Mono Red Burn
+
+Companion
+1 Lurrus of the Dream-Den (IKO) 226
+
+Deck
+4 Lightning Bolt (2X2) 117
+1 Fire // Ice (MH2) 290 *F*
+20 Mountain (ANA) 1
+
+Sideboard
+1 Lurrus of the Dream-Den (IKO) 226
+2 Blood Moon (DMR) 123`;
+
+test('reads an Arena export by its headers, without its printings', () => {
+  assert.deepEqual(sections(ARENA), {
+    main: ['4 Lightning Bolt', '1 Fire // Ice', '20 Mountain'],
+    // The companion is listed twice, under Companion and in the sideboard, and counted once
+    side: ['1 Lurrus of the Dream-Den', '2 Blood Moon'],
+    unrecognized: [], unparseable: [],
+  });
+});
+test('puts commanders first in the sideboard, then a companion', () => {
+  const commander = "Companion\n1 Lurrus of the Dream-Den\n\nCommander\n1 Atraxa, Praetors' Voice (2X2) 190\n\n" +
+    'Deck\n1 Sol Ring (CMR) 472 *F*\n97 Island\n\nSideboard\n1 Pyroblast';
+  assert.deepEqual(sections(commander).side, ["1 Atraxa, Praetors' Voice", '1 Lurrus of the Dream-Den', '1 Pyroblast']);
+  // A commander in the main input leads cards typed in the sideboard input too
+  assert.deepEqual(sections("Commanders:\n1 Atraxa, Praetors' Voice\nDeck:\n1 Sol Ring", '1 Pyroblast').side,
+    ["1 Atraxa, Praetors' Voice", '1 Pyroblast']);
+  assert.equal(decklist.detectFormat(decklist.parse(commander, '')), 'commander');
+});
+test('matches headers in any case, with a colon or a count', () => {
+  for (const [main, side] of [['Main', 'Sideboard'], ['MAINBOARD:', 'SIDE BOARD:'], ['Maindeck', 'SB:'],
+    ['main deck (4)', 'sideboard (2)'], ['Deck', 'Sideboard - 2 cards']]) {
+    assert.deepEqual(sections(`${main}\n4 Brainstorm\n\n${side}\n2 Blood Moon`),
+      { main: ['4 Brainstorm'], side: ['2 Blood Moon'], unrecognized: [], unparseable: [] }, main);
+  }
+  // Headers work in the sideboard input too
+  assert.deepEqual(sections('4 Brainstorm', 'Sideboard\n2 Blood Moon').side, ['2 Blood Moon']);
+});
+test('skips an About block up to the next blank line', () => {
+  const deck = sections('About\nName Name Dropping\n\nDeck\n4 Brainstorm');
+  assert.deepEqual(deck, { main: ['4 Brainstorm'], side: [], unrecognized: [], unparseable: [] });
+  // A header ends it too, and Name means nothing outside it
+  assert.deepEqual(sections('About\nName Burn\nDeck\n4 Brainstorm\n1 Name Dropping').main, ['4 Brainstorm', '1 Name Dropping']);
+});
+test('strips printings and foil markers before looking cards up', () => {
+  assert.deepEqual(sections('4 Lightning Bolt (2X2) 117\n1 Sol Ring (CMR) 472 *F*\n1 Arcane Signet (plst) CMR-297 *E*\n' +
+    '1 Counterspell (MH2)\n1 Brainstorm *F*\n1 Made Up Card (ABC) 12 *F*'), {
+    main: ['4 Lightning Bolt', '1 Sol Ring', '1 Arcane Signet', '1 Counterspell', '1 Brainstorm', '1 Made Up Card'],
+    side: [], unrecognized: ['Made Up Card'], unparseable: [],
+  });
+  // Unless the parenthesis is the card's own
+  assert.deepEqual(sections('1 Hazmat Suit (Used)\n1 Imaginary Friends (Plane)\n1 Imaginary Friends (UNF) 12').main,
+    ['1 Hazmat Suit (Used)', '1 Imaginary Friends (Plane)', '1 Imaginary Friends']);
+});
+test('sends SB: lines to the sideboard from either input', () => {
+  assert.deepEqual(sections('4 Brainstorm\nSB: 2 Blood Moon\nSB:  1 [M10] Duress\n56 Island', 'SB: 1 Pyroblast'), {
+    main: ['4 Brainstorm', '56 Island'], side: ['2 Blood Moon', '1 Duress', '1 Pyroblast'], unrecognized: [], unparseable: [],
+  });
+});
+test('ignores comment lines', () => {
+  const mws = '// Deck file for Magic Workstation (http://www.magicworkstation.com)\n// NAME : Burn\n' +
+    '        4 [M10] Lightning Bolt\n// Lands\n        56 [M10] Mountain\nSB:  2 [M10] Blood Moon';
+  assert.deepEqual(sections(mws),
+    { main: ['4 Lightning Bolt', '56 Mountain'], side: ['2 Blood Moon'], unrecognized: [], unparseable: [] });
+  // A comment between the blank line and the sideboard leaves the switch in place
+  assert.deepEqual(sections('4 Brainstorm\n\n// Sideboard\n2 Blood Moon').side, ['2 Blood Moon']);
+});
+test('leaves out a maybeboard, up to the next header', () => {
+  assert.deepEqual(sections('Deck\n4 Brainstorm\n\nMaybeboard\n1 Force of Will\n\n1 Daze\n\nSideboard\n2 Blood Moon',
+    'MAYBEBOARD:\n1 Duress'), { main: ['4 Brainstorm'], side: ['2 Blood Moon'], unrecognized: [], unparseable: [] });
+});
+test('a blank line after main deck cards still starts the sideboard, unless a header follows', () => {
+  assert.deepEqual(sections('4 Brainstorm\n56 Island\n\n2 Blood Moon\n13 Mountain'),
+    { main: ['4 Brainstorm', '56 Island'], side: ['2 Blood Moon', '13 Mountain'], unrecognized: [], unparseable: [] });
+  assert.deepEqual(sections('Deck\r\n4 Brainstorm\r\n\r\n\r\n2 Blood Moon\r\n').side, ['2 Blood Moon']);
+  // Before the companion, there are no main deck cards yet for the blank line to end
+  assert.deepEqual(sections('Companion\n1 Lurrus of the Dream-Den\n\nDeck\n4 Brainstorm').main, ['4 Brainstorm']);
+  assert.deepEqual(sections('Deck\n4 Brainstorm\n\nDeck\n56 Island').main, ['4 Brainstorm', '56 Island']);
+  // The sideboard input has no main deck to end
+  assert.deepEqual(sections('', '2 Blood Moon\n\n1 Duress').side, ['2 Blood Moon', '1 Duress']);
+});
+
 const deckOf = (main, side = '') => decklist.parse(main, side);
 const errors = (deck, format) => {
   const result = decklist.check(deck, format);
