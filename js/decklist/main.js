@@ -1647,12 +1647,14 @@ function loadLogos() {
 
 function initDarkMode() {
   const darkModeToggle = document.getElementById('darkModeToggle');
-  const darkModeIcon = document.getElementById('darkModeIcon');
   const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
   function applyDarkMode(isDark) {
     document.body.classList.toggle('dark-mode', isDark);
-    darkModeIcon.textContent = isDark ? '☀️' : '🌙';
+    // The icon (CSS) and label show the mode a click switches to
+    const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+    darkModeToggle.title = label;
+    darkModeToggle.setAttribute('aria-label', label);
   }
 
   // A saved choice wins; with none, follow the system setting
