@@ -15,7 +15,13 @@ The application runs entirely client-side using vanilla JavaScript, jQuery, and 
 The application is split into three main JavaScript modules in `js/decklist/`, all loaded by `index.html`:
 
 1. **decklist.js** - Core decklist parsing and manipulation
-   - `Decklist.parse(deckmain, deckside)` - Parses various deck formats (MTGO, MWS, MTG Goldfish, Tappedout, etc.) into structured card objects
+   - `Decklist.parse(deckmain, deckside)` - Parses various deck formats (MTG Arena, Moxfield, MTGO, MWS, MTG Goldfish, Tappedout, etc.) into structured card objects
+     - Header lines switch the section, in either textarea, in any case and with an optional colon or `(count)`: `Deck`/`Main`/`Mainboard`/`Maindeck`/`Main Deck` for the main deck, `Sideboard`/`Side Board`/`SB` (and, as before, any line starting with `Sideboard`) for the sideboard, `Commander(s)` and `Companion(s)`. Lookup is the `sections` table in `parse()`
+     - Commander and Companion cards go to the sideboard, commanders first, then companions, then the rest of the sideboard, as the import Worker places them. A companion also listed under Sideboard (Arena lists it in both) is counted once
+     - An `About` block (Arena's `Name <deck name>` line) is skipped up to the next blank line or header
+     - A blank line after main deck cards in the main textarea still starts the sideboard, unless a header follows it, so an Arena export's blank lines don't move the main deck
+     - `SB: 2 Blood Moon` lines go to the sideboard from either textarea
+     - A trailing printing, ` (SET) 123` and any `*F*`/`*E*` foil markers, is stripped before lookup (`printingRE`), unless the full name is itself a card key, as `Hazmat Suit (Used)` and `Imaginary Friends (Plane)` are
    - `Decklist.sort(deck, sortorder)` - Sorts decks by alphabetical, mana value, color, numeric, or type
    - `Decklist.section(deck, sectionType)` - Adds visual spacers between card groups
    - `Decklist.filter(deck, field, values, mode)` - Filters cards by properties
@@ -121,11 +127,11 @@ node --test tests/*.test.*
 python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 ```
 
-- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`, double-faced cards spelled out in full), front-face names for meld, flip and prepare cards, and the format checks and auto-detection. The format tests rely on current ban lists, so a ban or unban can break one
+- `tests/decklist.test.cjs` - Loads the real card data and `decklist.js` in a `vm`; covers loose name matching (split cards typed without `//`, double-faced cards spelled out in full), front-face names for meld, flip and prepare cards, pasted exports (Arena headers and companions, set codes and foil markers, `SB:` lines, the blank-line sideboard switch), and the format checks and auto-detection. The format tests rely on current ban lists, so a ban or unban can break one
 - `tests/deckimport.test.cjs` - Loads `deckimport.js` in a `vm` with a stubbed `$`; covers deck-URL recognition/rejection, export splitting, and the imported deck's format
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, the `X-Deck-Format` header, and failure handling
-- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, a Commander sideboard's order, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
+- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, a Commander sideboard's order, an Arena export pasted into the main deck, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
 
   ```bash
   npm ci --prefix tests/browser

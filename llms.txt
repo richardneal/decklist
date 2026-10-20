@@ -8,7 +8,7 @@ decklist.nealston.com is a free, open-source web tool for creating tournament-le
 
 ## Key Features
 
-- **Format Support**: Imports decklists from MTGO, MTGGoldfish, TappedOut, Magic Workstation, MTG Salvation, and Deckbox
+- **Format Support**: Imports decklists from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, Magic Workstation, MTG Salvation, and Deckbox
 - **Import by Link**: Paste an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL and the main deck and sideboard are filled in automatically
 - **Tournament Formats**: WotC and SCG registration sheet templates
 - **Automatic Validation**: Checks for 60-card minimum, sideboard limits, and card quantity rules
