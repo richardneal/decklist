@@ -52,14 +52,21 @@ export function upstreamURL(source, id) {
   return definition && definition.id.test(id || '') ? definition.url(id) : null;
 }
 
-// The formats the frontend checks a deck against, as Moxfield and Scryfall name them;
-// Archidekt numbers its formats instead. A deck in any other format reports none.
-const FORMATS = new Set(['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander']);
+// The formats the frontend checks a deck against, as Scryfall names them (its legality
+// keys, which the frontend shares). Moxfield uses the same names, ignoring case, except
+// for two of its own; Archidekt numbers its formats instead. A deck in any other format
+// reports none.
+const FORMATS = new Set(['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander',
+  'premodern', 'oldschool', 'duel', 'paupercommander', 'predh', 'oathbreaker']);
+const MOXFIELD_FORMATS = new Map([['duelcommander', 'duel'], ['pauperedh', 'paupercommander']]);
 const ARCHIDEKT_FORMATS = new Map([[1, 'standard'], [2, 'modern'], [3, 'commander'], [4, 'legacy'],
-  [5, 'vintage'], [6, 'pauper'], [15, 'pioneer']]);
+  [5, 'vintage'], [6, 'pauper'], [12, 'duel'], [14, 'oathbreaker'], [15, 'pioneer'], [17, 'paupercommander'],
+  [22, 'premodern'], [23, 'predh']]);
 
 function knownFormat(name) {
-  return typeof name === 'string' && FORMATS.has(name.toLowerCase()) ? name.toLowerCase() : null;
+  if (typeof name !== 'string') return null;
+  const format = MOXFIELD_FORMATS.get(name.toLowerCase()) || name.toLowerCase();
+  return FORMATS.has(format) ? format : null;
 }
 
 // Writes main and side boards of [name, quantity] pairs as quantity-prefixed decklist
@@ -90,8 +97,9 @@ export function moxfieldDeck(text) {
   // Commander has no sideboard, so a deck with a commander drops Moxfield's (where
   // players keep their cuts) as it does the maybeboard. The commander leads the
   // sideboard instead, where sorting the main deck cannot bury it among the other
-  // creatures, and a companion is played from there too.
-  const commanders = board(['commanders']);
+  // creatures, and a companion is played from there too. An Oathbreaker deck keeps its
+  // Oathbreaker in the commanders board and its signature spell in a board of its own.
+  const commanders = board(['commanders', 'signatureSpells']);
   const hasCommander = commanders.some(([name, quantity]) => name && quantity > 0);
   const side = board(hasCommander ? ['companions'] : ['sideboard', 'companions']);
   return { text: deckText(board(['mainboard']), commanders.concat(side)), format: knownFormat(deck.format) };
@@ -109,7 +117,8 @@ export function archidektDeck(text) {
   if (!deck || !Array.isArray(deck.cards)) throw new Error('Archidekt did not return deck data.');
   const categories = Array.isArray(deck.categories) ? deck.categories.filter(Boolean) : [];
   const excluded = new Set(categories.filter(category => category.includedInDeck === false).map(category => category.name));
-  // Premier categories hold the commander, which leads the sideboard.
+  // Premier categories hold the commander, which leads the sideboard. An Oathbreaker
+  // deck files its Oathbreaker and signature spell there together.
   const premier = new Set(categories.filter(category => category.isPremier).map(category => category.name));
   const commanders = [], main = [], side = [];
   for (const entry of deck.cards) {
@@ -125,15 +134,16 @@ export function archidektDeck(text) {
 // Collapses a Scryfall deck into quantity-prefixed decklist text, and reads its format.
 // The sections follow the deck's layout: a constructed deck has a mainboard and a
 // sideboard, a Commander deck its nonlands and lands, plus its commanders and cards from
-// outside the game (a companion, say), which a registration sheet lists as the sideboard.
-// The maybeboard is dropped, as are blank entries Scryfall could not match to a card.
+// outside the game (a companion, say), which a registration sheet lists as the sideboard,
+// as it does an Oathbreaker deck's Oathbreaker and signature spell. The maybeboard is
+// dropped, as are blank entries Scryfall could not match to a card.
 export function scryfallDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Scryfall did not return deck data.'); }
   if (!deck || !deck.entries || typeof deck.entries !== 'object') throw new Error('Scryfall did not return deck data.');
   const board = names => names.flatMap(name => Array.isArray(deck.entries[name]) ? deck.entries[name] : [])
     .map(entry => [entry?.card_digest?.name, entry?.count]);
-  return { text: deckText(board(['mainboard', 'nonlands', 'lands']), board(['commanders', 'sideboard', 'outside'])),
+  return { text: deckText(board(['mainboard', 'nonlands', 'lands']), board(['commanders', 'oathbreakers', 'sideboard', 'outside'])),
     format: knownFormat(deck.format) };
 }
 

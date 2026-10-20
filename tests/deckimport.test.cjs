@@ -46,11 +46,18 @@ test('reads the deck format the Worker reports, or an MTGTop8 link names', async
     headers: { get: name => name === 'X-Deck-Format' ? format : null } });
   context.fetch = reply('modern');
   assert.equal((await importer.load('https://archidekt.com/decks/123')).format, 'modern');
+  for (const format of ['premodern', 'oldschool', 'duel', 'paupercommander', 'predh', 'oathbreaker']) {
+    context.fetch = reply(format);
+    assert.equal((await importer.load('https://archidekt.com/decks/123')).format, format);
+  }
   context.fetch = reply('brawl');
   assert.equal((await importer.load('https://archidekt.com/decks/123')).format, '');
   context.fetch = reply(null);
   assert.equal((await importer.load('https://www.mtgtop8.com/event?e=1&d=2&f=PAU')).format, 'pauper');
-  assert.equal((await importer.load('https://www.mtgtop8.com/event?e=1&d=2&f=EDH')).format, '');
+  // MTGTop8's EDH is Duel Commander, and a code missing from mtgtop8Formats reports none
+  assert.equal((await importer.load('https://www.mtgtop8.com/event?e=1&d=2&f=EDH')).format, 'duel');
+  assert.equal((await importer.load('https://www.mtgtop8.com/event?e=1&d=2&f=PREM')).format, 'premodern');
+  assert.equal((await importer.load('https://www.mtgtop8.com/event?e=1&d=2&f=cEDH')).format, '');
   assert.equal((await importer.load('https://mtggoldfish.com/deck/123')).format, '');
 });
 

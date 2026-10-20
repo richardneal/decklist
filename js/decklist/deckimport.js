@@ -7,10 +7,12 @@ var DeckImport = {
   apiURL: 'https://deck-import.nealston.com/api/import',
 
   // The deck formats the Worker can report, as #deckformat names them.
-  formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander'],
+  formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander',
+    'premodern', 'oldschool', 'duel', 'paupercommander', 'predh', 'oathbreaker'],
 
-  // MTGTop8 deck links name their format in the f parameter.
-  mtgtop8Formats: { ST: 'standard', PI: 'pioneer', MO: 'modern', LE: 'legacy', VI: 'vintage', PAU: 'pauper' },
+  // MTGTop8 deck links name their format in the f parameter. EDH is Duel Commander.
+  mtgtop8Formats: { ST: 'standard', PI: 'pioneer', MO: 'modern', LE: 'legacy', VI: 'vintage', PAU: 'pauper',
+    PREM: 'premodern', EDH: 'duel' },
 
   // Describes a recognized deck link as {source, label, id, url}, or returns null.
   parse: function(value) {
