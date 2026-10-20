@@ -18,7 +18,7 @@ const LOGOS_CONFIG = [
 ];
 
 // Famous archetypes and their designers, one pair picked at random as the placeholders of
-// #deckname and #deckdesigner
+// #deckname and #deckdesigner by a script after them in index.html
 const ARCHETYPES = [
   ['The Deck', 'Brian Weissman'],
   ['Sligh', 'Jay Schneider'],
@@ -61,11 +61,6 @@ const oneColumn = window.matchMedia('(max-width: 1000px)');
 $(document).ready(function() {
   // Initialize dark mode from localStorage
   initDarkMode();
-
-  // A famous archetype and its designer as the deck name and designer placeholders
-  const archetype = ARCHETYPES[Math.floor(Math.random() * ARCHETYPES.length)];
-  $('#deckname').attr('placeholder', archetype[0]);
-  $('#deckdesigner').attr('placeholder', archetype[1]);
 
   // Initialize save/load functionality
   initDeckManagement();
