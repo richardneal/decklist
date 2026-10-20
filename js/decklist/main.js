@@ -73,7 +73,7 @@ $(document).ready(function() {
 
   // Need to populate an initial history state so the first popstate event
   // has something to return to
-  history.replaceState(generatePermalinkSync(true), document.title, generatePermalinkSync());
+  history.replaceState(generatePermalink(true), document.title, generatePermalink());
   // and need to update our state whenever back/forward buttons are pushed.
   window.onpopstate = function(event) {
     parseUrlIntoGET(event.state);
@@ -88,10 +88,10 @@ function pdfChangeWait() {
   decklistChangeTimer = setTimeout(function() {
     const parsedInput = Decklist.parse();
     validateInput(parsedInput);
-    const newState = generatePermalinkSync(true);
+    const newState = generatePermalink(true);
     if (newState !== history.state) {
       console.log("pushing new state " + newState);
-      history.pushState(newState, document.title, generatePermalinkSync());
+      history.pushState(newState, document.title, generatePermalink());
     }
   }, 400);
 
@@ -1199,10 +1199,11 @@ function drawStandardContinuationPage(dl, columns, page, pageCount) {
   drawStandardFooter(dl, page, pageCount);
 }
 
-// Synchronous version for history state (no URL shortening)
-function generatePermalinkSync(includeBlank = false) {
-  // Use current origin to avoid SecurityError on localhost
-  let rv = window.location.origin + '/';
+// The link that pre-fills the form as it stands. The address bar and history use
+// this page's own origin, so they work on localhost; a shared link always points
+// at the live site. Everything rides in the link itself and nothing is sent anywhere
+function generatePermalink(includeBlank = false, origin = window.location.origin) {
+  let rv = origin + '/';
 
   const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
   let firstParam = true; // flag to track if any parameter has been appended
@@ -1217,67 +1218,48 @@ function generatePermalinkSync(includeBlank = false) {
       } else {
         rv += '&'; // append & before subsequent parameters
       }
-      rv += param + '=' + encodeURIComponent(value);
+      // + for spaces keeps a long deck's link shorter; parseUrlIntoDict reads both
+      rv += param + '=' + encodeURIComponent(value).replace(/%20/g, '+');
     }
   });
 
   return rv;
 }
 
-// Async version with URL shortening (for copying to clipboard)
-async function generatePermalink(includeBlank = false) {
-  // Always use production URL for sharing, even on localhost
-  let rv = 'https://decklist.nealston.com/';
-
-  const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
-  let firstParam = true;
-  params.forEach(function(param) {
-    const field = '#' + param;
-    const value = $(field).val();
-
-    if (value !== undefined && (includeBlank || value.length > 0)) {
-      if (firstParam) {
-        rv += '?';
-        firstParam = false;
-      } else {
-        rv += '&';
-      }
-      rv += param + '=' + encodeURIComponent(value);
-    }
-  });
-
-  // Shorten URL using is.gd
-  try {
-    const response = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(rv)}`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.shorturl;
-  } catch (error) {
-    console.error('Error while shortening URL:', error);
-    return rv; // Return the original URL in case of error
-  }
-}
-
-async function copyPermalinkToClipboard() {
+// Shares the permalink: the native share sheet on a phone or tablet, the clipboard
+// everywhere else (or if the share sheet fails)
+async function sharePermalink() {
   const button = document.getElementById('permalink');
-  button.value = 'Loading...';
-  button.disabled = true; // Disable the button
+  const label = button.value;
+  const permalink = generatePermalink(false, 'https://decklist.nealston.com');
+  button.disabled = true;
+
+  if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+    try {
+      await navigator.share({ title: document.title, url: permalink });
+      button.disabled = false;
+      return;
+    } catch (error) {
+      // AbortError: the player closed the share sheet
+      if (error.name === 'AbortError') {
+        button.disabled = false;
+        return;
+      }
+      console.error('Error while sharing:', error);
+    }
+  }
 
   try {
-      const permalink = await generatePermalink();
-      await navigator.clipboard.writeText(permalink);
-      button.value = 'Copied!';
+    await navigator.clipboard.writeText(permalink);
+    button.value = 'Copied!';
   } catch (error) {
-      console.error('Error:', error);
-      button.value = 'Failed to Copy';
-  } finally {
-      setTimeout(() => {
-          button.value = 'Copy Permalink to Clipboard';
-          button.disabled = false; // Re-enable the button
-      }, 3000); // Reset button text and state after 3 seconds
+    console.error('Error while copying:', error);
+    button.value = 'Failed to Copy';
   }
+  setTimeout(() => {
+    button.value = label;
+    button.disabled = false;
+  }, 3000); // Reset button text and state after 3 seconds
 }
 
 // Performs validation on user input and updates PDF
