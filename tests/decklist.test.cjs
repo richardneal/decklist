@@ -148,6 +148,18 @@ test('sends SB: lines to the sideboard from either input', () => {
     main: ['4 Brainstorm', '56 Island'], side: ['2 Blood Moon', '1 Duress', '1 Pyroblast'], unrecognized: [], unparseable: [],
   });
 });
+test('ignores comment lines', () => {
+  const mws = '// Deck file for Magic Workstation (http://www.magicworkstation.com)\n// NAME : Burn\n' +
+    '        4 [M10] Lightning Bolt\n// Lands\n        56 [M10] Mountain\nSB:  2 [M10] Blood Moon';
+  assert.deepEqual(sections(mws),
+    { main: ['4 Lightning Bolt', '56 Mountain'], side: ['2 Blood Moon'], unrecognized: [], unparseable: [] });
+  // A comment between the blank line and the sideboard leaves the switch in place
+  assert.deepEqual(sections('4 Brainstorm\n\n// Sideboard\n2 Blood Moon').side, ['2 Blood Moon']);
+});
+test('leaves out a maybeboard, up to the next header', () => {
+  assert.deepEqual(sections('Deck\n4 Brainstorm\n\nMaybeboard\n1 Force of Will\n\n1 Daze\n\nSideboard\n2 Blood Moon',
+    'MAYBEBOARD:\n1 Duress'), { main: ['4 Brainstorm'], side: ['2 Blood Moon'], unrecognized: [], unparseable: [] });
+});
 test('a blank line after main deck cards still starts the sideboard, unless a header follows', () => {
   assert.deepEqual(sections('4 Brainstorm\n56 Island\n\n2 Blood Moon\n13 Mountain'),
     { main: ['4 Brainstorm', '56 Island'], side: ['2 Blood Moon', '13 Mountain'], unrecognized: [], unparseable: [] });
@@ -286,4 +298,18 @@ test('holds an Oathbreaker deck to 60 singleton cards, led by its Oathbreaker an
   assert.deepEqual(errors(deckOf('57 Mountain', leaders + '\n1 Shock'), 'oathbreaker'), ['oathbreakerside']);
   const problems = decklist.check(deckOf('2 Shock\n56 Mountain', leaders), 'oathbreaker').deckmain;
   assert.deepEqual([...problems[0].data.cards], ['Shock (2 copies; limit 1)']);
+});
+test('auto-detects only the main formats, never the variants a deck also passes', () => {
+  // Legal in Duel Commander, Pauper Commander and PreDH, and still detected as Commander
+  const commander = deckOf('1 Counterspell\n98 Island', '1 Ghost-Lit Warder');
+  for (const format of ['duel', 'paupercommander', 'predh']) assert.deepEqual(errors(commander, format), []);
+  assert.equal(decklist.detectFormat(commander), 'commander');
+  // A legal Oathbreaker deck gets the narrowest main format its cards pass
+  const oathbreaker = deckOf('58 Mountain', '1 Chandra, Torch of Defiance\n1 Lightning Bolt');
+  assert.deepEqual(errors(oathbreaker, 'oathbreaker'), []);
+  assert.equal(decklist.detectFormat(oathbreaker), 'modern');
+  const variants = ['premodern', 'oldschool', 'duel', 'paupercommander', 'predh', 'oathbreaker'];
+  const decks = [commander, oathbreaker, deckOf('4 Swords to Plowshares\n56 Plains', '15 Plains'),
+    deckOf('1 Sol Ring\n4 Swords to Plowshares\n55 Island', '15 Island')];
+  for (const deck of decks) assert.equal(variants.includes(decklist.detectFormat(deck)), false);
 });

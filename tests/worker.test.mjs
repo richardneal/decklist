@@ -6,7 +6,7 @@ function setup(options = {}) {
   const entries = new Map();
   const calls = [];
   const env = {
-    ALLOWED_ORIGINS: 'https://nealston.com,https://richardneal.github.io',
+    ALLOWED_ORIGINS: 'https://decklist.app,https://nealston.com',
     MOXFIELD_USER_AGENT: 'decklist-test/1.0',
     USER_AGENT: 'decklist-generic/1.0',
     IMPORT_LIMITER: { limit: async () => ({ success: !options.limited }) }
@@ -20,11 +20,11 @@ function setup(options = {}) {
     fetch: async (url, init) => {
       calls.push({ url, init });
       if (options.throws) throw new Error('Network failure');
-      return new Response(options.body ?? '4 Island\n\n2 Negate', { status: options.status || 200 });
+      return new Response(options.body ?? '4 Island\n\n2 Negate', { status: options.status || 200, headers: options.headers });
     }
   };
-  return { calls, entries, run: (query = '?source=mtggoldfish&id=123', origin = 'https://nealston.com', method = 'GET') =>
-    handle(new Request('https://deck-import.nealston.com/api/import' + query, {
+  return { calls, entries, run: (query = '?source=mtggoldfish&id=123', origin = 'https://decklist.app', method = 'GET') =>
+    handle(new Request('https://import.decklist.app/api/import' + query, {
       method, headers: { Origin: origin, 'CF-Connecting-IP': '192.0.2.1' }
     }), env, ctx, services) };
 }
@@ -36,8 +36,8 @@ test('fetches only fixed export endpoints and caches validated text', async () =
   assert.equal(await first.text(), '4 Island\n\n2 Negate');
   assert.equal(s.calls[0].url, 'https://www.mtggoldfish.com/deck/download/123');
   assert.equal(s.calls[0].init.redirect, 'manual');
-  const cached = await s.run(undefined, 'https://richardneal.github.io');
-  assert.equal(cached.headers.get('Access-Control-Allow-Origin'), 'https://richardneal.github.io');
+  const cached = await s.run(undefined, 'https://nealston.com');
+  assert.equal(cached.headers.get('Access-Control-Allow-Origin'), 'https://nealston.com');
   assert.equal(s.calls.length, 1);
   await s.run('?source=mtgtop8&id=456');
   assert.equal(s.calls[1].url, 'https://www.mtgtop8.com/mtgo?d=456');
@@ -71,7 +71,7 @@ test('does not cache source errors, HTML, oversized exports or network failures'
 });
 
 const MOXFIELD_ID = 'psDQiUrXLkSfMEyEc3oDTw';
-const MOXFIELD_JSON = JSON.stringify({ format: 'commander', boards: {
+const MOXFIELD_JSON = JSON.stringify({ name: 'Atraxa Superfriends', format: 'commander', boards: {
   commanders: { cards: { a: { quantity: 1, card: { name: 'Atraxa, Praetors\u2019 Voice' } } } },
   mainboard: { cards: {
     b: { quantity: 2, card: { name: 'Swamp' } },
@@ -90,13 +90,61 @@ test('reports the format of a JSON deck, from the cache too, and exposes it to t
   for (let i = 0; i < 2; i++) {
     const response = await s.run('?source=moxfield&id=' + MOXFIELD_ID);
     assert.equal(response.headers.get('X-Deck-Format'), 'commander');
-    assert.equal(response.headers.get('Access-Control-Expose-Headers'), 'X-Deck-Format');
+    assert.equal(response.headers.get('Access-Control-Expose-Headers'), 'X-Deck-Format, X-Deck-Name');
   }
   assert.equal(s.calls.length, 1);
   // Formats the page cannot check, and the text exports, report none
   const brawl = setup({ body: JSON.stringify({ ...JSON.parse(MOXFIELD_JSON), format: 'brawl' }) });
   assert.equal((await brawl.run('?source=moxfield&id=' + MOXFIELD_ID)).headers.get('X-Deck-Format'), null);
   assert.equal((await setup().run()).headers.get('X-Deck-Format'), null);
+});
+
+test('names a JSON deck, percent-encoded, from the cache too', async () => {
+  const name = 'Atraxa \u201cSuperfriends\u201d \u2014 Pr\u00e6tors';
+  const s = setup({ body: JSON.stringify({ ...JSON.parse(MOXFIELD_JSON), name }) });
+  for (let i = 0; i < 2; i++) {
+    const response = await s.run('?source=moxfield&id=' + MOXFIELD_ID);
+    assert.equal(response.headers.get('X-Deck-Name'), encodeURIComponent(name));
+    assert.equal(decodeURIComponent(response.headers.get('X-Deck-Name')), name);
+  }
+  assert.equal(s.calls.length, 1);
+  assert.equal(s.entries.values().next().value.headers.get('X-Deck-Name'), encodeURIComponent(name));
+});
+test('folds whitespace in a deck name, caps its length, and sends none for a blank one', async () => {
+  const named = async name =>
+    (await setup({ body: JSON.stringify({ ...JSON.parse(MOXFIELD_JSON), name }) }).run('?source=moxfield&id=' + MOXFIELD_ID));
+  const header = async name => {
+    const value = (await named(name)).headers.get('X-Deck-Name');
+    return value === null ? null : decodeURIComponent(value);
+  };
+  assert.equal(await header('  Mono\tBlue\r\n\u0000Tempo  '), 'Mono Blue Tempo');
+  // Capped by code points, so an astral character is never split in half
+  assert.equal(await header('\u{1F409}'.repeat(150)), '\u{1F409}'.repeat(100));
+  for (const name of ['', '  \n ', null, 42, ['Burn']]) assert.equal(await header(name), null, JSON.stringify(name));
+  // A lone surrogate can't be percent-encoded, and must not fail the import
+  const lone = await named('Bad \ud800 Name');
+  assert.equal(lone.status, 200);
+  assert.equal(decodeURIComponent(lone.headers.get('X-Deck-Name')), 'Bad \ufffd Name');
+});
+test("names an MTGGoldfish deck from its download's filename, and an MTGTop8 deck not at all", async () => {
+  // As Rails sends it: an ASCII filename, then the name in full in filename*
+  const disposition = filename => ({ 'Content-Disposition': 'attachment; filename="' +
+    filename.replace(/[^\x20-\x7e]/g, '?') + '"; ' + "filename*=UTF-8''" + encodeURIComponent(filename) });
+  const goldfish = setup({ headers: disposition('Deck - Ætherflux \u201cReservoir\u201d.txt') });
+  for (let i = 0; i < 2; i++) {
+    const response = await goldfish.run();
+    assert.equal(decodeURIComponent(response.headers.get('X-Deck-Name')), 'Ætherflux \u201cReservoir\u201d');
+  }
+  assert.equal(goldfish.calls.length, 1);
+  for (const headers of [{}, disposition('decklist.txt'), disposition('Deck - .txt'),
+    { 'Content-Disposition': 'attachment; filename="Deck - Burn.txt"' },
+    { 'Content-Disposition': "attachment; filename*=UTF-8''Deck%20-%20%E0%A4.txt" }]) {
+    const response = await setup({ headers }).run();
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('X-Deck-Name'), null, JSON.stringify(headers));
+  }
+  const top8 = await setup({ headers: { 'Content-Disposition': 'attachment; filename=mtgtop8_deck.txt' } }).run('?source=mtgtop8&id=456');
+  assert.equal(top8.headers.get('X-Deck-Name'), null);
 });
 
 test('converts Moxfield deck JSON and sends the allowlisted User-Agent', async () => {
@@ -120,6 +168,17 @@ test('keeps the sideboard of a Moxfield deck with no commander', async () => {
   assert.equal(await (await s.run('?source=moxfield&id=' + MOXFIELD_ID)).text(), [
     '4 Swamp', '4 Thoughtseize', 'Sideboard', '3 Negate', '1 Lurrus of the Dream-Den'
   ].join('\n'));
+});
+test("puts a Moxfield Oathbreaker deck's signature spell in the sideboard after its Oathbreaker", async () => {
+  const s = setup({ body: JSON.stringify({ format: 'oathbreaker', boards: {
+    commanders: { cards: { a: { quantity: 1, card: { name: 'Chandra, Torch of Defiance' } } } },
+    signatureSpells: { cards: { b: { quantity: 1, card: { name: 'Lightning Bolt' } } } },
+    mainboard: { cards: { c: { quantity: 58, card: { name: 'Mountain' } } } },
+    sideboard: { cards: { d: { quantity: 3, card: { name: 'Shock' } } } }
+  } }) });
+  const response = await s.run('?source=moxfield&id=' + MOXFIELD_ID);
+  assert.equal(await response.text(), '58 Mountain\nSideboard\n1 Chandra, Torch of Defiance\n1 Lightning Bolt');
+  assert.equal(response.headers.get('X-Deck-Format'), 'oathbreaker');
 });
 test('omits the User-Agent for the text sources and when none is configured', async () => {
   const s = setup();
@@ -158,6 +217,7 @@ test('accepts Moxfield JSON larger than the text-export cap, but not unbounded',
 });
 
 const ARCHIDEKT_JSON = JSON.stringify({
+  name: 'Fun With Fungus',
   deckFormat: 3,
   categories: [
     { name: 'Commander', isPremier: true, includedInDeck: true },
@@ -186,15 +246,27 @@ test('converts Archidekt deck JSON, placing each card by its first category', as
   assert.equal(response.status, 200);
   // The commander leads the sideboard, uncategorized cards are main deck, printings
   // merge, a card whose first category is excluded (the Maybeboard) is dropped, and a
-  // companion joins the sideboard by flag or by category, even an excluded one.
+  // companion joins the sideboard by flag or by category, even an excluded one. The
+  // Sideboard category is dropped, since Commander has none.
   assert.equal(await response.text(), [
     '4 Swamp', '4 Thoughtseize',
-    'Sideboard', '1 Atraxa, Praetors’ Voice', '1 Lurrus of the Dream-Den', '1 Yorion, Sky Nomad', '3 Negate'
+    'Sideboard', '1 Atraxa, Praetors’ Voice', '1 Lurrus of the Dream-Den', '1 Yorion, Sky Nomad'
   ].join('\n'));
   assert.equal(response.headers.get('X-Deck-Format'), 'commander');
+  assert.equal(response.headers.get('X-Deck-Name'), 'Fun%20With%20Fungus');
   assert.equal(s.calls[0].url, 'https://archidekt.com/api/decks/123456/');
   assert.equal(s.calls[0].init.headers.Accept, 'application/json');
   assert.equal(s.calls[0].init.headers['User-Agent'], undefined);
+});
+test('keeps the Sideboard category of an Archidekt deck with no commander', async () => {
+  const deck = JSON.parse(ARCHIDEKT_JSON);
+  deck.deckFormat = 2;
+  deck.cards = deck.cards.filter(entry => entry.categories?.[0] !== 'Commander');
+  const s = setup({ body: JSON.stringify(deck) });
+  assert.equal(await (await s.run('?source=archidekt&id=123456')).text(), [
+    '4 Swamp', '4 Thoughtseize',
+    'Sideboard', '3 Negate', '1 Lurrus of the Dream-Den', '1 Yorion, Sky Nomad'
+  ].join('\n'));
 });
 test('rejects malformed Archidekt IDs and decks with no usable cards', async () => {
   const s = setup({ body: ARCHIDEKT_JSON });
@@ -215,7 +287,7 @@ const SCRYFALL_ID = '5b088ae5-153e-48a9-8a38-b59c68fb5739';
 const entry = (name, count) => ({ count, card_digest: { name } });
 
 test('converts a constructed Scryfall deck and names itself to the API', async () => {
-  const s = setup({ body: JSON.stringify({ format: 'pioneer', layout: 'constructed', entries: {
+  const s = setup({ body: JSON.stringify({ name: 'Typical Pioneer U Spirits', format: 'pioneer', layout: 'constructed', entries: {
     mainboard: [entry('Island', 10), entry('Island', 7), entry('Spectral Sailor', 4), { count: 1, card_digest: null }],
     sideboard: [entry('Brazen Borrower // Petty Theft', 2)],
     maybeboard: [entry('Not In The Deck', 1)]
@@ -226,6 +298,7 @@ test('converts a constructed Scryfall deck and names itself to the API', async (
   // maybeboard is dropped.
   assert.equal(await response.text(), '17 Island\n4 Spectral Sailor\nSideboard\n2 Brazen Borrower // Petty Theft');
   assert.equal(response.headers.get('X-Deck-Format'), 'pioneer');
+  assert.equal(response.headers.get('X-Deck-Name'), 'Typical%20Pioneer%20U%20Spirits');
   assert.equal(s.calls[0].url, 'https://api.scryfall.com/decks/' + SCRYFALL_ID + '/export/json');
   assert.equal(s.calls[0].init.headers.Accept, 'application/json');
   assert.equal(s.calls[0].init.headers['User-Agent'], 'decklist-generic/1.0');
@@ -239,6 +312,15 @@ test('puts a Scryfall commander and cards from outside the game in the sideboard
   assert.equal(await (await s.run('?source=scryfall&id=' + SCRYFALL_ID)).text(),
     '1 Sol Ring\n30 Plains\nSideboard\n1 Rin and Seri, Inseparable\n1 Kaheera, the Orphanguard');
 });
+test("puts a Scryfall Oathbreaker deck's Oathbreaker and signature spell in the sideboard", async () => {
+  const s = setup({ body: JSON.stringify({ format: 'oathbreaker', entries: {
+    nonlands: [entry('Shock', 1)], lands: [entry('Mountain', 57)],
+    oathbreakers: [entry('Chandra, Torch of Defiance', 1), entry('Lightning Bolt', 1)]
+  } }) });
+  const response = await s.run('?source=scryfall&id=' + SCRYFALL_ID);
+  assert.equal(await response.text(), '1 Shock\n57 Mountain\nSideboard\n1 Chandra, Torch of Defiance\n1 Lightning Bolt');
+  assert.equal(response.headers.get('X-Deck-Format'), 'oathbreaker');
+});
 test('rejects malformed Scryfall IDs and decks with no usable cards', async () => {
   const s = setup();
   for (const id of ['abc', SCRYFALL_ID.toUpperCase(), SCRYFALL_ID + '/export', SCRYFALL_ID.slice(1)]) {
@@ -250,5 +332,23 @@ test('rejects malformed Scryfall IDs and decks with no usable cards', async () =
     const bad = setup({ body });
     assert.equal((await bad.run('?source=scryfall&id=' + SCRYFALL_ID)).status, 502);
     assert.equal(bad.entries.size, 0);
+  }
+});
+test('reports the paper variants by the name each source gives them', async () => {
+  const reported = async (source, id, deck) =>
+    (await setup({ body: JSON.stringify(deck) }).run('?source=' + source + '&id=' + id)).headers.get('X-Deck-Format');
+  const moxfield = { premodern: 'premodern', oldSchool: 'oldschool', duelCommander: 'duel',
+    pauperEdh: 'paupercommander', predh: 'predh', oathbreaker: 'oathbreaker',
+    duelCommanderRussian: null, pennyDreadful: null };
+  for (const [name, format] of Object.entries(moxfield)) {
+    assert.equal(await reported('moxfield', MOXFIELD_ID, { ...JSON.parse(MOXFIELD_JSON), format: name }), format, name);
+  }
+  // Archidekt's 11 is 1v1 Commander, which is not Duel Commander
+  const archidekt = { 12: 'duel', 14: 'oathbreaker', 17: 'paupercommander', 22: 'premodern', 23: 'predh', 11: null };
+  for (const [number, format] of Object.entries(archidekt)) {
+    assert.equal(await reported('archidekt', '123456', { ...JSON.parse(ARCHIDEKT_JSON), deckFormat: Number(number) }), format, number);
+  }
+  for (const format of ['premodern', 'oldschool', 'duel', 'paupercommander', 'predh', 'oathbreaker']) {
+    assert.equal(await reported('scryfall', SCRYFALL_ID, { format, entries: { mainboard: [entry('Island', 60)] } }), format);
   }
 });

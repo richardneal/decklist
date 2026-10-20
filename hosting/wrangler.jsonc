@@ -2,12 +2,22 @@
   "$schema": "../worker/node_modules/wrangler/config-schema.json",
   "name": "nealston-decklist",
   "account_id": "f81e0f0d52bb815d2073e9e646641867",
+  "main": "index.mjs",
   "compatibility_date": "2026-09-16",
   "workers_dev": false,
-  "routes": [{ "pattern": "decklist.nealston.com", "custom_domain": true }],
+  "routes": [
+    { "pattern": "decklist.app", "custom_domain": true },
+    // Redirected to decklist.app by index.mjs
+    { "pattern": "www.decklist.app", "custom_domain": true },
+    // Kept attached so its DNS record and certificate survive; a Redirect Rule in the
+    // nealston.com zone sends it to decklist.app (see hosting/README.md).
+    { "pattern": "decklist.nealston.com", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "none"
+    "not_found_handling": "none",
+    "run_worker_first": true
   }
 }

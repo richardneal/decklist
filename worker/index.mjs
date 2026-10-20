@@ -5,7 +5,9 @@ const SOURCES = {
   mtggoldfish: {
     id: /^[1-9]\d{0,11}$/,
     url: id => 'https://www.mtggoldfish.com/deck/download/' + id,
-    accept: 'text/plain'
+    accept: 'text/plain',
+    // The export carries no name, but the file it downloads as does.
+    name: headers => goldfishName(headers.get('Content-Disposition'))
   },
   mtgtop8: {
     id: /^[1-9]\d{0,11}$/,
@@ -52,14 +54,43 @@ export function upstreamURL(source, id) {
   return definition && definition.id.test(id || '') ? definition.url(id) : null;
 }
 
-// The formats the frontend checks a deck against, as Moxfield and Scryfall name them;
-// Archidekt numbers its formats instead. A deck in any other format reports none.
-const FORMATS = new Set(['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander']);
+// The formats the frontend checks a deck against, as Scryfall names them (its legality
+// keys, which the frontend shares). Moxfield uses the same names, ignoring case, except
+// for two of its own; Archidekt numbers its formats instead. A deck in any other format
+// reports none.
+const FORMATS = new Set(['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander',
+  'premodern', 'oldschool', 'duel', 'paupercommander', 'predh', 'oathbreaker']);
+const MOXFIELD_FORMATS = new Map([['duelcommander', 'duel'], ['pauperedh', 'paupercommander']]);
 const ARCHIDEKT_FORMATS = new Map([[1, 'standard'], [2, 'modern'], [3, 'commander'], [4, 'legacy'],
-  [5, 'vintage'], [6, 'pauper'], [15, 'pioneer']]);
+  [5, 'vintage'], [6, 'pauper'], [12, 'duel'], [14, 'oathbreaker'], [15, 'pioneer'], [17, 'paupercommander'],
+  [22, 'premodern'], [23, 'predh']]);
+
+// The headers that describe a deck beside its text, cached with it.
+const DECK_HEADERS = ['X-Deck-Format', 'X-Deck-Name'];
+
+// A deck's name is whatever its author typed, so this folds runs of whitespace and
+// control characters into single spaces and caps its length; a name that is blank
+// after that is none. The name goes out percent-encoded, since a header value must be
+// ASCII, and toWellFormed() replaces any lone surrogate encodeURIComponent would throw on.
+function deckName(name) {
+  if (typeof name !== 'string') return null;
+  const clean = Array.from(name.toWellFormed().replace(/[\s\p{Cc}]+/gu, ' ').trim()).slice(0, 100).join('').trim();
+  return clean || null;
+}
+
+// MTGGoldfish downloads a deck as "Deck - <name>.txt", and spells the name out in UTF-8
+// in the RFC 5987 filename* parameter. Anything else reports no name.
+export function goldfishName(disposition) {
+  const match = /filename\*=UTF-8''([^;\s]+)/i.exec(disposition || '');
+  let filename;
+  try { filename = match && decodeURIComponent(match[1]); } catch (_) { return null; }
+  return filename && /^Deck - (.+)\.txt$/.exec(filename)?.[1] || null;
+}
 
 function knownFormat(name) {
-  return typeof name === 'string' && FORMATS.has(name.toLowerCase()) ? name.toLowerCase() : null;
+  if (typeof name !== 'string') return null;
+  const format = MOXFIELD_FORMATS.get(name.toLowerCase()) || name.toLowerCase();
+  return FORMATS.has(format) ? format : null;
 }
 
 // Writes main and side boards of [name, quantity] pairs as quantity-prefixed decklist
@@ -78,7 +109,7 @@ function deckText(main, side) {
 }
 
 // Collapses the boards of a Moxfield deck into quantity-prefixed decklist text, and
-// reads its format.
+// reads its format and name.
 export function moxfieldDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Moxfield did not return deck data.'); }
@@ -90,51 +121,59 @@ export function moxfieldDeck(text) {
   // Commander has no sideboard, so a deck with a commander drops Moxfield's (where
   // players keep their cuts) as it does the maybeboard. The commander leads the
   // sideboard instead, where sorting the main deck cannot bury it among the other
-  // creatures, and a companion is played from there too.
-  const commanders = board(['commanders']);
+  // creatures, and a companion is played from there too. An Oathbreaker deck keeps its
+  // Oathbreaker in the commanders board and its signature spell in a board of its own.
+  const commanders = board(['commanders', 'signatureSpells']);
   const hasCommander = commanders.some(([name, quantity]) => name && quantity > 0);
   const side = board(hasCommander ? ['companions'] : ['sideboard', 'companions']);
-  return { text: deckText(board(['mainboard']), commanders.concat(side)), format: knownFormat(deck.format) };
+  return { text: deckText(board(['mainboard']), commanders.concat(side)), format: knownFormat(deck.format), name: deck.name };
 }
 
 // Collapses an Archidekt deck into quantity-prefixed decklist text, and reads its
-// format. Archidekt keeps its boards as categories, and a card's first category is the
-// one that places it: the Sideboard category is the sideboard, and any other category
-// marked as left out of the deck (the Maybeboard, say) is dropped. The commander leads
-// the sideboard, and a companion is played from there, whether Archidekt flags it or the
-// player filed it under a Companion category.
+// format and name. Archidekt keeps its boards as categories, and a card's first
+// category is the one that places it: the Sideboard category is the sideboard, and any
+// other category marked as left out of the deck (the Maybeboard, say) is dropped. The
+// commander leads the sideboard, and a companion is played from there, whether
+// Archidekt flags it or the player filed it under a Companion category. Commander has
+// no sideboard, so a deck with a commander drops the Sideboard category, where players
+// keep their cuts, as the Moxfield import does.
 export function archidektDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Archidekt did not return deck data.'); }
   if (!deck || !Array.isArray(deck.cards)) throw new Error('Archidekt did not return deck data.');
   const categories = Array.isArray(deck.categories) ? deck.categories.filter(Boolean) : [];
   const excluded = new Set(categories.filter(category => category.includedInDeck === false).map(category => category.name));
-  // Premier categories hold the commander, which leads the sideboard.
+  // Premier categories hold the commander, which leads the sideboard. An Oathbreaker
+  // deck files its Oathbreaker and signature spell there together.
   const premier = new Set(categories.filter(category => category.isPremier).map(category => category.name));
-  const commanders = [], main = [], side = [];
+  const commanders = [], main = [], side = [], companions = [];
   for (const entry of deck.cards) {
     const category = Array.isArray(entry?.categories) ? entry.categories[0] : undefined;
     const card = [entry?.card?.oracleCard?.name, entry?.quantity];
-    if (category === 'Sideboard' || category === 'Companion' || entry?.companion === true) side.push(card);
+    if (category === 'Companion' || entry?.companion === true) companions.push(card);
+    else if (category === 'Sideboard') side.push(card);
     else if (premier.has(category)) commanders.push(card);
     else if (!excluded.has(category)) main.push(card);
   }
-  return { text: deckText(main, commanders.concat(side)), format: ARCHIDEKT_FORMATS.get(deck.deckFormat) || null };
+  const hasCommander = commanders.some(([name, quantity]) => name && quantity > 0);
+  return { text: deckText(main, commanders.concat(hasCommander ? [] : side, companions)),
+    format: ARCHIDEKT_FORMATS.get(deck.deckFormat) || null, name: deck.name };
 }
 
-// Collapses a Scryfall deck into quantity-prefixed decklist text, and reads its format.
-// The sections follow the deck's layout: a constructed deck has a mainboard and a
-// sideboard, a Commander deck its nonlands and lands, plus its commanders and cards from
-// outside the game (a companion, say), which a registration sheet lists as the sideboard.
-// The maybeboard is dropped, as are blank entries Scryfall could not match to a card.
+// Collapses a Scryfall deck into quantity-prefixed decklist text, and reads its format
+// and name. The sections follow the deck's layout: a constructed deck has a mainboard
+// and a sideboard, a Commander deck its nonlands and lands, plus its commanders and
+// cards from outside the game (a companion, say), which a registration sheet lists as
+// the sideboard, as it does an Oathbreaker deck's Oathbreaker and signature spell. The
+// maybeboard is dropped, as are blank entries Scryfall could not match to a card.
 export function scryfallDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Scryfall did not return deck data.'); }
   if (!deck || !deck.entries || typeof deck.entries !== 'object') throw new Error('Scryfall did not return deck data.');
   const board = names => names.flatMap(name => Array.isArray(deck.entries[name]) ? deck.entries[name] : [])
     .map(entry => [entry?.card_digest?.name, entry?.count]);
-  return { text: deckText(board(['mainboard', 'nonlands', 'lands']), board(['commanders', 'sideboard', 'outside'])),
-    format: knownFormat(deck.format) };
+  return { text: deckText(board(['mainboard', 'nonlands', 'lands']), board(['commanders', 'oathbreakers', 'sideboard', 'outside'])),
+    format: knownFormat(deck.format), name: deck.name };
 }
 
 async function readBody(response, limit = MAX_BYTES) {
@@ -183,7 +222,7 @@ export async function handle(request, env, ctx, services = {}) {
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Vary': 'Origin',
-      ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Expose-Headers': 'X-Deck-Format' } : {}),
+      ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Expose-Headers': DECK_HEADERS.join(', ') } : {}),
       ...extra
     } });
   }
@@ -203,8 +242,8 @@ export async function handle(request, env, ctx, services = {}) {
   const key = new Request(url.origin + '/api/import?source=' + source + '&id=' + id);
   const cached = await cache.match(key);
   if (cached) {
-    const format = cached.headers.get('X-Deck-Format');
-    return reply(await cached.text(), 200, format ? { 'X-Deck-Format': format } : {});
+    const headers = DECK_HEADERS.filter(name => cached.headers.has(name)).map(name => [name, cached.headers.get(name)]);
+    return reply(await cached.text(), 200, Object.fromEntries(headers));
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -219,14 +258,17 @@ export async function handle(request, env, ctx, services = {}) {
       return reply('The deck source returned HTTP ' + response.status + '. Try exporting and pasting the deck text.', 502);
     }
     const body = await readBody(response, definition.limit);
-    // The JSON sources also name the deck's format; the text exports carry none.
-    const deck = definition.convert ? definition.convert(body) : { text: body };
-    const text = validateDeck(deck.text), format = deck.format ? { 'X-Deck-Format': deck.format } : {};
+    // The JSON sources also give the deck's format and name; of the text exports, only
+    // MTGGoldfish's names the deck, in its response headers.
+    const deck = definition.convert ? definition.convert(body) : { text: body, name: definition.name?.(response.headers) };
+    const text = validateDeck(deck.text), name = deckName(deck.name);
+    const described = { ...(deck.format ? { 'X-Deck-Format': deck.format } : {}),
+      ...(name ? { 'X-Deck-Name': encodeURIComponent(name) } : {}) };
     // Cache only validated data; add origin-specific headers after retrieving it.
     ctx.waitUntil(cache.put(key, new Response(text, {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=300', ...format }
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=300', ...described }
     })).catch(() => {}));
-    return reply(text, 200, format);
+    return reply(text, 200, described);
   } catch (error) {
     console.error('Deck import failed:', error.name, error.message);
     if (controller.signal.aborted) return reply('The deck source timed out. Please try again.', 504);

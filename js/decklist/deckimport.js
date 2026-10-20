@@ -4,13 +4,15 @@
 // Adapted from Richard Neal's MTGGoldfish and MTGTop8 importers.
 var DeckImport = {
   // Set this to the deployed Worker URL when the API is hosted separately.
-  apiURL: 'https://deck-import.nealston.com/api/import',
+  apiURL: 'https://import.decklist.app/api/import',
 
   // The deck formats the Worker can report, as #deckformat names them.
-  formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander'],
+  formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander',
+    'premodern', 'oldschool', 'duel', 'paupercommander', 'predh', 'oathbreaker'],
 
-  // MTGTop8 deck links name their format in the f parameter.
-  mtgtop8Formats: { ST: 'standard', PI: 'pioneer', MO: 'modern', LE: 'legacy', VI: 'vintage', PAU: 'pauper' },
+  // MTGTop8 deck links name their format in the f parameter. EDH is Duel Commander.
+  mtgtop8Formats: { ST: 'standard', PI: 'pioneer', MO: 'modern', LE: 'legacy', VI: 'vintage', PAU: 'pauper',
+    PREM: 'premodern', EDH: 'duel' },
 
   // Describes a recognized deck link as {source, label, id, url}, or returns null.
   parse: function(value) {
@@ -104,6 +106,10 @@ var DeckImport = {
     // can; MTGGoldfish's text export doesn't.
     var format = response.headers && response.headers.get('X-Deck-Format');
     boards.format = this.formats.indexOf(format) !== -1 ? format : (deck.format || '');
+    // All but MTGTop8 name the deck, which the Worker sends percent-encoded. An older
+    // Worker sends no name at all.
+    var name = response.headers && response.headers.get('X-Deck-Name');
+    try { boards.name = name ? decodeURIComponent(name).trim() : ''; } catch (_) { boards.name = ''; }
     return boards;
   }
 };
@@ -140,7 +146,7 @@ $(function() {
   button.on('click', async function() {
     if (busy) return;
     var originalMain = $('#deckmain').val(), originalSide = $('#deckside').val(), originalFormat = $('#deckformat').val();
-    var originalURL = $('#deckimport').val(), requestRevision = revision;
+    var originalName = $('#deckname').val(), originalURL = $('#deckimport').val(), requestRevision = revision;
     var target = DeckImport.parse(originalURL);
     if (!target) {
       $('#deckimport').attr('aria-invalid', 'true');
@@ -170,13 +176,18 @@ $(function() {
       $('#deckmain').val(deck.main);
       // A deck with no format of its own goes back to Auto-detect.
       $('#deckformat').val(deck.format);
+      // A deck with no name keeps the one in the form, as does a name typed while the
+      // deck was on its way.
+      var previousName = $('#deckname').val();
+      if (deck.name && previousName === originalName) $('#deckname').val(deck.name);
       $('#deckside').val(deck.side).trigger('input');
       var count = function(text) {
         return text.split('\n').reduce(function(total, line) { return total + (parseInt(line, 10) || 0); }, 0);
       };
       message('Imported from ' + source + ': ' + count(deck.main) + ' main-deck cards and ' +
         count(deck.side) + ' sideboard cards.', 'success');
-      undo = { main: originalMain, side: originalSide, format: originalFormat, importedMain: deck.main, importedSide: deck.side };
+      undo = { main: originalMain, side: originalSide, format: originalFormat, name: previousName,
+        importedMain: deck.main, importedSide: deck.side, importedName: $('#deckname').val() };
       $('#deckimport-undo').prop('hidden', false);
     } catch (error) {
       var timedOut = error.name === 'TimeoutError' || error.name === 'AbortError';
@@ -199,6 +210,8 @@ $(function() {
     var previous = undo;
     $('#deckmain').val(previous.main);
     $('#deckformat').val(previous.format);
+    // Leave a name typed since the import.
+    if ($('#deckname').val() === previous.importedName) $('#deckname').val(previous.name);
     $('#deckside').val(previous.side).trigger('input');
     clearUndo();
     message('Import undone. Your previous deck has been restored.');

@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>MTG Decklist Generator - Free Tournament Registration Sheet Builder | decklist.nealston.com</title>
+  <title>MTG Decklist Generator - Free Tournament Registration Sheet Builder | decklist.app</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Free Magic: The Gathering tournament decklist generator. Create WotC and SCG registration sheets instantly. Supports MTGO, MTGGoldfish, and TappedOut formats. Perfect for competitive MTG players.">
   <meta name="keywords" content="MTG decklist, Magic tournament, DCI registration, decklist generator, WotC decklist, SCG decklist, MTGO decklist, MTGGoldfish, tournament registration, Magic: The Gathering, deck registration sheet">
-  <meta name="author" content="decklist.nealston.com">
+  <meta name="author" content="decklist.app">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://decklist.nealston.com/">
+  <link rel="canonical" href="https://decklist.app/">
 
   <!-- Icons -->
   <link rel="icon" href="/favicon.ico" sizes="32x32">
@@ -22,22 +22,26 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <!-- LLM Discovery -->
-  <link rel="alternate" type="text/plain" href="https://decklist.nealston.com/llms.txt" title="LLMs.txt">
+  <link rel="alternate" type="text/plain" href="https://decklist.app/llms.txt" title="LLMs.txt">
 
-  <!-- Open Graph / Facebook -->
+  <!-- Open Graph (Discord, Facebook, iMessage, Slack) -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://decklist.nealston.com/">
-  <meta property="og:title" content="MTG Decklist Generator - Free Tournament Registration Sheet Builder">
-  <meta property="og:description" content="Free Magic: The Gathering tournament decklist generator. Create WotC and SCG registration sheets instantly. Supports MTGO, MTGGoldfish, and TappedOut formats.">
-  <meta property="og:image" content="https://decklist.nealston.com/images/logos/mtg.jpg">
-  <meta property="og:site_name" content="decklist.nealston.com">
+  <meta property="og:url" content="https://decklist.app/">
+  <meta property="og:site_name" content="decklist.app">
+  <meta property="og:title" content="MTG Decklist Generator">
+  <meta property="og:description" content="Free Magic: The Gathering decklist generator. Paste or import a deck from Moxfield, Archidekt, MTGGoldfish, MTGTop8, Scryfall or Arena, check it against your format, and print a WotC or SCG registration sheet.">
+  <meta property="og:image" content="https://decklist.app/images/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="decklist: tournament-ready MTG decklists in seconds, with a sample Modern registration sheet">
 
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://decklist.nealston.com/">
-  <meta property="twitter:title" content="MTG Decklist Generator - Free Tournament Registration Sheet Builder">
-  <meta property="twitter:description" content="Free Magic: The Gathering tournament decklist generator. Create WotC and SCG registration sheets instantly. Supports MTGO, MTGGoldfish, and TappedOut formats.">
-  <meta property="twitter:image" content="https://decklist.nealston.com/images/logos/mtg.jpg">
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MTG Decklist Generator">
+  <meta name="twitter:description" content="Free Magic: The Gathering decklist generator. Paste or import a deck from Moxfield, Archidekt, MTGGoldfish, MTGTop8, Scryfall or Arena, check it against your format, and print a WotC or SCG registration sheet.">
+  <meta name="twitter:image" content="https://decklist.app/images/og-image.png">
+  <meta name="twitter:image:alt" content="decklist: tournament-ready MTG decklists in seconds, with a sample Modern registration sheet">
 
   <!-- Optimized Google Fonts loading -->
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -49,8 +53,8 @@
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "MTG Decklist Generator",
-    "alternateName": "decklist.nealston.com",
-    "url": "https://decklist.nealston.com",
+    "alternateName": "decklist.app",
+    "url": "https://decklist.app",
     "description": "Free Magic: The Gathering tournament decklist generator. Create WotC and SCG registration sheets instantly. Supports MTGO, MTGGoldfish, and TappedOut formats.",
     "applicationCategory": "GameApplication",
     "operatingSystem": "Web Browser",
@@ -124,8 +128,8 @@
 </head>
 
 <body class="generator-page">
-  <!-- Dark mode before the first paint: a saved choice wins, else the system setting.
-       main.js follows the system and the toggle from then on -->
+  <!-- Set the theme before anything paints, so a dark page doesn't load light
+       and then fade over; the toggle's own script takes over once the page loads -->
   <script>
     try {
       var savedDarkMode = localStorage.getItem('darkMode');
@@ -134,7 +138,6 @@
       }
     } catch (e) {}
   </script>
-
   <!-- Navigation Bar -->
   <nav class="navbar">
     <div class="navbar-container">
@@ -158,8 +161,9 @@
       <div class="navbar-links">
         <a href="docs.html">Docs & FAQ</a>
       </div>
-      <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle dark mode">
-        <span id="darkModeIcon" aria-hidden="true"></span>
+      <button class="dark-mode-toggle" id="darkModeToggle" type="button" title="Switch to dark mode" aria-label="Switch to dark mode">
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
       </button>
     </div>
   </nav>
@@ -184,6 +188,7 @@
               <button type="button" id="deckimport-undo" hidden>Undo import</button>
             </div>
             <p class="import-alternative">Have a text export? Paste it below.</p>
+            <p class="import-help">Shortcut: put <strong>decklist.app/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
           </section>
           <label for="deckname">
             <span>Deck Name / Archetype:</span>
@@ -289,7 +294,7 @@
       </div>
       <form>
         <input type="button" id="download" value="📥 Download PDF" onclick="generateDecklistPDF('dataurlnewwindow');">
-        <input type="button" id="permalink" value="🔗 Copy Permalink" onclick="copyPermalinkToClipboard()">
+        <input type="button" id="permalink" value="🔗 Copy Permalink" onclick="sharePermalink()">
       </form>
 
       <!-- Deck management actions -->
@@ -309,9 +314,11 @@
     <div class="footer">
       Magic: The Gathering Decklist Generator.
       <br>
-      Read the <a href="docs.html#direct-linking">direct linking</a> instructions, on how to link directly to <a href="https://decklist.nealston.com">decklist.nealston.com</a> from your website.
+      Read the <a href="docs.html#direct-linking">direct linking</a> instructions, on how to link directly to <a href="https://decklist.app">decklist.app</a> from your website.
       <br>
       Based on <a href="https://github.com/DarioFT/decklist">Dario’s decklist</a> and <a href="https://github.com/april/decklist">April King’s original</a>.
+      <br>
+      Found a bug or have an idea? <a href="https://github.com/richardneal/decklist/issues">Open an issue on GitHub</a>.
       <br><br>
 
       <br>

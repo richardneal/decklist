@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Documentation & FAQ - MTG Decklist Generator | decklist.nealston.com</title>
+  <title>Documentation & FAQ - MTG Decklist Generator | decklist.app</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Complete documentation and frequently asked questions for decklist.nealston.com - the free MTG tournament registration sheet generator. Learn how to use all features and formats.">
+  <meta name="description" content="Complete documentation and frequently asked questions for decklist.app - the free MTG tournament registration sheet generator. Learn how to use all features and formats.">
   <meta name="keywords" content="MTG decklist help, decklist generator tutorial, MTGO format, MTGGoldfish format, tournament registration help, WotC decklist guide">
-  <meta name="author" content="decklist.nealston.com">
+  <meta name="author" content="decklist.app">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://decklist.nealston.com/docs.html">
+  <link rel="canonical" href="https://decklist.app/docs">
 
   <!-- Icons -->
   <link rel="icon" href="/favicon.ico" sizes="32x32">
@@ -17,19 +17,24 @@
   <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
   <meta name="theme-color" content="#1f5fa8">
 
-  <!-- Open Graph / Facebook -->
+  <!-- Open Graph (Discord, Facebook, iMessage, Slack) -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://decklist.nealston.com/docs.html">
+  <meta property="og:url" content="https://decklist.app/docs">
+  <meta property="og:site_name" content="decklist.app">
   <meta property="og:title" content="Documentation & FAQ - MTG Decklist Generator">
-  <meta property="og:description" content="Complete documentation and frequently asked questions for decklist.nealston.com - the free MTG tournament registration sheet generator.">
-  <meta property="og:image" content="https://decklist.nealston.com/images/logos/mtg.jpg">
+  <meta property="og:description" content="How to use decklist.app: pasting and importing decks, format checks, registration sheets, permalinks and URL parameters.">
+  <meta property="og:image" content="https://decklist.app/images/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="decklist: tournament-ready MTG decklists in seconds, with a sample Modern registration sheet">
 
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://decklist.nealston.com/docs.html">
-  <meta property="twitter:title" content="Documentation & FAQ - MTG Decklist Generator">
-  <meta property="twitter:description" content="Complete documentation and frequently asked questions for decklist.nealston.com.">
-  <meta property="twitter:image" content="https://decklist.nealston.com/images/logos/mtg.jpg">
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Documentation & FAQ - MTG Decklist Generator">
+  <meta name="twitter:description" content="How to use decklist.app: pasting and importing decks, format checks, registration sheets, permalinks and URL parameters.">
+  <meta name="twitter:image" content="https://decklist.app/images/og-image.png">
+  <meta name="twitter:image:alt" content="decklist: tournament-ready MTG decklists in seconds, with a sample Modern registration sheet">
 
   <!-- FAQ Schema for Rich Snippets -->
   <script type="application/ld+json">
@@ -66,7 +71,7 @@
         "name": "How do I save and share my decklist?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Use the Copy Permalink button to generate a unique URL that pre-fills all your deck information. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the Save Decklist button."
+          "text": "Use the Copy Permalink button to copy a link that pre-fills all your deck information; on a phone it opens the share sheet instead. The link is built in your browser and carries the whole deck itself, so nothing is stored on a server or sent to a link shortener. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the Save Decklist button."
         }
       },
       {
@@ -82,7 +87,7 @@
         "name": "Is this decklist generator free to use?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes, decklist.nealston.com is completely free to use. Generate unlimited tournament registration sheets for Magic: The Gathering events without any cost or registration required."
+          "text": "Yes, decklist.app is completely free to use. Generate unlimited tournament registration sheets for Magic: The Gathering events without any cost or registration required."
         }
       }
     ]
@@ -105,7 +110,14 @@
 
       function applyDarkMode(isDark) {
         body.classList.toggle('dark-mode', isDark);
+        // The icon (CSS) and label show the mode a click switches to
+        const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+        darkModeToggle.title = label;
+        darkModeToggle.setAttribute('aria-label', label);
       }
+
+      // Label the toggle for the mode the script at the top of <body> chose
+      applyDarkMode(body.classList.contains('dark-mode'));
 
       // Follow system changes while there's no saved choice
       systemDark.addEventListener('change', function(e) {
@@ -135,7 +147,8 @@
 </head>
 
 <body>
-  <!-- Dark mode before the first paint: a saved choice wins, else the system setting -->
+  <!-- Set the theme before anything paints, so a dark page doesn't load light
+       and then fade over; the toggle's own script takes over once the page loads -->
   <script>
     try {
       var savedDarkMode = localStorage.getItem('darkMode');
@@ -144,7 +157,6 @@
       }
     } catch (e) {}
   </script>
-
   <!-- Navigation Bar -->
   <nav class="navbar">
     <div class="navbar-container">
@@ -163,15 +175,16 @@
           </g>
         </svg>
         <a href="/" style="text-decoration: none; color: inherit;">
-          <span class="brand-text">decklist<span class="brand-highlight">.nealston.com</span></span>
+          <span class="brand-text">decklist<span class="brand-highlight">.app</span></span>
         </a>
       </div>
       <h1>FREE MTG TOURNAMENT DECKLIST GENERATOR</h1>
       <div class="navbar-links">
         <a href="/">← Generator</a>
       </div>
-      <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle dark mode">
-        <span id="darkModeIcon" aria-hidden="true"></span>
+      <button class="dark-mode-toggle" id="darkModeToggle" type="button" title="Switch to dark mode" aria-label="Switch to dark mode">
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
       </button>
     </div>
   </nav>
@@ -190,7 +203,7 @@
       <!-- Getting Started Section -->
       <section id="getting-started" class="docs-section">
         <h2>Getting Started</h2>
-        <p>Welcome to decklist.nealston.com! This free tool helps you generate professional tournament registration sheets for Magic: The Gathering events in seconds.</p>
+        <p>Welcome to decklist.app! This free tool helps you generate professional tournament registration sheets for Magic: The Gathering events in seconds.</p>
 
         <div class="docs-subsection">
           <h3>Quick Start Guide</h3>
@@ -225,7 +238,7 @@
 
         <div class="faq-item">
           <h3>How do I save and share my decklist?</h3>
-          <p>Use the "Copy Permalink" button to generate a unique URL that pre-fills all your deck information. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the "Save Decklist" button.</p>
+          <p>Use the "Copy Permalink" button to copy a link that pre-fills all your deck information; on a phone it opens the share sheet instead. The link is built in your browser and carries the whole deck itself, so nothing is stored on a server or sent to a link shortener. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the "Save Decklist" button.</p>
         </div>
 
         <div class="faq-item">
@@ -235,12 +248,12 @@
 
         <div class="faq-item">
           <h3>Is this decklist generator free to use?</h3>
-          <p>Yes, decklist.nealston.com is completely free to use. Generate unlimited tournament registration sheets for Magic: The Gathering events without any cost or registration required.</p>
+          <p>Yes, decklist.app is completely free to use. Generate unlimited tournament registration sheets for Magic: The Gathering events without any cost or registration required.</p>
         </div>
 
         <div class="faq-item">
           <h3>Do I need to create an account?</h3>
-          <p>No! decklist.nealston.com works entirely in your browser without any registration. Pasted decks are processed in your browser. Importing a link sends the deck source and ID to our import API; sharing a permalink includes your entered deck information in the link.</p>
+          <p>No! decklist.app works entirely in your browser without any registration. Pasted decks are processed in your browser. Importing a link sends the deck source and ID to our import API; copying a permalink sends nothing anywhere, but the link itself carries the name, event and deck you entered, so share it only with people who should see them.</p>
         </div>
       </section>
 
@@ -258,7 +271,7 @@
 Sideboard
 3 Negate
 2 Dispel</code></pre>
-          <p>Lines marked <code>SB:</code>, as Magic Workstation writes them, go to the sideboard wherever they appear.</p>
+          <p>Lines marked <code>SB:</code>, as Magic Workstation writes them, go to the sideboard wherever they appear, and lines starting with <code>//</code>, such as its comments, are ignored.</p>
         </div>
 
         <div class="docs-subsection">
@@ -278,28 +291,28 @@ Deck
 Sideboard
 1 Jegantha, the Wellspring (IKO) 222
 2 Blood Moon (DMR) 123</code></pre>
-          <p>Arena lists a companion in the sideboard as well, and it is counted once. Headers are read in any case, with or without a colon, so <code>MAINBOARD:</code> and <code>Sideboard (15)</code> work too.</p>
+          <p>Arena lists a companion in the sideboard as well, and it is counted once. Headers are read in any case, with or without a colon, so <code>MAINBOARD:</code> and <code>Sideboard (15)</code> work too. A <code>Maybeboard</code> section is left out.</p>
         </div>
 
         <div class="docs-subsection">
           <h3>MTGGoldfish</h3>
-          <p>Copy your deck from MTGGoldfish using the "Export" → "Text" option. Both main deck and sideboard will be parsed automatically.</p>
+          <p>Paste the deck's address (<code>mtggoldfish.com/deck/…</code>) into "Import a deck", and its name fills in Deck Name. Or copy your deck from MTGGoldfish using the "Export" → "Text" option. Both main deck and sideboard will be parsed automatically.</p>
         </div>
 
         <div class="docs-subsection">
           <h3>Moxfield</h3>
-          <p>Paste the deck's address (<code>moxfield.com/decks/…</code>) into "Import a deck". Commanders and a companion are added to the sideboard, since Commander decks have none and a commander listed there stays easy to find; the maybeboard is ignored, and so is the sideboard of a deck with a commander, where Moxfield players keep their cuts. The deck's format is selected for you when it is one the generator checks.</p>
+          <p>Paste the deck's address (<code>moxfield.com/decks/…</code>) into "Import a deck". Commanders and a companion, or an Oathbreaker and its signature spell, are added to the sideboard, since Commander decks have none and a commander listed there stays easy to find; the maybeboard is ignored, and so is the sideboard of a deck with a commander, where Moxfield players keep their cuts. The deck's format is selected for you when it is one the generator checks, and its name fills in Deck Name.</p>
           <p>You can also paste a deck copied from Moxfield's Export dialog, in plain text or for MTG Arena. Set codes, collector numbers and foil markers such as <code>*F*</code> are ignored, and the Commander, Companion and Sideboard headers are read as they are in an Arena export.</p>
         </div>
 
         <div class="docs-subsection">
           <h3>Archidekt</h3>
-          <p>Paste the deck's address (<code>archidekt.com/decks/…</code>) into "Import a deck". The deck must be public. Cards in the Sideboard category go to the sideboard, as do the commander and a companion; and the Maybeboard and any other category left out of the deck are ignored. Each card is placed by its first category, as Archidekt itself counts it. The deck's format is selected for you when it is one the generator checks.</p>
+          <p>Paste the deck's address (<code>archidekt.com/decks/…</code>) into "Import a deck". The deck must be public. Cards in the Sideboard category go to the sideboard, as do the commander and a companion; and the Maybeboard and any other category left out of the deck are ignored, and so is the Sideboard of a deck with a commander, where Archidekt players keep their cuts. Each card is placed by its first category, as Archidekt itself counts it. The deck's format is selected for you when it is one the generator checks, and its name fills in Deck Name.</p>
         </div>
 
         <div class="docs-subsection">
           <h3>Scryfall</h3>
-          <p>Paste the deck's address (<code>scryfall.com/@you/decks/…</code>) into "Import a deck". The deck must be public. A constructed deck keeps its mainboard and sideboard; a Commander deck's commander and its cards from outside the game, such as a companion, go to the sideboard. The maybeboard is ignored. The deck's format is selected for you when it is one the generator checks.</p>
+          <p>Paste the deck's address (<code>scryfall.com/@you/decks/…</code>) into "Import a deck". The deck must be public. A constructed deck keeps its mainboard and sideboard; a Commander deck's commander and its cards from outside the game, such as a companion, go to the sideboard, as do an Oathbreaker deck's Oathbreaker and signature spell. The maybeboard is ignored. The deck's format is selected for you when it is one the generator checks, and its name fills in Deck Name.</p>
         </div>
 
         <div class="docs-subsection">
@@ -322,9 +335,18 @@ Sideboard
         <p>You can create custom URLs that pre-fill the decklist generator with specific information. This is perfect for:</p>
         <ul>
           <li>Tournament organizers pre-filling event information</li>
-          <li>Deck building websites integrating with decklist.nealston.com</li>
+          <li>Deck building websites integrating with decklist.app</li>
           <li>Sharing pre-configured decklists with friends</li>
         </ul>
+
+        <div class="docs-subsection">
+          <h3>Import a Deck from Its Link</h3>
+          <p>Put <code>decklist.app/</code> in front of a deck's address on MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall, and the generator opens with that deck imported:</p>
+          <pre><code>https://decklist.app/https://www.mtggoldfish.com/deck/6837920
+decklist.app/moxfield.com/decks/…
+decklist.app/https://www.mtgtop8.com/event?e=…&amp;d=…&amp;f=MO</code></pre>
+          <p>The deck's <code>https://</code> can stay or go, and nothing needs encoding. To combine an import with event or player details, use the <code>deckimport</code> parameter below instead.</p>
+        </div>
 
         <div class="docs-subsection">
           <h3>Available URL Parameters</h3>
@@ -349,14 +371,14 @@ Sideboard
             <li><strong>deckdesigner</strong> - Designer's name</li>
             <li><strong>deckformat</strong> - Format to check the deck against: <code>standard</code>, <code>pioneer</code>, <code>modern</code>, <code>legacy</code>, <code>vintage</code>, <code>pauper</code>, <code>premodern</code>, <code>oldschool</code>, <code>commander</code>, <code>duel</code> (Duel Commander), <code>paupercommander</code>, <code>predh</code>, <code>oathbreaker</code>, <code>constructed</code> (no ban list) or <code>limited</code> (defaults to auto-detect)</li>
             <li><strong>deckimport</strong> - URL-encoded MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
-            <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
-            <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
+            <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> or <code>+</code> for spaces)</li>
+            <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> or <code>+</code> for spaces)</li>
           </ul>
 
           <h4>Display Options</h4>
           <ul>
-            <li><strong>decksheet</strong> - Sheet format: <code>wotc</code> or <code>scg</code> (defaults to wotc)</li>
-            <li><strong>decksort</strong> - Sort order: <code>alphabetical</code>, <code>manavalue</code>, <code>color</code>, <code>numeric</code>, <code>original</code>, or <code>type</code> (defaults to type)</li>
+            <li><strong>decksheet</strong> - Sheet format: <code>wotc</code> or <code>scg</code> (defaults to wotc; a permalink includes it when it isn't the default)</li>
+            <li><strong>decksort</strong> - Sort order: <code>alphabetical</code>, <code>manavalue</code>, <code>color</code>, <code>numeric</code>, <code>original</code>, or <code>type</code> (defaults to type; a permalink includes it when it isn't the default)</li>
             <li><strong>disableediting</strong> - Prevent users from editing pre-filled fields</li>
           </ul>
         </div>
@@ -365,20 +387,20 @@ Sideboard
           <h3>Examples</h3>
 
           <h4>Tournament Organizer - Unregistered Player</h4>
-          <pre><code>https://decklist.nealston.com/?eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center</code></pre>
+          <pre><code>https://decklist.app/?eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center</code></pre>
 
           <h4>Tournament Organizer - Pre-registered Player</h4>
-          <pre><code>https://decklist.nealston.com/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center</code></pre>
+          <pre><code>https://decklist.app/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center</code></pre>
 
           <h4>Deck Building Website Integration</h4>
           <p>Pre-fill with a complete decklist (example shortened for readability):</p>
-          <pre><code>https://decklist.nealston.com/?deckmain=4%20Lightning%20Bolt%0A4%20Brainstorm%0A20%20Island&deckside=3%20Negate%0A2%20Dispel</code></pre>
+          <pre><code>https://decklist.app/?deckmain=4%20Lightning%20Bolt%0A4%20Brainstorm%0A20%20Island&deckside=3%20Negate%0A2%20Dispel</code></pre>
 
           <h4>Complete Example</h4>
           <p>Everything together - personal info, event details, and full decklist:</p>
-          <pre><code>https://decklist.nealston.com/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center&deckname=Miracles&deckdesigner=CubeApril&deckmain=4%20Brainstorm%0A4%20Force%20of%20Will%0A4%20Island</code></pre>
+          <pre><code>https://decklist.app/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center&deckname=Miracles&deckdesigner=CubeApril&deckmain=4%20Brainstorm%0A4%20Force%20of%20Will%0A4%20Island</code></pre>
 
-          <p><strong>Important:</strong> When creating links, replace spaces with <code>%20</code> and use <code>%0A</code> for line breaks in deck lists.</p>
+          <p><strong>Important:</strong> When creating links, replace spaces with <code>%20</code> (or <code>+</code>) and use <code>%0A</code> for line breaks in deck lists.</p>
         </div>
       </section>
 
@@ -388,6 +410,8 @@ Sideboard
       Magic: The Gathering Decklist Generator.
       <br>
       Based on <a href="https://github.com/DarioFT/decklist">Dario’s decklist</a> and <a href="https://github.com/april/decklist">April King’s original</a>.
+      <br>
+      Found a bug or have an idea? <a href="https://github.com/richardneal/decklist/issues">Open an issue on GitHub</a>.
       <br><br>
       © 1993-<span id="current-year"></span> Wizards of the Coast, Magic: The Gathering, and their logos are trademarks of Wizards of the Coast LLC, a subsidiary of Hasbro, Inc. All rights reserved.
       <br>

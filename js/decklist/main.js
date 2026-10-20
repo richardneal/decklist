@@ -48,9 +48,12 @@ $(document).ready(function() {
   // bind events to all the input fields on the left side, to generate a PDF on change
   $('div.left input:not([type="checkbox"]), div.left textarea, div.left select').on('input', pdfChangeWait);
   $('#eventdate').change(pdfChangeWait);
-  // radios and checkboxes are single clicks, not typing, so regenerate right away
+  // radios and checkboxes are single clicks, not typing, so regenerate right away.
+  // The sheet and sort order are in the link too; record it once the current event
+  // is done, so a back/forward restore that clicks several radios finishes first
   $('input[type="radio"], input[type="checkbox"]').change(function() {
     generateDecklistPDF();
+    setTimeout(pushHistoryState);
   });
 
   // bind a date picker to the event date (thanks, jQuery UI); a touch screen gets its
@@ -91,7 +94,7 @@ $(document).ready(function() {
 
   // Need to populate an initial history state so the first popstate event
   // has something to return to
-  history.replaceState(generatePermalinkSync(true), document.title, generatePermalinkSync());
+  history.replaceState(generatePermalink(true), document.title, generatePermalink());
   // and need to update our state whenever back/forward buttons are pushed.
   window.onpopstate = function(event) {
     parseUrlIntoGET(event.state);
@@ -106,16 +109,21 @@ function pdfChangeWait() {
   decklistChangeTimer = setTimeout(function() {
     const parsedInput = Decklist.parse();
     validateInput(parsedInput);
-    const newState = generatePermalinkSync(true);
-    if (newState !== history.state) {
-      console.log("pushing new state " + newState);
-      history.pushState(newState, document.title, generatePermalinkSync());
-    }
+    pushHistoryState();
   }, 400);
 
   // Wait 1500 milliseconds to generate a new PDF
   if (pdfChangeTimer) { clearTimeout(pdfChangeTimer); }
   pdfChangeTimer = setTimeout(generateDecklistPDF, 1500);
+}
+
+// Records the form in the address bar and history, unless the current state already holds it
+function pushHistoryState() {
+  const newState = generatePermalink(true);
+  if (newState !== history.state) {
+    console.log("pushing new state " + newState);
+    history.pushState(newState, document.title, generatePermalink());
+  }
 }
 
 // Good ol' Javascript, not having a capitalize function on string objects
@@ -1218,85 +1226,62 @@ function drawStandardContinuationPage(dl, columns, page, pageCount) {
   drawStandardFooter(dl, page, pageCount);
 }
 
-// Synchronous version for history state (no URL shortening)
-function generatePermalinkSync(includeBlank = false) {
-  // Use current origin to avoid SecurityError on localhost
-  let rv = window.location.origin + '/';
-
+// The link that pre-fills the form as it stands. The address bar and history use
+// this page's own origin, so they work on localhost; a shared link always points
+// at the live site. Everything rides in the link itself and nothing is sent anywhere
+function generatePermalink(includeBlank = false, origin = window.location.origin) {
   const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
-  let firstParam = true; // flag to track if any parameter has been appended
-  params.forEach(function(param) {
-    const field = '#' + param;
-    const value = $(field).val();
+  const values = params.map(param => [param, $('#' + param).val()])
+    .filter(([, value]) => value !== undefined && (includeBlank || value.length > 0));
 
-    if (value !== undefined && (includeBlank || value.length > 0)) {
-      if (firstParam) {
-        rv += '?'; // append ? before the first parameter
-        firstParam = false;
-      } else {
-        rv += '&'; // append & before subsequent parameters
-      }
-      rv += param + '=' + encodeURIComponent(value);
-    }
-  });
+  // The sheet and sort order are radios, named as parseGET() clicks them (#decksheet-scg,
+  // #sort-color). A link leaves them out at their defaults; the history state keeps
+  // them, so going back to a state restores them
+  [['decksheet', 'decksheetformat', 'decksheet-', 'wotc'], ['decksort', 'sortorder', 'sort-', 'type']]
+    .forEach(([param, name, prefix, fallback]) => {
+      const value = $('input[name=' + name + ']:checked').prop('id').replace(prefix, '');
+      if (includeBlank || value !== fallback) values.push([param, value]);
+    });
 
-  return rv;
+  // + for spaces keeps a long deck's link shorter; parseUrlIntoDict reads both
+  const query = values.map(([param, value]) => param + '=' + encodeURIComponent(value).replace(/%20/g, '+')).join('&');
+  return origin + '/' + (query ? '?' + query : '');
 }
 
-// Async version with URL shortening (for copying to clipboard)
-async function generatePermalink(includeBlank = false) {
-  // Always use production URL for sharing, even on localhost
-  let rv = 'https://decklist.nealston.com/';
-
-  const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
-  let firstParam = true;
-  params.forEach(function(param) {
-    const field = '#' + param;
-    const value = $(field).val();
-
-    if (value !== undefined && (includeBlank || value.length > 0)) {
-      if (firstParam) {
-        rv += '?';
-        firstParam = false;
-      } else {
-        rv += '&';
-      }
-      rv += param + '=' + encodeURIComponent(value);
-    }
-  });
-
-  // Shorten URL using is.gd
-  try {
-    const response = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(rv)}`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.shorturl;
-  } catch (error) {
-    console.error('Error while shortening URL:', error);
-    return rv; // Return the original URL in case of error
-  }
-}
-
-async function copyPermalinkToClipboard() {
+// Shares the permalink: the native share sheet on a phone or tablet, the clipboard
+// everywhere else (or if the share sheet fails)
+async function sharePermalink() {
   const button = document.getElementById('permalink');
-  button.value = 'Loading...';
-  button.disabled = true; // Disable the button
+  const label = button.value;
+  const permalink = generatePermalink(false, 'https://decklist.app');
+  button.disabled = true;
+
+  if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+    try {
+      await navigator.share({ title: document.title, url: permalink });
+      button.disabled = false;
+      return;
+    } catch (error) {
+      // AbortError: the player closed the share sheet
+      if (error.name === 'AbortError') {
+        button.disabled = false;
+        return;
+      }
+      console.error('Error while sharing:', error);
+    }
+  }
 
   try {
-      const permalink = await generatePermalink();
-      await navigator.clipboard.writeText(permalink);
-      button.value = 'Copied!';
+    await navigator.clipboard.writeText(permalink);
+    button.value = 'Copied!';
   } catch (error) {
-      console.error('Error:', error);
-      button.value = 'Failed to Copy';
-  } finally {
-      setTimeout(() => {
-          button.value = 'Copy Permalink to Clipboard';
-          button.disabled = false; // Re-enable the button
-      }, 3000); // Reset button text and state after 3 seconds
+    console.error('Error while copying:', error);
+    button.value = 'Failed to Copy';
   }
+  setTimeout(() => {
+    button.value = label;
+    button.disabled = false;
+  }, 3000); // Reset button text and state after 3 seconds
 }
 
 // Performs validation on user input and updates PDF
@@ -1746,14 +1731,21 @@ function loadLogos() {
 // ==================== DARK MODE FUNCTIONALITY ====================
 
 // The script at the top of <body> sets the starting mode before the first paint;
-// this follows the system and the toggle from then on. The icon is drawn by CSS
+// this labels the toggle and follows the system and the toggle from then on
 function initDarkMode() {
   const darkModeToggle = document.getElementById('darkModeToggle');
   const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
   function applyDarkMode(isDark) {
     document.body.classList.toggle('dark-mode', isDark);
+    // The icon (CSS) and label show the mode a click switches to
+    const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+    darkModeToggle.title = label;
+    darkModeToggle.setAttribute('aria-label', label);
   }
+
+  // Label the toggle for the mode the script at the top of <body> chose
+  applyDarkMode(document.body.classList.contains('dark-mode'));
 
   // Follow system changes while there's no saved choice
   systemDark.addEventListener('change', function(e) {

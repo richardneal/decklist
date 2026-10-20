@@ -761,25 +761,42 @@ a {
   cursor: not-allowed;
 }
 
-/* Dark mode toggle button */
+/* Dark mode toggle: a quiet icon button, like the navbar links */
 .dark-mode-toggle {
-  padding: 10px 16px;
-  background: var(--accent-color);
-  border: 1px solid var(--accent-color);
-  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 20px;
-  box-shadow: var(--shadow-sm);
+  color: var(--text-secondary);
   transition: var(--transition);
-  margin-left: auto;
-  color: white;
+}
+
+.dark-mode-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .dark-mode-toggle:hover {
-  transform: scale(1.1);
-  box-shadow: var(--shadow-md);
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  color: var(--accent-color);
+  background: var(--bg-secondary);
+}
+
+.dark-mode-toggle .icon-sun,
+body.dark-mode .dark-mode-toggle .icon-moon {
+  display: none;
+}
+
+body.dark-mode .dark-mode-toggle .icon-sun {
+  display: block;
 }
 
 /* Save/Load buttons container */
@@ -971,11 +988,6 @@ a {
   #decklist {
     width: 100%;
     box-sizing: border-box;
-  }
-
-  .dark-mode-toggle {
-    padding: 6px 10px;
-    font-size: 16px;
   }
 
   .deck-actions {
@@ -1418,10 +1430,6 @@ body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
 
 /* jQuery UI tooltips, in the site palette (its theme file loads after this one) */
 .ui-tooltip.tooltip { background: var(--bg-primary); color: var(--text-primary); border: 2px solid var(--border-color); }
-
-/* The dark mode toggle's icon follows the body class, so it's right from the first paint */
-#darkModeIcon::before { content: '🌙'; }
-body.dark-mode #darkModeIcon::before { content: '☀️'; }
 
 /* Each deck box's problems, listed beneath it in the one-column layout (statusAndTooltips) */
 .field-messages { display: none; grid-column: 1 / -1; margin: -6px 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.45; color: var(--text-primary); text-align: left; }

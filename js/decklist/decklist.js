@@ -21,16 +21,20 @@ var Decklist = {
     ];
     // MWS and others mark each sideboard line instead: SB: 2 Blood Moon
     const sbRE = /^\s*SB:\s*/i;
+    // MWS and Scryfall write comment lines: // Deck file for Magic Workstation
+    const commentRE = /^\s*\/\//;
     // The printing Arena and Moxfield follow a name with: (2X2) 117, (MH2) 290 *F*
     const printingRE = /(?:\s+\([a-z0-9]{2,8}\)(?:\s+[^\s()*]+)?)?(?:\s+\*[a-z]+\*)*$/i;
     // Section headers, as Arena, MTGO and Moxfield export them: Deck, Sideboard:,
-    // Commander (1). About starts a block that names the deck, skipped to the next blank line
+    // Commander (1). About starts a block that names the deck, skipped to the next blank
+    // line, and cards under Maybeboard are left out, as the deck import leaves them
     const headerRE = /^\s*([a-z]+(?: [a-z]+)?)\s*(?:\(\d+\))?\s*:?\s*$/i,
       sections = {
         deck: 'main', main: 'main', mainboard: 'main', maindeck: 'main',
         sideboard: 'side', sb: 'side',
         commander: 'commander', commanders: 'commander',
         companion: 'companion', companions: 'companion',
+        maybeboard: 'maybe',
         about: 'about',
       };
 
@@ -76,7 +80,7 @@ var Decklist = {
 
     // Finds the section a header line starts
     // Accepts an input string
-    // Returns 'main', 'side', 'commander', 'companion' or 'about', or null for any other line
+    // Returns 'main', 'side', 'commander', 'companion', 'maybe' or 'about', or null for any other line
     function headerOf(line) {
       // any line starting with Sideboard has always switched to it
       if (/^\s*side ?board\b/i.test(line)) {
@@ -90,7 +94,7 @@ var Decklist = {
     // Scans lines of a given array for cards
     // Accepts an array of input strings and the section its cards go to until a header
     // says otherwise ('main' or 'side'). A blank line after main deck cards starts the
-    // sideboard, unless a header follows it
+    // sideboard, unless a header follows it. Comment lines and the maybeboard are skipped
     // Returns an object structured like parse()'s result, with the cards listed under
     // Commander and Companion headers in lists of their own
     function scan(lines, section) {
@@ -112,6 +116,10 @@ var Decklist = {
         var line = lines[i],
           header = headerOf(line);
 
+        // a comment changes nothing, not even a pending switch to the sideboard
+        if (commentRE.test(line)) {
+          continue;
+        }
         // an empty line after main cards switches to the sideboard, once a card follows
         if (emptyLine.test(line)) {
           in_sb = in_sb || (section === 'main' && hasMainCards);
@@ -124,7 +132,7 @@ var Decklist = {
           in_sb = false;
           continue;
         }
-        if (in_about) {
+        if (in_about || section === 'maybe') {
           continue;
         }
         if (in_sb) {

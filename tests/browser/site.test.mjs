@@ -1,6 +1,6 @@
 // Drives the real page in headless Chromium: the format checks as a player sees
-// them, the format's place in links and saved decks, and imports against a stubbed
-// import Worker. Run with `npm test --prefix tests/browser`.
+// them, the format's place in links and saved decks, the shared permalink, and
+// imports against a stubbed import Worker. Run with `npm test --prefix tests/browser`.
 import { test, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -12,9 +12,9 @@ import { chromium } from 'playwright';
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.svg': 'image/svg+xml' };
-const API = 'https://deck-import.nealston.com/api/import';
+const API = 'https://import.decklist.app/api/import';
 
-let server, browser, origin, page, pageErrors, importReply;
+let server, browser, origin, page, pageErrors, importReply, outside;
 
 before(async () => {
   server = createServer(async (request, response) => {
@@ -38,32 +38,36 @@ after(async () => {
 
 beforeEach(async () => {
   pageErrors = [];
-  importReply = { body: '4 Island', format: null };
+  importReply = { body: '4 Island', format: null, name: null };
   await newPage();
 });
+
+// Opens the generator in a fresh page made with the given browser context options.
+// The page stays offline: the import API is served from the test, and everything
+// else that isn't the page itself (web fonts) is dropped. Every outside request is
+// logged in `outside`
+async function newPage(options = {}, path = '/index.html') {
+  page = await browser.newPage(options);
+  outside = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
+  await page.route(url => !url.href.startsWith(origin), route => {
+    outside.push(route.request().url());
+    if (!route.request().url().startsWith(API)) return route.abort();
+    return route.fulfill({ status: 200, body: importReply.body, headers: {
+      'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*',
+      'Access-Control-Expose-Headers': 'X-Deck-Format, X-Deck-Name',
+      ...(importReply.format ? { 'X-Deck-Format': importReply.format } : {}),
+      ...(importReply.name ? { 'X-Deck-Name': encodeURIComponent(importReply.name) } : {})
+    } });
+  });
+  await open(path);
+}
 
 afterEach(async () => {
   await page.close();
   assert.deepEqual(pageErrors, []);
 });
-
-// Opens index.html in a new page, with the browser options given (a phone's viewport)
-async function newPage(options = {}) {
-  page = await browser.newPage(options);
-  page.on('pageerror', error => pageErrors.push(error.message));
-  page.on('dialog', dialog => dialog.accept());
-  // Stay offline: serve the import API from the test, and drop everything else
-  // that isn't the page itself (web fonts)
-  await page.route(url => !url.href.startsWith(origin), route => {
-    if (!route.request().url().startsWith(API)) return route.abort();
-    return route.fulfill({ status: 200, body: importReply.body, headers: {
-      'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*',
-      'Access-Control-Expose-Headers': 'X-Deck-Format',
-      ...(importReply.format ? { 'X-Deck-Format': importReply.format } : {})
-    } });
-  });
-  await open('/index.html');
-}
 
 async function open(path) {
   await page.goto(origin + path);
@@ -195,6 +199,90 @@ test('the format rides in the URL and falls back to Auto-detect when unknown', a
   assert.equal(await page.inputValue('#deckformat'), '');
 });
 
+// The fields a permalink carries, as the page holds them
+const fields = () => page.$$eval('#firstname, #lastname, #event, #eventdate, #eventlocation, #deckname, #deckdesigner, #deckformat, #deckmain, #deckside',
+  inputs => Object.fromEntries(inputs.map(input => [input.id, input.value])));
+
+// Clicks Copy Permalink and returns the link it copied, checking that nothing left the page
+async function copyPermalink() {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+  outside.length = 0;
+  await page.click('#permalink');
+  await page.waitForFunction(() => document.querySelector('#permalink').value === 'Copied!');
+  assert.deepEqual(outside, []);
+  const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+  assert.equal(link.origin, 'https://decklist.app');
+  return link;
+}
+
+// The sheet and sort order radios that are checked
+const radios = () => page.evaluate(() => ({
+  sheet: document.querySelector('input[name=decksheetformat]:checked').id,
+  sort: document.querySelector('input[name=sortorder]:checked').id
+}));
+
+test('Copy Permalink copies a link that reopens the deck, and sends it nowhere', async () => {
+  await deck("1 Sol Ring\n1 +2 Mace\n1 Fire // Ice\n96 Island", "1 Atraxa, Praetors' Voice", 'commander');
+  await page.fill('#deckname', 'Atraxa & Friends 100%');
+  const filled = await fields();
+  const label = await page.inputValue('#permalink');
+  const link = await copyPermalink();
+  // The button puts its own label back
+  await page.waitForFunction(label => document.querySelector('#permalink').value === label, label, { timeout: 5000 });
+
+  // A fresh page, so nothing carries over but the link
+  await page.close();
+  await newPage({}, '/index.html' + link.search);
+  assert.deepEqual(await fields(), filled);
+});
+
+test('a permalink keeps the sheet and sort order, and back and forward restore them', async () => {
+  await page.fill('#deckmain', '4 Counterspell\n56 Island');
+  await page.waitForTimeout(600);
+  await page.click('label[for=decksheet-scg]');
+  await page.click('label[for=sort-manavalue]');
+  const link = await copyPermalink();
+  assert.equal(link.search, '?deckmain=4+Counterspell%0A56+Island&decksheet=scg&decksort=manavalue');
+  // Each radio is a step in the address bar's history
+  assert.equal(new URL(page.url()).search, link.search);
+
+  // Going back two steps undoes both radios at once and keeps the steps ahead
+  await page.evaluate(() => history.go(-2));
+  await page.waitForTimeout(200);
+  assert.deepEqual(await radios(), { sheet: 'decksheet-wotc', sort: 'sort-type' });
+  assert.equal(new URL(page.url()).search, '?deckmain=4+Counterspell%0A56+Island');
+  await page.evaluate(() => history.go(2));
+  await page.waitForTimeout(200);
+  assert.deepEqual(await radios(), { sheet: 'decksheet-scg', sort: 'sort-manavalue' });
+
+  await page.close();
+  await newPage({}, '/index.html' + link.search);
+  assert.deepEqual(await radios(), { sheet: 'decksheet-scg', sort: 'sort-manavalue' });
+});
+
+test('links with %20 for spaces still open', async () => {
+  await open('/index.html?deckname=Mono%20Blue&deckmain=4%20Counterspell%0A56%20Island');
+  assert.equal(await page.inputValue('#deckname'), 'Mono Blue');
+  assert.equal(await page.inputValue('#deckmain'), '4 Counterspell\n56 Island');
+});
+
+test('on a phone, Copy Permalink opens the share sheet with the same link', async () => {
+  await page.close();
+  await newPage({ hasTouch: true, isMobile: true });
+  await page.evaluate(() => {
+    navigator.share = async data => { window.shared = data; };
+    navigator.clipboard.writeText = async () => { throw new Error('the clipboard was used'); };
+  });
+  await page.fill('#deckmain', '4 Counterspell\n56 Island');
+  const label = await page.inputValue('#permalink');
+  outside.length = 0;
+  await page.click('#permalink');
+  const shared = await page.waitForFunction(() => window.shared).then(handle => handle.jsonValue());
+  assert.equal(shared.url, 'https://decklist.app/?deckmain=4+Counterspell%0A56+Island');
+  assert.equal(await page.inputValue('#permalink'), label);
+  assert.deepEqual(outside, []);
+});
+
 test('Save and Load keep the format, and Clear resets it', async () => {
   await deck(...LEGACY, 'legacy');
   await page.click('#saveDeck');
@@ -220,12 +308,45 @@ test('an import sets the format it reports, and undo restores the last one', asy
   assert.equal(await page.inputValue('#deckformat'), 'legacy');
 });
 
+test('an import fills in the deck name it reports, and undo restores the last one', async () => {
+  await page.fill('#deckname', 'My Brew');
+  importReply = { body: '1 Sol Ring\n98 Island\nSideboard\n1 Atraxa, Praetors’ Voice', format: 'commander',
+    name: 'Atraxa “Superfriends” — 100%' };
+  await importDeck('https://moxfield.com/decks/y6-gAWsstnWUyIpXDf5SMQ');
+  assert.equal(await page.inputValue('#deckname'), 'Atraxa “Superfriends” — 100%');
+  // It reaches the address bar with the deck, so a permalink keeps it
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('deckname') === 'Atraxa “Superfriends” — 100%');
+  await page.click('#deckimport-undo');
+  assert.equal(await page.inputValue('#deckname'), 'My Brew');
+  // A deck the Worker names none for (MTGTop8's, or any from a Worker that predates
+  // the header) keeps the name already there
+  importReply = { body: '4 Goblin Guide\n56 Mountain', format: null, name: null };
+  await importDeck('https://www.mtgtop8.com/event?e=1&d=2&f=MO');
+  assert.equal(await page.inputValue('#deckname'), 'My Brew');
+});
+
 test('an MTGTop8 link names its format, and a deck with none goes back to Auto-detect', async () => {
   importReply = { body: '4 Goblin Guide\n56 Mountain', format: null };
   await importDeck('https://www.mtgtop8.com/event?e=1&d=2&f=MO');
   assert.equal(await page.inputValue('#deckformat'), 'modern');
   await importDeck('https://www.mtggoldfish.com/deck/123');
   assert.equal(await page.inputValue('#deckformat'), '');
+});
+
+test('an import selects a paper variant it names, and checks the deck against it', async () => {
+  await deck('');
+  const messages = async () => {
+    await page.waitForTimeout(600);
+    return page.$$eval('.status .details > li', items => items.map(item => item.innerText.trim()));
+  };
+  importReply = { body: '58 Mountain\nSideboard\n1 Chandra, Torch of Defiance\n1 Lightning Bolt', format: 'oathbreaker' };
+  await importDeck('https://moxfield.com/decks/y6-gAWsstnWUyIpXDf5SMQ');
+  assert.equal(await page.inputValue('#deckformat'), 'oathbreaker');
+  assert.deepEqual(await messages(), []);
+  importReply = { body: '4 Brainstorm\n56 Island\nSideboard\n15 Island', format: null };
+  await importDeck('https://www.mtgtop8.com/event?e=1&d=2&f=PREM');
+  assert.equal(await page.inputValue('#deckformat'), 'premodern');
+  assert.deepEqual(await messages(), ['The following cards are not legal in Premodern:\nBrainstorm']);
 });
 
 test('the preview renders a PDF', async () => {
