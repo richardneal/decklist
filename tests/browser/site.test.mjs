@@ -215,11 +215,8 @@ async function copyPermalink() {
   return link;
 }
 
-// The sheet and sort order radios that are checked
-const radios = () => page.evaluate(() => ({
-  sheet: document.querySelector('input[name=decksheetformat]:checked').id,
-  sort: document.querySelector('input[name=sortorder]:checked').id
-}));
+// The sort order radio that is checked
+const sortOrder = () => page.evaluate(() => document.querySelector('input[name=sortorder]:checked').id);
 
 test('Copy Permalink copies a link that reopens the deck, and sends it nowhere', async () => {
   await deck("1 Sol Ring\n1 +2 Mace\n1 Fire // Ice\n96 Island", "1 Atraxa, Praetors' Voice", 'commander');
@@ -236,28 +233,35 @@ test('Copy Permalink copies a link that reopens the deck, and sends it nowhere',
   assert.deepEqual(await fields(), filled);
 });
 
-test('a permalink keeps the sheet and sort order, and back and forward restore them', async () => {
+test('a permalink keeps the sort order, and back and forward restore it', async () => {
   await page.fill('#deckmain', '4 Counterspell\n56 Island');
   await page.waitForTimeout(600);
-  await page.click('label[for=decksheet-scg]');
   await page.click('label[for=sort-manavalue]');
+  await page.click('label[for=sort-color]');
   const link = await copyPermalink();
-  assert.equal(link.search, '?deckmain=4+Counterspell%0A56+Island&decksheet=scg&decksort=manavalue');
+  assert.equal(link.search, '?deckmain=4+Counterspell%0A56+Island&decksort=color');
   // Each radio is a step in the address bar's history
   assert.equal(new URL(page.url()).search, link.search);
 
-  // Going back two steps undoes both radios at once and keeps the steps ahead
+  // Going back two steps undoes both clicks at once and keeps the steps ahead
   await page.evaluate(() => history.go(-2));
   await page.waitForTimeout(200);
-  assert.deepEqual(await radios(), { sheet: 'decksheet-wotc', sort: 'sort-type' });
+  assert.equal(await sortOrder(), 'sort-type');
   assert.equal(new URL(page.url()).search, '?deckmain=4+Counterspell%0A56+Island');
   await page.evaluate(() => history.go(2));
   await page.waitForTimeout(200);
-  assert.deepEqual(await radios(), { sheet: 'decksheet-scg', sort: 'sort-manavalue' });
+  assert.equal(await sortOrder(), 'sort-color');
 
   await page.close();
   await newPage({}, '/index.html' + link.search);
-  assert.deepEqual(await radios(), { sheet: 'decksheet-scg', sort: 'sort-manavalue' });
+  assert.equal(await sortOrder(), 'sort-color');
+});
+
+test('an old link naming the SCG sheet opens the WotC sheet', async () => {
+  await page.close();
+  await newPage({}, '/index.html?deckmain=4+Counterspell%0A56+Island&decksheet=scg');
+  assert.equal(await page.inputValue('#deckmain'), '4 Counterspell\n56 Island');
+  assert.equal(await page.locator('input[name=decksheetformat]').count(), 0);
 });
 
 test('clicking the brand scrolls to the top and keeps the deck', async () => {

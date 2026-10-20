@@ -4,13 +4,13 @@
 
 ## What is this?
 
-decklist.app is a free, open-source web tool for creating tournament-legal Magic: The Gathering decklists and registration sheets. It generates PDF documents formatted for WotC (Wizards of the Coast) and SCG (Star City Games) tournaments.
+decklist.app is a free, open-source web tool for creating tournament-legal Magic: The Gathering decklists and registration sheets. It generates PDFs of the official WotC (Wizards of the Coast) deck registration sheet.
 
 ## Key Features
 
 - **Format Support**: Imports decklists from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, Magic Workstation, MTG Salvation, and Deckbox
 - **Import by Link**: Paste an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL and the main deck and sideboard are filled in automatically, with the deck's name (from all but MTGTop8) and its format when the site gives one
-- **Tournament Formats**: WotC and SCG registration sheet templates
+- **Registration Sheet**: The official WotC deck registration sheet
 - **Automatic Validation**: Checks for 60-card minimum, sideboard limits, and card quantity rules
 - **Direct Linking**: Create shareable URLs with pre-filled decklist data
 - **Sort Options**: Alphabetical, Mana Value, Color, Numeric, Type, or Original order
@@ -38,11 +38,10 @@ The site supports direct linking with pre-filled data:
 - `deckformat` - Format to check the deck against (standard, pioneer, modern, legacy, vintage, pauper, premodern, oldschool, commander, duel, paupercommander, predh, oathbreaker, constructed, limited); auto-detected when absent
 - `deckmain`, `deckside` - Deck lists (use `%0A` for newlines)
 - `deckimport` - URL-encoded MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL, imported on page load (`deckmain`/`deckside` take precedence)
-- `decksheet` - Format (wotc/scg)
 - `decksort` - Sort order
 - `disableediting` - Lock the pre-filled fields
 
-Example: `https://decklist.app/?event=FNM&decksheet=wotc`
+Example: `https://decklist.app/?event=FNM&decksort=alphabetical`
 
 To import a deck, put the site's address in front of its MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall link, unencoded: `https://decklist.app/https://moxfield.com/decks/<id>`
 
@@ -56,7 +55,7 @@ Unlike decklist.org (the original, now unmaintained):
 
 Unlike online deck builders (MTGGoldfish, Archidekt, Moxfield):
 - ✅ Specifically designed for tournament registration (not deck building)
-- ✅ Generates official WotC/SCG formatted PDFs
+- ✅ Generates official WotC formatted PDFs
 - ✅ Simpler, focused interface for tournament prep
 
 ## Technical Details
