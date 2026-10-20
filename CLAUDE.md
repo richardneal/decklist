@@ -229,5 +229,6 @@ A genuine refusal surfaces as the Worker's 502 and the UI tells the user to past
 - The app HTML-encodes all user input to prevent XSS attacks
 - Roboto is served from `css/fonts/` (Google Fonts' latin and latin-ext variable files, each declared at 400 and 700 in `decklist.css`), with the latin file preloaded and a `Roboto Fallback` face, Arial adjusted to Roboto's metrics, so the text doesn't reflow when the font swaps in. The page makes no request to Google Fonts
 - PDF generation happens client-side using jsPDF library
+- Icons are drawn by the site, never emoji or font glyphs, so they look the same on every device. The buttons' icons are line drawings on the dark mode toggle's grid (24px, 2px round stroke), kept as `--icon-*` mask URLs on `:root` in `decklist.css`. A button with the `icon-button` class shows the one its id sets as `--icon`, in its text color, and the `done` class swaps it for the check mark while the label says Copied!, Saved! or Loaded!. The Sort Order and Sheet options mark the chosen one with `--icon-check` too
 - The preview regenerates with debounced updates to avoid performance issues
 - `main.js` contains `posthog.capture(...)` analytics calls, all guarded by `typeof posthog !== 'undefined'`. No PostHog snippet is loaded in `index.html`, so they are inert; adding the snippet would switch analytics on site-wide

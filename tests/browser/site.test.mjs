@@ -208,7 +208,7 @@ async function copyPermalink() {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
   outside.length = 0;
   await page.click('#permalink');
-  await page.waitForFunction(() => document.querySelector('#permalink').value === 'Copied!');
+  await page.waitForFunction(() => document.querySelector('#permalink').textContent === 'Copied!');
   assert.deepEqual(outside, []);
   const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
   assert.equal(link.origin, 'https://decklist.app');
@@ -225,10 +225,10 @@ test('Copy Permalink copies a link that reopens the deck, and sends it nowhere',
   await deck("1 Sol Ring\n1 +2 Mace\n1 Fire // Ice\n96 Island", "1 Atraxa, Praetors' Voice", 'commander');
   await page.fill('#deckname', 'Atraxa & Friends 100%');
   const filled = await fields();
-  const label = await page.inputValue('#permalink');
+  const label = await page.textContent('#permalink');
   const link = await copyPermalink();
   // The button puts its own label back
-  await page.waitForFunction(label => document.querySelector('#permalink').value === label, label, { timeout: 5000 });
+  await page.waitForFunction(label => document.querySelector('#permalink').textContent === label, label, { timeout: 5000 });
 
   // A fresh page, so nothing carries over but the link
   await page.close();
@@ -287,18 +287,20 @@ test('on a phone, Copy Permalink opens the share sheet with the same link', asyn
     navigator.clipboard.writeText = async () => { throw new Error('the clipboard was used'); };
   });
   await page.fill('#deckmain', '4 Counterspell\n56 Island');
-  const label = await page.inputValue('#permalink');
+  const label = await page.textContent('#permalink');
   outside.length = 0;
   await page.click('#permalink');
   const shared = await page.waitForFunction(() => window.shared).then(handle => handle.jsonValue());
   assert.equal(shared.url, 'https://decklist.app/?deckmain=4+Counterspell%0A56+Island');
-  assert.equal(await page.inputValue('#permalink'), label);
+  assert.equal(await page.textContent('#permalink'), label);
   assert.deepEqual(outside, []);
 });
 
 test('Save and Load keep the format, and Clear resets it', async () => {
   await deck(...LEGACY, 'legacy');
   await page.click('#saveDeck');
+  assert.equal(await page.textContent('#saveDeck'), 'Saved!');
+  assert.ok(await page.$eval('#saveDeck', button => button.classList.contains('done')));
   await page.click('#clearDeck');
   assert.equal(await page.inputValue('#deckformat'), '');
   await page.click('#loadDeck');
