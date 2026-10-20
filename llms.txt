@@ -44,6 +44,8 @@ The site supports direct linking with pre-filled data:
 
 Example: `https://decklist.nealston.com/?event=FNM&decksheet=wotc`
 
+To import a deck, put the site's address in front of its MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall link, unencoded: `https://decklist.nealston.com/https://moxfield.com/decks/<id>`
+
 ## Comparison to Alternatives
 
 Unlike decklist.org (the original, now unmaintained):
