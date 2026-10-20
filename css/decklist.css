@@ -1405,7 +1405,6 @@ body.dark-mode .dark-mode-toggle .icon-sun {
 .generator-page .right h2 { font-size: 16px; text-align: left; border-bottom-width: 1px; }
 .generator-page iframe { width: 100%; box-shadow: none; }
 .generator-page #decklistpreview { width: 100%; }
-.generator-page #sortorderfloat { margin-top: 14px; }
 .generator-page #sortorderfloat label { font-size: 12px; padding: 10px 12px; box-shadow: none; }
 .generator-page #download { background: var(--accent-color); box-shadow: none; }
 .generator-page .deck-actions { background: none; padding: 0; }
@@ -1534,9 +1533,8 @@ body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
   .generator-page .right > form, .generator-page .right > .deck-actions { order: 2; }
 }
 
-/* Sort orders in three even columns, so no option wraps onto a row of its own,
-   each as wide as the longest option rather than stretched across the column */
-.generator-page #sortorderfloat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: fit-content; max-width: 100%; }
+/* Sort orders in three even columns across the box, so no option wraps onto a row of its own */
+.generator-page #sortorderfloat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .generator-page #sortorderfloat label { display: flex; align-items: center; justify-content: center; min-height: 34px; padding-top: 6px; padding-bottom: 6px; box-sizing: border-box; text-align: center; }
 
 @media (max-width: 600px) {
