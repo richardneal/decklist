@@ -4,7 +4,7 @@ import { handle } from '../hosting/index.mjs';
 
 // The site Worker only sees paths that match no static file.
 function run(path, method = 'GET') {
-  return handle(new Request('https://decklist.nealston.com' + path, { method }));
+  return handle(new Request('https://decklist.app' + path, { method }));
 }
 
 async function imported(path) {
@@ -12,7 +12,7 @@ async function imported(path) {
   assert.equal(response.status, 302, path);
   const location = response.headers.get('Location');
   assert.match(location, /^\/\?deckimport=/);
-  return new URL(location, 'https://decklist.nealston.com').searchParams.get('deckimport');
+  return new URL(location, 'https://decklist.app').searchParams.get('deckimport');
 }
 
 test('a deck link after the site address redirects to deckimport', async () => {

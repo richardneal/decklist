@@ -1235,7 +1235,7 @@ function generatePermalink(includeBlank = false, origin = window.location.origin
 async function sharePermalink() {
   const button = document.getElementById('permalink');
   const label = button.value;
-  const permalink = generatePermalink(false, 'https://decklist.nealston.com');
+  const permalink = generatePermalink(false, 'https://decklist.app');
   button.disabled = true;
 
   if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {

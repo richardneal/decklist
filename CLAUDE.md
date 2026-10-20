@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-decklist.nealston.com is a static website that generates Magic: The Gathering tournament registration sheets and decklists. It's a fork of the original [decklist.org](https://github.com/april/decklist) project by April King, enhanced with additional features and improvements.
+decklist.app is a static website that generates Magic: The Gathering tournament registration sheets and decklists. It's a fork of the original [decklist.org](https://github.com/april/decklist) project by April King, enhanced with additional features and improvements.
 
 The application runs entirely client-side using vanilla JavaScript, jQuery, and jsPDF. No build process is required to work on it — open `index.html` directly. Deployment adds two small Node pieces: `hosting/` (stages the static files and ships them to Cloudflare, with a small script that redirects deck links written after the site's address) and `worker/` (the Cloudflare Worker backing deck imports).
 
@@ -71,7 +71,7 @@ The application supports extensive URL parameter support for pre-filling forms:
 - Personal: `firstname`, `lastname`
 - Event: `event`, `eventdate`, `eventlocation`
 - Deck: `deckname`, `deckdesigner`, `deckformat` (a key of `Decklist.formats`; absent or unknown means auto-detect), `deckmain`, `deckside`, `decksort`, `deckimport` (an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; ignored when `deckmain`/`deckside` are present)
-- Path: a deck link written after the site's address, `decklist.nealston.com/https://moxfield.com/decks/<id>` (the `https://` optional, nothing encoded), redirects to `/?deckimport=<link>`; see Deployment
+- Path: a deck link written after the site's address, `decklist.app/https://moxfield.com/decks/<id>` (the `https://` optional, nothing encoded), redirects to `/?deckimport=<link>`; see Deployment
 - Display: `decksheet` (wotc/scg), `disableediting`
 
 Use `%0A` for newlines in deck data, `%20` or `+` for spaces (generated permalinks use `+`).
@@ -166,8 +166,8 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 
 The site is served by **Cloudflare Workers Static Assets**, not GitHub Pages. Two separate Workers are involved:
 
-- `nealston-decklist` — the static site at `decklist.nealston.com`, configured in `hosting/wrangler.jsonc`, with `hosting/index.mjs` as its script
-- `decklist-import-api` — the import API at `deck-import.nealston.com`, source in `worker/index.mjs`, configured in `worker/wrangler.jsonc`
+- `nealston-decklist` — the static site at `decklist.app`, configured in `hosting/wrangler.jsonc`, with `hosting/index.mjs` as its script. The old host, `decklist.nealston.com`, stays attached so a Redirect Rule in the `nealston.com` zone can send it to `decklist.app` with a 301 (rule in `hosting/README.md`)
+- `decklist-import-api` — the import API at `import.decklist.app`, source in `worker/index.mjs`, configured in `worker/wrangler.jsonc`. Its original host, `deck-import.nealston.com`, stays attached for pages loaded before the move
 
 ### Site
 

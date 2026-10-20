@@ -1,5 +1,5 @@
 // Runs only for requests that match no static asset. A deck link written after the
-// site's address (decklist.nealston.com/https://moxfield.com/decks/…) is sent on to
+// site's address (decklist.app/https://moxfield.com/decks/…) is sent on to
 // the page's deckimport parameter, which imports it on load; anything else is a 404.
 
 // The deck sites whose links may be written without https://, as DeckImport.parse

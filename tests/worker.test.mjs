@@ -6,7 +6,7 @@ function setup(options = {}) {
   const entries = new Map();
   const calls = [];
   const env = {
-    ALLOWED_ORIGINS: 'https://nealston.com,https://richardneal.github.io',
+    ALLOWED_ORIGINS: 'https://decklist.app,https://nealston.com',
     MOXFIELD_USER_AGENT: 'decklist-test/1.0',
     USER_AGENT: 'decklist-generic/1.0',
     IMPORT_LIMITER: { limit: async () => ({ success: !options.limited }) }
@@ -23,8 +23,8 @@ function setup(options = {}) {
       return new Response(options.body ?? '4 Island\n\n2 Negate', { status: options.status || 200, headers: options.headers });
     }
   };
-  return { calls, entries, run: (query = '?source=mtggoldfish&id=123', origin = 'https://nealston.com', method = 'GET') =>
-    handle(new Request('https://deck-import.nealston.com/api/import' + query, {
+  return { calls, entries, run: (query = '?source=mtggoldfish&id=123', origin = 'https://decklist.app', method = 'GET') =>
+    handle(new Request('https://import.decklist.app/api/import' + query, {
       method, headers: { Origin: origin, 'CF-Connecting-IP': '192.0.2.1' }
     }), env, ctx, services) };
 }
@@ -36,8 +36,8 @@ test('fetches only fixed export endpoints and caches validated text', async () =
   assert.equal(await first.text(), '4 Island\n\n2 Negate');
   assert.equal(s.calls[0].url, 'https://www.mtggoldfish.com/deck/download/123');
   assert.equal(s.calls[0].init.redirect, 'manual');
-  const cached = await s.run(undefined, 'https://richardneal.github.io');
-  assert.equal(cached.headers.get('Access-Control-Allow-Origin'), 'https://richardneal.github.io');
+  const cached = await s.run(undefined, 'https://nealston.com');
+  assert.equal(cached.headers.get('Access-Control-Allow-Origin'), 'https://nealston.com');
   assert.equal(s.calls.length, 1);
   await s.run('?source=mtgtop8&id=456');
   assert.equal(s.calls[1].url, 'https://www.mtgtop8.com/mtgo?d=456');

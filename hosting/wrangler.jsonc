@@ -5,7 +5,12 @@
   "main": "index.mjs",
   "compatibility_date": "2026-09-16",
   "workers_dev": false,
-  "routes": [{ "pattern": "decklist.nealston.com", "custom_domain": true }],
+  "routes": [
+    { "pattern": "decklist.app", "custom_domain": true },
+    // Kept attached so its DNS record and certificate survive; a Redirect Rule in the
+    // nealston.com zone sends it to decklist.app (see hosting/README.md).
+    { "pattern": "decklist.nealston.com", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./dist",
     "html_handling": "auto-trailing-slash",

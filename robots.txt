@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://decklist.nealston.com/sitemap.xml
+Sitemap: https://decklist.app/sitemap.xml
