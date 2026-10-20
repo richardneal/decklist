@@ -134,7 +134,9 @@ export function moxfieldDeck(text) {
 // category is the one that places it: the Sideboard category is the sideboard, and any
 // other category marked as left out of the deck (the Maybeboard, say) is dropped. The
 // commander leads the sideboard, and a companion is played from there, whether
-// Archidekt flags it or the player filed it under a Companion category.
+// Archidekt flags it or the player filed it under a Companion category. Commander has
+// no sideboard, so a deck with a commander drops the Sideboard category, where players
+// keep their cuts, as the Moxfield import does.
 export function archidektDeck(text) {
   let deck;
   try { deck = JSON.parse(text); } catch (_) { throw new Error('Archidekt did not return deck data.'); }
@@ -144,16 +146,18 @@ export function archidektDeck(text) {
   // Premier categories hold the commander, which leads the sideboard. An Oathbreaker
   // deck files its Oathbreaker and signature spell there together.
   const premier = new Set(categories.filter(category => category.isPremier).map(category => category.name));
-  const commanders = [], main = [], side = [];
+  const commanders = [], main = [], side = [], companions = [];
   for (const entry of deck.cards) {
     const category = Array.isArray(entry?.categories) ? entry.categories[0] : undefined;
     const card = [entry?.card?.oracleCard?.name, entry?.quantity];
-    if (category === 'Sideboard' || category === 'Companion' || entry?.companion === true) side.push(card);
+    if (category === 'Companion' || entry?.companion === true) companions.push(card);
+    else if (category === 'Sideboard') side.push(card);
     else if (premier.has(category)) commanders.push(card);
     else if (!excluded.has(category)) main.push(card);
   }
-  return { text: deckText(main, commanders.concat(side)), format: ARCHIDEKT_FORMATS.get(deck.deckFormat) || null,
-    name: deck.name };
+  const hasCommander = commanders.some(([name, quantity]) => name && quantity > 0);
+  return { text: deckText(main, commanders.concat(hasCommander ? [] : side, companions)),
+    format: ARCHIDEKT_FORMATS.get(deck.deckFormat) || null, name: deck.name };
 }
 
 // Collapses a Scryfall deck into quantity-prefixed decklist text, and reads its format
