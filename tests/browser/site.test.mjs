@@ -111,6 +111,20 @@ test('a 59-card deck is still a card short', async () => {
   assert.deepEqual(messages, ['Decks may not consist of less than 60 cards']);
 });
 
+test('an Arena export with a companion pasted into the main deck fills both sections', async () => {
+  const arena = 'About\nName Burn\n\nCompanion\n1 Jegantha, the Wellspring (IKO) 222\n\n' +
+    'Deck\n4 Lightning Bolt (2X2) 117\n1 Fire // Ice (MH2) 290 *F*\n55 Mountain (ANA) 1\n\n' +
+    'Sideboard\n1 Jegantha, the Wellspring (IKO) 222\n2 Blood Moon (DMR) 123\n12 Mountain (ANA) 1';
+  // No unrecognized cards, and a 15-card sideboard: the companion is counted once
+  assert.deepEqual(await deck(arena), { label: 'Auto-detect (Legacy)', messages: [] });
+  const sections = await page.evaluate(() => {
+    const parsed = Decklist.parse();
+    return [parsed.main, parsed.side].map(list => list.map(card => card.q + ' ' + card.n));
+  });
+  assert.deepEqual(sections, [['4 Lightning Bolt', '1 Fire // Ice', '55 Mountain'],
+    ['1 Jegantha, the Wellspring', '2 Blood Moon', '12 Mountain']]);
+});
+
 test('a chosen format lists its banned and restricted cards', async () => {
   assert.deepEqual((await deck(...LEGACY, 'modern')).messages,
     ['The following cards are not legal in Modern:\nBrainstorm\nForce of Will']);

@@ -42,7 +42,7 @@
         "name": "How do I use the MTG decklist generator?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Simply paste your deck from MTGO, MTGGoldfish, TappedOut, or any supported format into the Main Deck field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events."
+          "text": "Simply paste your deck from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, or any supported format into the Main Deck field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events."
         }
       },
       {
@@ -50,7 +50,7 @@
         "name": "What deck formats are supported?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Our decklist generator supports MTGO (Magic Online), MTGGoldfish, TappedOut, MTG Salvation, Deckbox Print format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard."
+          "text": "Our decklist generator supports MTG Arena, MTGO (Magic Online), Moxfield, MTGGoldfish, TappedOut, MTG Salvation, Deckbox Print format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard."
         }
       },
       {
@@ -192,7 +192,7 @@
           <ol>
             <li><strong>Enter your information:</strong> Fill in your first and last name</li>
             <li><strong>Add event details:</strong> Event name, date, and location</li>
-            <li><strong>Add your deck:</strong> Paste an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck link and click "Import deck", or copy your decklist from MTGO, MTGGoldfish, or TappedOut and paste it directly</li>
+            <li><strong>Add your deck:</strong> Paste an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck link and click "Import deck", or copy your decklist from MTG Arena, MTGO, Moxfield, MTGGoldfish, or TappedOut and paste it directly</li>
             <li><strong>Choose format:</strong> Select WotC (Wizards of the Coast) or SCG (Star City Games) sheet format</li>
             <li><strong>Download:</strong> Click "Download PDF" to get your tournament-ready registration sheet</li>
           </ol>
@@ -205,12 +205,12 @@
 
         <div class="faq-item">
           <h3>How do I use the MTG decklist generator?</h3>
-          <p>Simply paste your deck from MTGO, MTGGoldfish, TappedOut, or any supported format into the "Main Deck" field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events.</p>
+          <p>Simply paste your deck from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, or any supported format into the "Main Deck" field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events.</p>
         </div>
 
         <div class="faq-item">
           <h3>What deck formats are supported?</h3>
-          <p>Our decklist generator supports MTGO (Magic Online), MTGGoldfish, TappedOut, MTG Salvation, Deckbox "Print" format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard.</p>
+          <p>Our decklist generator supports MTG Arena, MTGO (Magic Online), Moxfield, MTGGoldfish, TappedOut, MTG Salvation, Deckbox "Print" format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard.</p>
         </div>
 
         <div class="faq-item">
@@ -253,6 +253,27 @@
 Sideboard
 3 Negate
 2 Dispel</code></pre>
+          <p>Lines marked <code>SB:</code>, as Magic Workstation writes them, go to the sideboard wherever they appear.</p>
+        </div>
+
+        <div class="docs-subsection">
+          <h3>MTG Arena</h3>
+          <p>Export your deck from MTG Arena, or copy it in Arena's format from a deck site, and paste the whole export into the "Main Deck" field. Its headers sort the cards: <code>Deck</code> is the main deck, <code>Sideboard</code> the sideboard, and a <code>Commander</code> or <code>Companion</code> goes to the sideboard, commander first. The About block that names the deck is skipped, and so are the set code and collector number after each card:</p>
+          <pre><code>About
+Name Mono-Red Burn
+
+Companion
+1 Jegantha, the Wellspring (IKO) 222
+
+Deck
+4 Lightning Bolt (2X2) 117
+4 Monastery Swiftspear (BRO) 144
+20 Mountain (ANA) 1
+
+Sideboard
+1 Jegantha, the Wellspring (IKO) 222
+2 Blood Moon (DMR) 123</code></pre>
+          <p>Arena lists a companion in the sideboard as well, and it is counted once. Headers are read in any case, with or without a colon, so <code>MAINBOARD:</code> and <code>Sideboard (15)</code> work too.</p>
         </div>
 
         <div class="docs-subsection">
@@ -263,6 +284,7 @@ Sideboard
         <div class="docs-subsection">
           <h3>Moxfield</h3>
           <p>Paste the deck's address (<code>moxfield.com/decks/…</code>) into "Import a deck". Commanders and a companion are added to the sideboard, since Commander decks have none and a commander listed there stays easy to find; the maybeboard is ignored, and so is the sideboard of a deck with a commander, where Moxfield players keep their cuts. The deck's format is selected for you when it is one the generator checks.</p>
+          <p>You can also paste a deck copied from Moxfield's Export dialog, in plain text or for MTG Arena. Set codes, collector numbers and foil markers such as <code>*F*</code> are ignored, and the Commander, Companion and Sideboard headers are read as they are in an Arena export.</p>
         </div>
 
         <div class="docs-subsection">
