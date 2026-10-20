@@ -1,4 +1,5 @@
-// Runs for the front page, and for any other request that matches no static asset.
+// Runs for every request. www.decklist.app redirects to decklist.app; a path that
+// matches a static asset is served as it is.
 // A permalink to a deck (/?deckname=…&deckmain=…) gets the page with its link preview
 // naming the deck. A deck link written after the site's address
 // (decklist.app/https://moxfield.com/decks/…) is sent on to the page's
@@ -133,6 +134,16 @@ export function rewrite(html, { title, description }) {
 export async function handle(request, env) {
   const url = new URL(request.url);
   const read = request.method === 'GET' || request.method === 'HEAD';
+
+  if (url.hostname.startsWith('www.')) {
+    url.hostname = url.hostname.slice(4);
+    return Response.redirect(url.href, 301);
+  }
+
+  if (url.pathname !== '/') {
+    const asset = await env.ASSETS.fetch(request);
+    if (asset.status !== 404) return asset;
+  }
 
   if (url.pathname === '/') {
     const page = await env.ASSETS.fetch(request);
