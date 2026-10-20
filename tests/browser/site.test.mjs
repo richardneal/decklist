@@ -38,7 +38,7 @@ after(async () => {
 
 beforeEach(async () => {
   pageErrors = [];
-  importReply = { body: '4 Island', format: null };
+  importReply = { body: '4 Island', format: null, name: null };
   await newPage();
 });
 
@@ -56,8 +56,9 @@ async function newPage(options = {}, path = '/index.html') {
     if (!route.request().url().startsWith(API)) return route.abort();
     return route.fulfill({ status: 200, body: importReply.body, headers: {
       'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*',
-      'Access-Control-Expose-Headers': 'X-Deck-Format',
-      ...(importReply.format ? { 'X-Deck-Format': importReply.format } : {})
+      'Access-Control-Expose-Headers': 'X-Deck-Format, X-Deck-Name',
+      ...(importReply.format ? { 'X-Deck-Format': importReply.format } : {}),
+      ...(importReply.name ? { 'X-Deck-Name': encodeURIComponent(importReply.name) } : {})
     } });
   });
   await open(path);
@@ -303,6 +304,23 @@ test('an import sets the format it reports, and undo restores the last one', asy
   assert.equal(await page.inputValue('#deckside'), '1 Atraxa, Praetors’ Voice');
   await page.click('#deckimport-undo');
   assert.equal(await page.inputValue('#deckformat'), 'legacy');
+});
+
+test('an import fills in the deck name it reports, and undo restores the last one', async () => {
+  await page.fill('#deckname', 'My Brew');
+  importReply = { body: '1 Sol Ring\n98 Island\nSideboard\n1 Atraxa, Praetors’ Voice', format: 'commander',
+    name: 'Atraxa “Superfriends” — 100%' };
+  await importDeck('https://moxfield.com/decks/y6-gAWsstnWUyIpXDf5SMQ');
+  assert.equal(await page.inputValue('#deckname'), 'Atraxa “Superfriends” — 100%');
+  // It reaches the address bar with the deck, so a permalink keeps it
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('deckname') === 'Atraxa “Superfriends” — 100%');
+  await page.click('#deckimport-undo');
+  assert.equal(await page.inputValue('#deckname'), 'My Brew');
+  // A deck the Worker names none for (MTGTop8's, or any from a Worker that predates
+  // the header) keeps the name already there
+  importReply = { body: '4 Goblin Guide\n56 Mountain', format: null, name: null };
+  await importDeck('https://www.mtgtop8.com/event?e=1&d=2&f=MO');
+  assert.equal(await page.inputValue('#deckname'), 'My Brew');
 });
 
 test('an MTGTop8 link names its format, and a deck with none goes back to Auto-detect', async () => {
