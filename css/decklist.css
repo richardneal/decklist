@@ -706,6 +706,9 @@ h2 {
 }
 
 .details label {
+  /* a block, so the icon below stays on the first line when the text wraps:
+     Safari places an absolute box hung off a wrapped inline between its lines */
+  display: block;
   cursor: pointer;
   color: var(--text-primary);
 }
@@ -717,7 +720,7 @@ h2 {
   height: 20px;
   overflow: visible;
   position: absolute;
-  top: 0;
+  top: 1.5px;
   left: -25px;
   width: 20px;
   -webkit-mask: center / contain no-repeat;
@@ -1427,7 +1430,7 @@ body.dark-mode .dark-mode-toggle .icon-sun {
 .generator-page #sortorderfloat label { font-size: 12px; padding: 10px 12px; box-shadow: none; }
 .generator-page #download { background: var(--accent-color); box-shadow: none; }
 .generator-page .deck-actions { background: none; padding: 0; }
-.generator-page .deck-actions button { flex: 1; font-size: 12px; padding: 10px 8px; }
+.generator-page .deck-actions button { flex: 1; font-size: 12px; padding: 10px 8px; white-space: nowrap; }
 @media (max-width: 1000px) {
   .generator-page .content-row { flex-direction: column; }
   .generator-page .wrapleft, .generator-page .right { width: 100%; box-sizing: border-box; }
