@@ -7,6 +7,8 @@
   "workers_dev": false,
   "routes": [
     { "pattern": "decklist.app", "custom_domain": true },
+    // Redirected to decklist.app by index.mjs
+    { "pattern": "www.decklist.app", "custom_domain": true },
     // Kept attached so its DNS record and certificate survive; a Redirect Rule in the
     // nealston.com zone sends it to decklist.app (see hosting/README.md).
     { "pattern": "decklist.nealston.com", "custom_domain": true }
@@ -16,6 +18,6 @@
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none",
-    "run_worker_first": ["/"]
+    "run_worker_first": true
   }
 }

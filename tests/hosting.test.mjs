@@ -3,20 +3,38 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { handle, countDeck, preview } from '../hosting/index.mjs';
 
-// The front page, as the assets binding serves it
+// The assets binding: the front page, one other file, and a 404 for anything else
 const page = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const env = {
   ASSETS: {
-    fetch: request => new Response(request.method === 'HEAD' ? null : page, {
-      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': String(page.length), ETag: '"page"' }
-    })
+    fetch: request => {
+      const path = new URL(request.url).pathname;
+      if (path === '/docs') return new Response('docs', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      if (path !== '/') return new Response('Not found', { status: 404 });
+      return new Response(request.method === 'HEAD' ? null : page, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': String(page.length), ETag: '"page"' }
+      });
+    }
   }
 };
 
-// The site Worker sees the front page, and paths that match no static file.
-function run(path, method = 'GET') {
-  return handle(new Request('https://decklist.app' + path, { method }), env);
+function run(path, method = 'GET', host = 'decklist.app') {
+  return handle(new Request('https://' + host + path, { method }), env);
 }
+
+test('www.decklist.app redirects to decklist.app, keeping the path and query', async () => {
+  for (const path of ['/', '/docs', '/?deckmain=4+Lightning+Bolt&deckformat=modern']) {
+    const response = await run(path, 'GET', 'www.decklist.app');
+    assert.equal(response.status, 301, path);
+    assert.equal(response.headers.get('Location'), 'https://decklist.app' + path);
+  }
+});
+
+test('a static file is served as the assets binding returns it', async () => {
+  const response = await run('/docs');
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), 'docs');
+});
 
 // The preview tags a page was served with
 function tags(html) {
