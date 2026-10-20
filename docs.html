@@ -66,7 +66,7 @@
         "name": "How do I save and share my decklist?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Use the Copy Permalink button to generate a unique URL that pre-fills all your deck information. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the Save Decklist button."
+          "text": "Use the Copy Permalink button to copy a link that pre-fills all your deck information; on a phone it opens the share sheet instead. The link is built in your browser and carries the whole deck itself, so nothing is stored on a server or sent to a link shortener. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the Save Decklist button."
         }
       },
       {
@@ -220,7 +220,7 @@
 
         <div class="faq-item">
           <h3>How do I save and share my decklist?</h3>
-          <p>Use the "Copy Permalink" button to generate a unique URL that pre-fills all your deck information. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the "Save Decklist" button.</p>
+          <p>Use the "Copy Permalink" button to copy a link that pre-fills all your deck information; on a phone it opens the share sheet instead. The link is built in your browser and carries the whole deck itself, so nothing is stored on a server or sent to a link shortener. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the "Save Decklist" button.</p>
         </div>
 
         <div class="faq-item">
@@ -235,7 +235,7 @@
 
         <div class="faq-item">
           <h3>Do I need to create an account?</h3>
-          <p>No! decklist.nealston.com works entirely in your browser without any registration. Pasted decks are processed in your browser. Importing a link sends the deck source and ID to our import API; sharing a permalink includes your entered deck information in the link.</p>
+          <p>No! decklist.nealston.com works entirely in your browser without any registration. Pasted decks are processed in your browser. Importing a link sends the deck source and ID to our import API; copying a permalink sends nothing anywhere, but the link itself carries the name, event and deck you entered, so share it only with people who should see them.</p>
         </div>
       </section>
 
@@ -344,14 +344,14 @@ Sideboard
             <li><strong>deckdesigner</strong> - Designer's name</li>
             <li><strong>deckformat</strong> - Format to check the deck against: <code>standard</code>, <code>pioneer</code>, <code>modern</code>, <code>legacy</code>, <code>vintage</code>, <code>pauper</code>, <code>premodern</code>, <code>oldschool</code>, <code>commander</code>, <code>duel</code> (Duel Commander), <code>paupercommander</code>, <code>predh</code>, <code>oathbreaker</code>, <code>constructed</code> (no ban list) or <code>limited</code> (defaults to auto-detect)</li>
             <li><strong>deckimport</strong> - URL-encoded MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
-            <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
-            <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
+            <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> or <code>+</code> for spaces)</li>
+            <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> or <code>+</code> for spaces)</li>
           </ul>
 
           <h4>Display Options</h4>
           <ul>
-            <li><strong>decksheet</strong> - Sheet format: <code>wotc</code> or <code>scg</code> (defaults to wotc)</li>
-            <li><strong>decksort</strong> - Sort order: <code>alphabetical</code>, <code>manavalue</code>, <code>color</code>, <code>numeric</code>, <code>original</code>, or <code>type</code> (defaults to type)</li>
+            <li><strong>decksheet</strong> - Sheet format: <code>wotc</code> or <code>scg</code> (defaults to wotc; a permalink includes it when it isn't the default)</li>
+            <li><strong>decksort</strong> - Sort order: <code>alphabetical</code>, <code>manavalue</code>, <code>color</code>, <code>numeric</code>, <code>original</code>, or <code>type</code> (defaults to type; a permalink includes it when it isn't the default)</li>
             <li><strong>disableediting</strong> - Prevent users from editing pre-filled fields</li>
           </ul>
         </div>
@@ -373,7 +373,7 @@ Sideboard
           <p>Everything together - personal info, event details, and full decklist:</p>
           <pre><code>https://decklist.nealston.com/?firstname=April&lastname=King&eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center&deckname=Miracles&deckdesigner=CubeApril&deckmain=4%20Brainstorm%0A4%20Force%20of%20Will%0A4%20Island</code></pre>
 
-          <p><strong>Important:</strong> When creating links, replace spaces with <code>%20</code> and use <code>%0A</code> for line breaks in deck lists.</p>
+          <p><strong>Important:</strong> When creating links, replace spaces with <code>%20</code> (or <code>+</code>) and use <code>%0A</code> for line breaks in deck lists.</p>
         </div>
       </section>
 
