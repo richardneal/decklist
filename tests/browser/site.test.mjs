@@ -313,6 +313,22 @@ test('an MTGTop8 link names its format, and a deck with none goes back to Auto-d
   assert.equal(await page.inputValue('#deckformat'), '');
 });
 
+test('an import selects a paper variant it names, and checks the deck against it', async () => {
+  await deck('');
+  const messages = async () => {
+    await page.waitForTimeout(600);
+    return page.$$eval('.status .details > li', items => items.map(item => item.innerText.trim()));
+  };
+  importReply = { body: '58 Mountain\nSideboard\n1 Chandra, Torch of Defiance\n1 Lightning Bolt', format: 'oathbreaker' };
+  await importDeck('https://moxfield.com/decks/y6-gAWsstnWUyIpXDf5SMQ');
+  assert.equal(await page.inputValue('#deckformat'), 'oathbreaker');
+  assert.deepEqual(await messages(), []);
+  importReply = { body: '4 Brainstorm\n56 Island\nSideboard\n15 Island', format: null };
+  await importDeck('https://www.mtgtop8.com/event?e=1&d=2&f=PREM');
+  assert.equal(await page.inputValue('#deckformat'), 'premodern');
+  assert.deepEqual(await messages(), ['The following cards are not legal in Premodern:\nBrainstorm']);
+});
+
 test('the preview renders a PDF', async () => {
   await deck(...COMMANDER);
   await page.waitForFunction(() => document.querySelector('#decklist')?.getAttribute('src')?.startsWith('data:application/pdf'),
