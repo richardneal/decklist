@@ -233,6 +233,13 @@ body {
   letter-spacing: -0.5px;
 }
 
+/* On the generator the brand is a link home that keeps its text look */
+a.navbar-brand,
+a.navbar-brand:hover {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
 .brand-icon {
   width: 24px;
   height: 24px;

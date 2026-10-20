@@ -70,6 +70,15 @@ $(document).ready(function() {
   // Initialize save/load functionality
   initDeckManagement();
 
+  // The brand links home, but a plain click on the generator only scrolls to the
+  // top: reloading would clear the form, which isn't saved as it is typed. A
+  // modified or middle click still opens a fresh generator
+  $('.navbar-brand').on('click', function(event) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
   // Initialize autocomplete for deck textareas
   // Note: initAutocomplete() is now called when cards database loads (see index.html)
   // This ensures the 'cards' object is available before autocomplete initializes
