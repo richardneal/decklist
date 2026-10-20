@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { handle, countDeck, preview } from '../hosting/index.mjs';
+import { handle, countDeck, preview, imageDeck } from '../hosting/index.mjs';
 
 // The front page, as the assets binding serves it
 const page = await readFile(new URL('../index.html', import.meta.url), 'utf8');
@@ -102,7 +102,15 @@ test("a deck permalink's preview names the deck, its format and its cards", asyn
   assert.equal(meta['og:description'],
     'Modern · 60 cards + 15 sideboard. 4 Ragavan, Nimble Pilferer · 4 Murktide Regent · 4 Lightning Bolt · 48 Island');
   assert.equal(meta['twitter:description'], meta['og:description']);
-  assert.equal(meta['og:image'], 'https://decklist.app/images/og-image.png');
+  // The image's query carries only what it draws, escaped for the attribute
+  const image = new URL(meta['og:image'].replace(/&amp;/g, '&'));
+  assert.equal(image.origin + image.pathname, 'https://decklist.app/preview.png');
+  assert.deepEqual(Object.fromEntries(image.searchParams), {
+    v: '1', name: 'Murktide', format: 'modern', main: '60', side: '15',
+    cards: '4 Ragavan, Nimble Pilferer\n4 Murktide Regent\n4 Lightning Bolt\n48 Island'
+  });
+  assert.equal(meta['twitter:image'], meta['og:image']);
+  assert.equal(meta['og:image:alt'], 'Decklist for Murktide');
   // The player and the event stay out of the preview
   assert.doesNotMatch(html, /Jace|Beleren|The Store/);
 });
@@ -123,10 +131,15 @@ test('the preview escapes what the link holds', async () => {
 
 test('a Commander deck counts and names its commander', () => {
   const main = Array.from({ length: 99 }, (_, i) => '1 Card ' + i).join('\n');
-  assert.deepEqual(preview(new URLSearchParams({ deckformat: 'commander', deckmain: main, deckside: "1 Atraxa, Praetors' Voice" })), {
-    title: 'Commander decklist',
-    description: "Commander · 100 cards · Atraxa, Praetors' Voice. 1 Card 0 · 1 Card 1 · 1 Card 2 · 1 Card 3 · 1 Card 4 · 1 Card 5 · 1 Card 6 · 1 Card 7 · …"
-  });
+  const { title, description, image } = preview(new URLSearchParams({ deckformat: 'commander', deckmain: main, deckside: "1 Atraxa, Praetors' Voice" }));
+  assert.equal(title, 'Commander decklist');
+  assert.equal(description, "Commander · 100 cards · Atraxa, Praetors' Voice. 1 Card 0 · 1 Card 1 · 1 Card 2 · 1 Card 3 · 1 Card 4 · 1 Card 5 · 1 Card 6 · 1 Card 7 · …");
+  // The image lists the first 15 cards and says how many more there are
+  const drawn = imageDeck(new URL(image, 'https://decklist.app').searchParams);
+  assert.equal(drawn.summary, 'Commander · 100 cards');
+  assert.deepEqual(drawn.leaders, ["Atraxa, Praetors' Voice"]);
+  assert.equal(drawn.cards.length, 15);
+  assert.equal(drawn.more, 84);
 });
 
 test('an unknown format is left out, and a long name is clipped', () => {
@@ -149,4 +162,38 @@ test('a pasted export is counted as the page parses it', () => {
   const deck = countDeck('// Burn\n4x Lightning Bolt\nSB: 2 Blood Moon\nGoblin Guide\n\n3 Skullcrack', '1 Pyroblast');
   assert.equal(deck.main, 5);
   assert.equal(deck.side, 6);
+});
+
+// A PNG's width and height, from its IHDR chunk
+function size(png) {
+  const view = new DataView(png.buffer, png.byteOffset);
+  return [view.getUint32(16), view.getUint32(20)];
+}
+
+test("a deck's preview image is a 1200×630 PNG", async () => {
+  const { image } = preview(new URLSearchParams({ deckname: 'Mono-Red Burn', deckformat: 'modern', deckmain: '4 Lightning Bolt\n56 Mountain', deckside: '15 Smash to Smithereens' }));
+  const response = await run(image);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Content-Type'), 'image/png');
+  assert.match(response.headers.get('Cache-Control'), /immutable/);
+  const png = new Uint8Array(await response.arrayBuffer());
+  assert.deepEqual([...png.slice(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  assert.deepEqual(size(png), [1200, 630]);
+  assert.equal((await run(image, 'HEAD')).headers.get('Content-Type'), 'image/png');
+});
+
+test("an image's query is taken on no trust", async () => {
+  const drawn = imageDeck(new URLSearchParams({
+    name: 'x'.repeat(500), format: '__proto__', main: '-5', side: '123456',
+    leaders: 'a\nb\nc\nd', cards: Array.from({ length: 40 }, () => '99999 Too many\n4 Bolt').join('\n')
+  }));
+  assert.equal(drawn.name.length, 150);
+  assert.equal(drawn.format, '');
+  assert.equal(drawn.summary, '0 cards + 9999 sideboard');
+  assert.deepEqual(drawn.leaders, ['a', 'b', 'c']);
+  assert.ok(drawn.cards.every(card => card.n === 'Bolt' && card.q === 4));
+  assert.equal(drawn.more, 0);
+  // Any text draws, in characters the font lacks too
+  const png = new Uint8Array(await (await run('/preview.png?name=' + encodeURIComponent('Æther 日本 <b>') + '&cards=' + encodeURIComponent('4 Lim-Dûl\nnot a card'))).arrayBuffer());
+  assert.deepEqual(size(png), [1200, 630]);
 });
