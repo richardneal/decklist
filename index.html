@@ -168,6 +168,14 @@
             <span>Deck Designer (optional):</span>
             <input type="text" id="deckdesigner" placeholder="Brian Weissman" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
+          <script>
+            // A famous archetype and its designer as the placeholders, set before the first paint
+            (function() {
+              var archetype = ARCHETYPES[Math.floor(Math.random() * ARCHETYPES.length)];
+              document.getElementById('deckname').placeholder = archetype[0];
+              document.getElementById('deckdesigner').placeholder = archetype[1];
+            })();
+          </script>
           <label for="deckformat">
             <span>Format (optional):</span>
             <select id="deckformat">
