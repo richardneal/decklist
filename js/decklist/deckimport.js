@@ -4,7 +4,7 @@
 // Adapted from Richard Neal's MTGGoldfish and MTGTop8 importers.
 var DeckImport = {
   // Set this to the deployed Worker URL when the API is hosted separately.
-  apiURL: 'https://deck-import.nealston.com/api/import',
+  apiURL: 'https://import.decklist.app/api/import',
 
   // The deck formats the Worker can report, as #deckformat names them.
   formats: ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'commander'],

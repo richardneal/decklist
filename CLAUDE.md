@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-decklist.nealston.com is a static website that generates Magic: The Gathering tournament registration sheets and decklists. It's a fork of the original [decklist.org](https://github.com/april/decklist) project by April King, enhanced with additional features and improvements.
+decklist.app is a static website that generates Magic: The Gathering tournament registration sheets and decklists. It's a fork of the original [decklist.org](https://github.com/april/decklist) project by April King, enhanced with additional features and improvements.
 
 The application runs entirely client-side using vanilla JavaScript, jQuery, and jsPDF. No build process is required to work on it — open `index.html` directly. Deployment adds two small Node pieces: `hosting/` (stages the static files and ships them to Cloudflare) and `worker/` (the Cloudflare Worker backing deck imports).
 
@@ -156,8 +156,8 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 
 The site is served by **Cloudflare Workers Static Assets**, not GitHub Pages. Two separate Workers are involved:
 
-- `nealston-decklist` — the static site at `decklist.nealston.com`, configured in `hosting/wrangler.jsonc`
-- `decklist-import-api` — the import API at `deck-import.nealston.com`, source in `worker/index.mjs`, configured in `worker/wrangler.jsonc`
+- `nealston-decklist` — the static site at `decklist.app`, configured in `hosting/wrangler.jsonc`. The old host, `decklist.nealston.com`, stays attached so a Redirect Rule in the `nealston.com` zone can send it to `decklist.app` with a 301 (rule in `hosting/README.md`)
+- `decklist-import-api` — the import API at `import.decklist.app`, source in `worker/index.mjs`, configured in `worker/wrangler.jsonc`. Its original host, `deck-import.nealston.com`, stays attached for pages loaded before the move
 
 ### Site
 

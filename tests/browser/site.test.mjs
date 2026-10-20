@@ -12,7 +12,7 @@ import { chromium } from 'playwright';
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.svg': 'image/svg+xml' };
-const API = 'https://deck-import.nealston.com/api/import';
+const API = 'https://import.decklist.app/api/import';
 
 let server, browser, origin, page, pageErrors, importReply;
 

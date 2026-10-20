@@ -1227,7 +1227,7 @@ function generatePermalinkSync(includeBlank = false) {
 // Async version with URL shortening (for copying to clipboard)
 async function generatePermalink(includeBlank = false) {
   // Always use production URL for sharing, even on localhost
-  let rv = 'https://decklist.nealston.com/';
+  let rv = 'https://decklist.app/';
 
   const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
   let firstParam = true;
