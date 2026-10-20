@@ -19,6 +19,7 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
      - Header lines switch the section, in either textarea, in any case and with an optional colon or `(count)`: `Deck`/`Main`/`Mainboard`/`Maindeck`/`Main Deck` for the main deck, `Sideboard`/`Side Board`/`SB` (and, as before, any line starting with `Sideboard`) for the sideboard, `Commander(s)` and `Companion(s)`. Lookup is the `sections` table in `parse()`
      - Commander and Companion cards go to the sideboard, commanders first, then companions, then the rest of the sideboard, as the import Worker places them. A companion also listed under Sideboard (Arena lists it in both) is counted once
      - An `About` block (Arena's `Name <deck name>` line) is skipped up to the next blank line or header
+     - Lines starting with `//` (MWS and Scryfall comments) are ignored without touching any section state, and a `Maybeboard` section is dropped up to the next header, as the import Worker drops it
      - A blank line after main deck cards in the main textarea still starts the sideboard, unless a header follows it, so an Arena export's blank lines don't move the main deck
      - `SB: 2 Blood Moon` lines go to the sideboard from either textarea
      - A trailing printing, ` (SET) 123` and any `*F*`/`*E*` foil markers, is stripped before lookup (`printingRE`), unless the full name is itself a card key, as `Hazmat Suit (Used)` and `Imaginary Friends (Plane)` are
@@ -39,7 +40,7 @@ The application is split into three main JavaScript modules in `js/decklist/`, a
    - Event handling for form inputs
    - PDF generation using jsPDF
    - URL parameter parsing for direct linking
-   - History state management for permalinks
+   - History state management for permalinks: `generatePermalink()` builds the link from the form as query parameters (`+` for spaces), adding `decksheet` and `decksort` when they differ from the defaults (`wotc`, `type`). The address bar and history use it; the history state always keeps the sheet and sort, so Back restores a default one too. A sheet or sort click records its step in `pushHistoryState()` after the current event, so a Back that clicks several radios finishes first. Copy Permalink (`sharePermalink()`) shares that same link on the live origin, through the native share sheet on a touch device (`navigator.share` with a coarse pointer) and the clipboard everywhere else. The whole form rides in the link; nothing is sent to a shortener or any other service
    - Input validation with debounced updates (400ms for validation, 1500ms for PDF generation); deck size, copy and legality checks come from `Decklist.check()` for the format in `#deckformat` (empty means auto-detect, and the Auto-detect option's text names the format it picked). Both sheets sort the sideboard with the main deck's sort order, except a singleton deck's (Commander, its variants and Oathbreaker; `sortSideboard()`), which keeps the order it was entered in so an imported commander stays on its first line
 
 3. **deckimport.js** - MTGGoldfish / MTGTop8 / Moxfield / Archidekt / Scryfall deck importing
@@ -73,7 +74,7 @@ The application supports extensive URL parameter support for pre-filling forms:
 - Path: a deck link written after the site's address, `decklist.nealston.com/https://moxfield.com/decks/<id>` (the `https://` optional, nothing encoded), redirects to `/?deckimport=<link>`; see Deployment
 - Display: `decksheet` (wotc/scg), `disableediting`
 
-Use `%0A` for newlines in deck data, `%20` for spaces.
+Use `%0A` for newlines in deck data, `%20` or `+` for spaces (generated permalinks use `+`).
 
 ## Card Data Regeneration
 
@@ -134,7 +135,7 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 - `tests/decklist-sort.test.cjs` - Loads `decklist.js` in a `vm` with a stubbed `$`; covers mana value sorting and sectioning (0-mana spells first, then lands, then unrecognized cards)
 - `tests/worker.test.mjs` - Imports `handle` from `worker/index.mjs` with a stubbed env, cache and fetch; covers the CORS origin allowlist, rate limiting, caching, the `X-Deck-Format` header, and failure handling
 - `tests/hosting.test.mjs` - Imports `handle` from `hosting/index.mjs`; covers which paths redirect to `deckimport` (with or without `https://`, a scheme with one slash, an encoded link, an MTGTop8 query) and which stay 404s
-- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, a Commander sideboard's order, an Arena export pasted into the main deck, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
+- `tests/browser/site.test.mjs` - Serves the repository and drives `index.html` in headless Chromium through Playwright: the Auto-detect label, the status messages for each format (illegal and restricted cards, copy limits with each card's count and limit, Commander and Limited sizes), the format in the URL and in Save/Load/Clear, Copy Permalink (it makes no outside request, the copied link reopens the same deck with its sheet and sort order, which Back and Forward also restore, and on a phone it opens the share sheet), a Commander sideboard's order, an Arena export pasted into the main deck, and imports against a stubbed Worker (`page.route`), with every other outside request dropped so it runs offline. It fails on any page error. It has its own `package.json`, so run it apart from the others:
 
   ```bash
   npm ci --prefix tests/browser
