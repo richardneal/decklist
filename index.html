@@ -150,12 +150,12 @@
             <label for="deckimport" class="import-label">Deck link</label>
             <div class="import-controls">
               <input type="url" id="deckimport" placeholder="Paste your deck URL" autocomplete="off" spellcheck="false" aria-describedby="deckimport-help deckimport-status">
-              <button type="button" id="deckimport-button" disabled>Import deck</button>
+              <button type="button" id="deckimport-button" class="icon-button" disabled>Import deck</button>
             </div>
             <p id="deckimport-help" class="import-help">Open a deck on any of those sites, then copy its address here.</p>
             <div class="import-result">
               <p id="deckimport-status" role="status" aria-live="polite" aria-atomic="true"></p>
-              <button type="button" id="deckimport-undo" hidden>Undo import</button>
+              <button type="button" id="deckimport-undo" class="icon-button" hidden>Undo import</button>
             </div>
             <p class="import-alternative">Have a text export? Paste it below.</p>
             <p class="import-help">Shortcut: put <strong>decklist.app/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
@@ -263,15 +263,15 @@
         <div class="deckliststatus" id="dlw1"><span class="status-icon warning" role="img" aria-label="Warning"></span>Decklist contains &gt;60 cards.</div>
       </div>
       <form>
-        <input type="button" id="download" value="📥 Download PDF" onclick="generateDecklistPDF('dataurlnewwindow');">
-        <input type="button" id="permalink" value="🔗 Copy Permalink" onclick="sharePermalink()">
+        <button type="button" id="download" class="icon-button" onclick="generateDecklistPDF('dataurlnewwindow');">Download PDF</button>
+        <button type="button" id="permalink" class="icon-button" onclick="sharePermalink()">Copy Permalink</button>
       </form>
 
       <!-- Deck management actions -->
       <div class="deck-actions">
-        <button id="saveDeck">💾 Save Decklist</button>
-        <button id="loadDeck">📂 Load Decklist</button>
-        <button id="clearDeck">🗑️ Clear All</button>
+        <button type="button" id="saveDeck" class="icon-button">Save Decklist</button>
+        <button type="button" id="loadDeck" class="icon-button">Load Decklist</button>
+        <button type="button" id="clearDeck" class="icon-button">Clear All</button>
       </div>
       <h2>Status</h2>
       <div class="status default">

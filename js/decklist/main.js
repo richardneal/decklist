@@ -1284,7 +1284,7 @@ function generatePermalink(includeBlank = false, origin = window.location.origin
 // everywhere else (or if the share sheet fails)
 async function sharePermalink() {
   const button = document.getElementById('permalink');
-  const label = button.value;
+  const label = button.textContent;
   const permalink = generatePermalink(false, 'https://decklist.app');
   button.disabled = true;
 
@@ -1305,13 +1305,15 @@ async function sharePermalink() {
 
   try {
     await navigator.clipboard.writeText(permalink);
-    button.value = 'Copied!';
+    button.textContent = 'Copied!';
+    button.classList.add('done');
   } catch (error) {
     console.error('Error while copying:', error);
-    button.value = 'Failed to Copy';
+    button.textContent = 'Failed to Copy';
   }
   setTimeout(() => {
-    button.value = label;
+    button.textContent = label;
+    button.classList.remove('done');
     button.disabled = false;
   }, 3000); // Reset button text and state after 3 seconds
 }
@@ -1850,9 +1852,11 @@ function initDeckManagement() {
     updateLoadButtonState();
 
     // Visual feedback
-    saveButton.textContent = '✅ Saved!';
+    saveButton.textContent = 'Saved!';
+    saveButton.classList.add('done');
     setTimeout(() => {
-      saveButton.textContent = '💾 Save Decklist';
+      saveButton.textContent = 'Save Decklist';
+      saveButton.classList.remove('done');
     }, 2000);
 
   });
@@ -1896,9 +1900,11 @@ function initDeckManagement() {
     pdfChangeWait();
 
     // Visual feedback
-    loadButton.textContent = '✅ Loaded!';
+    loadButton.textContent = 'Loaded!';
+    loadButton.classList.add('done');
     setTimeout(() => {
-      loadButton.textContent = '📂 Load Decklist';
+      loadButton.textContent = 'Load Decklist';
+      loadButton.classList.remove('done');
     }, 2000);
 
   });
