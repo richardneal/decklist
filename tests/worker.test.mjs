@@ -197,15 +197,26 @@ test('converts Archidekt deck JSON, placing each card by its first category', as
   assert.equal(response.status, 200);
   // The commander leads the sideboard, uncategorized cards are main deck, printings
   // merge, a card whose first category is excluded (the Maybeboard) is dropped, and a
-  // companion joins the sideboard by flag or by category, even an excluded one.
+  // companion joins the sideboard by flag or by category, even an excluded one. The
+  // Sideboard category is dropped, since Commander has none.
   assert.equal(await response.text(), [
     '4 Swamp', '4 Thoughtseize',
-    'Sideboard', '1 Atraxa, Praetors’ Voice', '1 Lurrus of the Dream-Den', '1 Yorion, Sky Nomad', '3 Negate'
+    'Sideboard', '1 Atraxa, Praetors’ Voice', '1 Lurrus of the Dream-Den', '1 Yorion, Sky Nomad'
   ].join('\n'));
   assert.equal(response.headers.get('X-Deck-Format'), 'commander');
   assert.equal(s.calls[0].url, 'https://archidekt.com/api/decks/123456/');
   assert.equal(s.calls[0].init.headers.Accept, 'application/json');
   assert.equal(s.calls[0].init.headers['User-Agent'], undefined);
+});
+test('keeps the Sideboard category of an Archidekt deck with no commander', async () => {
+  const deck = JSON.parse(ARCHIDEKT_JSON);
+  deck.deckFormat = 2;
+  deck.cards = deck.cards.filter(entry => entry.categories?.[0] !== 'Commander');
+  const s = setup({ body: JSON.stringify(deck) });
+  assert.equal(await (await s.run('?source=archidekt&id=123456')).text(), [
+    '4 Swamp', '4 Thoughtseize',
+    'Sideboard', '3 Negate', '1 Lurrus of the Dream-Den', '1 Yorion, Sky Nomad'
+  ].join('\n'));
 });
 test('rejects malformed Archidekt IDs and decks with no usable cards', async () => {
   const s = setup({ body: ARCHIDEKT_JSON });
