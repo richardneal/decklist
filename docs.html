@@ -74,7 +74,7 @@
         "name": "Does the generator validate card legality?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. Choose your format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper or Commander) and the generator flags any card that is banned, not legal or over its copy limit, including Vintage's restricted list. It also checks deck size: 60 cards and a 15-card sideboard for constructed, exactly 100 for Commander, at least 40 for Limited. Left on Auto-detect, it guesses the format from the deck itself: a 100-card deck is Commander, a 40-card deck is Limited, and any other gets the narrowest constructed format it is legal in."
+          "text": "Yes. Choose your format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Old School, Commander, Duel Commander, Pauper Commander, PreDH or Oathbreaker) and the generator flags any card that is banned, not legal or over its copy limit, including the Vintage and Old School restricted lists and the cards Duel Commander bans as a commander. It also checks deck size: 60 cards and a 15-card sideboard for constructed, exactly 100 for Commander and its variants, exactly 60 for Oathbreaker counting the Oathbreaker and its signature spell, at least 40 for Limited. List the commander and any companion, or the Oathbreaker and its signature spell, in the sideboard. A Pauper Commander deck's commander is not checked, since the card data does not record which creatures were printed at uncommon. Left on Auto-detect, it guesses the format from the deck itself: a 100-card deck is Commander, a 40-card deck is Limited, and any other gets the narrowest constructed format it is legal in."
         }
       },
       {
@@ -225,7 +225,7 @@
 
         <div class="faq-item">
           <h3>Does the generator validate card legality?</h3>
-          <p>Yes. Choose your format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper or Commander) and the generator flags any card that is banned, not legal or over its copy limit, including Vintage's restricted list. It also checks deck size: 60 cards and a 15-card sideboard for constructed, exactly 100 for Commander, at least 40 for Limited. Left on Auto-detect, it guesses the format from the deck itself: a 100-card deck is Commander, a 40-card deck is Limited, and any other gets the narrowest constructed format it is legal in.</p>
+          <p>Yes. Choose your format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Old School, Commander, Duel Commander, Pauper Commander, PreDH or Oathbreaker) and the generator flags any card that is banned, not legal or over its copy limit, including the Vintage and Old School restricted lists and the cards Duel Commander bans as a commander. It also checks deck size: 60 cards and a 15-card sideboard for constructed, exactly 100 for Commander and its variants, exactly 60 for Oathbreaker counting the Oathbreaker and its signature spell, at least 40 for Limited. List the commander and any companion, or the Oathbreaker and its signature spell, in the sideboard. A Pauper Commander deck's commander is not checked, since the card data does not record which creatures were printed at uncommon. Left on Auto-detect, it guesses the format from the deck itself: a 100-card deck is Commander, a 40-card deck is Limited, and any other gets the narrowest constructed format it is legal in.</p>
         </div>
 
         <div class="faq-item">
@@ -342,7 +342,7 @@ Sideboard
           <ul>
             <li><strong>deckname</strong> - Deck name/archetype (e.g., "RUG Twin")</li>
             <li><strong>deckdesigner</strong> - Designer's name</li>
-            <li><strong>deckformat</strong> - Format to check the deck against: <code>standard</code>, <code>pioneer</code>, <code>modern</code>, <code>legacy</code>, <code>vintage</code>, <code>pauper</code>, <code>commander</code>, <code>constructed</code> (no ban list) or <code>limited</code> (defaults to auto-detect)</li>
+            <li><strong>deckformat</strong> - Format to check the deck against: <code>standard</code>, <code>pioneer</code>, <code>modern</code>, <code>legacy</code>, <code>vintage</code>, <code>pauper</code>, <code>premodern</code>, <code>oldschool</code>, <code>commander</code>, <code>duel</code> (Duel Commander), <code>paupercommander</code>, <code>predh</code>, <code>oathbreaker</code>, <code>constructed</code> (no ban list) or <code>limited</code> (defaults to auto-detect)</li>
             <li><strong>deckimport</strong> - URL-encoded MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL; imports automatically on page load. Explicit <code>deckmain</code> or <code>deckside</code> parameters take precedence.</li>
             <li><strong>deckmain</strong> - Main deck (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>
             <li><strong>deckside</strong> - Sideboard (use <code>%0A</code> for newlines, <code>%20</code> for spaces)</li>

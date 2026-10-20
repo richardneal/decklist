@@ -186,14 +186,24 @@
             <span>Format (optional):</span>
             <select id="deckformat">
               <option value="" selected>Auto-detect</option>
-              <option value="standard">Standard</option>
-              <option value="pioneer">Pioneer</option>
-              <option value="modern">Modern</option>
-              <option value="legacy">Legacy</option>
-              <option value="vintage">Vintage</option>
-              <option value="pauper">Pauper</option>
-              <option value="commander">Commander</option>
-              <option value="constructed">Other constructed</option>
+              <optgroup label="Constructed">
+                <option value="standard">Standard</option>
+                <option value="pioneer">Pioneer</option>
+                <option value="modern">Modern</option>
+                <option value="legacy">Legacy</option>
+                <option value="vintage">Vintage</option>
+                <option value="pauper">Pauper</option>
+                <option value="premodern">Premodern</option>
+                <option value="oldschool">Old School</option>
+                <option value="constructed">Other constructed</option>
+              </optgroup>
+              <optgroup label="Commander">
+                <option value="commander">Commander</option>
+                <option value="duel">Duel Commander</option>
+                <option value="paupercommander">Pauper Commander</option>
+                <option value="predh">PreDH</option>
+                <option value="oathbreaker">Oathbreaker</option>
+              </optgroup>
               <option value="limited">Limited</option>
             </select>
           </label>

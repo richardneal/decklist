@@ -452,17 +452,33 @@ var Decklist = {
 
   // The formats a deck can be checked against. code is the letter the card data's
   // b (not legal) and r (restricted) fields write the format as; Other constructed
-  // and Limited have no card pool to check
+  // and Limited have no card pool to check. A Pauper Commander deck's commander is a
+  // creature printed at uncommon, which the card data doesn't record, so its
+  // commander's legality goes unchecked (uncheckedCommander)
   formats: {
-    standard:    { name: 'Standard',          rules: 'constructed', code: 's' },
-    pioneer:     { name: 'Pioneer',           rules: 'constructed', code: 'p' },
-    modern:      { name: 'Modern',            rules: 'constructed', code: 'm' },
-    legacy:      { name: 'Legacy',            rules: 'constructed', code: 'l' },
-    vintage:     { name: 'Vintage',           rules: 'constructed', code: 'v' },
-    pauper:      { name: 'Pauper',            rules: 'constructed', code: 'u' },
-    commander:   { name: 'Commander',         rules: 'commander',   code: 'c' },
-    constructed: { name: 'Other constructed', rules: 'constructed' },
-    limited:     { name: 'Limited',           rules: 'limited' }
+    standard:        { name: 'Standard',          rules: 'constructed', code: 's' },
+    pioneer:         { name: 'Pioneer',           rules: 'constructed', code: 'p' },
+    modern:          { name: 'Modern',            rules: 'constructed', code: 'm' },
+    legacy:          { name: 'Legacy',            rules: 'constructed', code: 'l' },
+    vintage:         { name: 'Vintage',           rules: 'constructed', code: 'v' },
+    pauper:          { name: 'Pauper',            rules: 'constructed', code: 'u' },
+    premodern:       { name: 'Premodern',         rules: 'constructed', code: 'e' },
+    oldschool:       { name: 'Old School',        rules: 'constructed', code: 'o' },
+    commander:       { name: 'Commander',         rules: 'commander',   code: 'c' },
+    duel:            { name: 'Duel Commander',    rules: 'commander',   code: 'd' },
+    paupercommander: { name: 'Pauper Commander',  rules: 'commander',   code: 'a', uncheckedCommander: true },
+    predh:           { name: 'PreDH',             rules: 'commander',   code: 'h' },
+    oathbreaker:     { name: 'Oathbreaker',       rules: 'oathbreaker', code: 't' },
+    constructed:     { name: 'Other constructed', rules: 'constructed' },
+    limited:         { name: 'Limited',           rules: 'limited' }
+  },
+
+  // Whether a format's deck is led by cards listed in the sideboard (a commander, or an
+  // Oathbreaker and its signature spell), and holds one copy of each card
+  // Accepts a key of Decklist.formats
+  isSingleton: function(format) {
+    const rules = (Decklist.formats[format] || Decklist.formats.constructed).rules;
+    return rules === 'commander' || rules === 'oathbreaker';
   },
 
   // Guesses a parsed deck's format. Commander and Limited decks show by their shape:
@@ -504,12 +520,18 @@ var Decklist = {
       // 100 cards, commanders included; a companion starts outside the game, so a
       // sideboard of two or more may hold one beyond the 100
       if (main + side < 100) {
-        result.deckmain.push({ error: 'commandertoosmall', data: main + side });
+        result.deckmain.push({ error: 'commandertoosmall', data: { count: main + side, format: definition.name } });
       } else if (main + side > (side >= 2 ? 101 : 100)) {
-        result.deckmain.push({ error: 'commandertoolarge', data: main + side });
+        result.deckmain.push({ error: 'commandertoolarge', data: { count: main + side, format: definition.name } });
       }
       if (side === 0)    { result.deckside.push({ warning: 'nocommander' });   }
       else if (side > 3) { result.deckside.push({ warning: 'commanderside' }); }
+    } else if (definition.rules === 'oathbreaker') {
+      // 60 cards, counting the Oathbreaker and its signature spell, which take the
+      // sideboard's place
+      if (main + side !== 60) { result.deckmain.push({ error: 'oathbreakersize', data: main + side }); }
+      if (side < 2)      { result.deckside.push({ warning: 'nooathbreaker' });   }
+      else if (side > 2) { result.deckside.push({ warning: 'oathbreakerside' }); }
     } else if (definition.rules === 'limited') {
       if (main < 40) { result.deckmain.push({ error: 'toosmall', data: 40 }); }
       return result;
@@ -521,16 +543,21 @@ var Decklist = {
     }
 
     // copies across the main deck and sideboard: a card's own text (x) beats the
-    // format's limit, and a card restricted in the format is limited to one
-    const totals = new Map(), excess = [], restricted = [], illegal = [];
+    // format's limit, and a card restricted in a constructed format is limited to one.
+    // A Commander variant holds every card to one already, and restricts the cards
+    // that may not be the commander
+    const singleton = Decklist.isSingleton(format),
+      inFormat = function(card, field) { return Boolean(definition.code) && (card[field] || '').includes(definition.code); },
+      mainNames = new Set(deck.main.map(function(card) { return card['n']; })),
+      sideNames = new Set(deck.side.map(function(card) { return card['n']; })),
+      totals = new Map(), excess = [], restricted = [], illegal = [], notCommander = [];
     deck.main.concat(deck.side).forEach(function(card) {
       const total = totals.get(card['n']);
       if (total) { total['q'] += card['q']; } else { totals.set(card['n'], Object.assign({}, card)); }
     });
     totals.forEach(function(card) {
-      const isRestricted = definition.code && (card['r'] || '').includes(definition.code),
-        limit = 'x' in card ? (card['x'] || Infinity) :
-          (definition.rules === 'commander' || isRestricted) ? 1 : 4;
+      const isRestricted = !singleton && inFormat(card, 'r'),
+        limit = 'x' in card ? (card['x'] || Infinity) : (singleton || isRestricted) ? 1 : 4;
       if (card['q'] > limit) {
         if (isRestricted && !('x' in card)) {
           restricted.push(card['n']);
@@ -538,13 +565,19 @@ var Decklist = {
           excess.push(card['n'] + ' (' + card['q'] + ' copies; limit ' + limit + ')');
         }
       }
-      if (definition.code && (card['b'] || '').includes(definition.code)) {
+      // a card only in the sideboard is the commander or a companion
+      const uncheckedCommander = definition.uncheckedCommander && !mainNames.has(card['n']);
+      if (inFormat(card, 'b') && !uncheckedCommander) {
         illegal.push(card['n']);
       }
+      if (definition.rules === 'commander' && inFormat(card, 'r') && sideNames.has(card['n'])) {
+        notCommander.push(card['n']);
+      }
     });
-    if (excess.length)     { result.deckmain.push({ error: 'quantity', data: { cards: excess } }); }
-    if (restricted.length) { result.deckmain.push({ error: 'restricted', data: { cards: restricted, format: definition.name } }); }
-    if (illegal.length)    { result.deckmain.push({ error: 'illegal', data: { cards: illegal, format: definition.name } }); }
+    if (excess.length)       { result.deckmain.push({ error: 'quantity', data: { cards: excess } }); }
+    if (restricted.length)   { result.deckmain.push({ error: 'restricted', data: { cards: restricted, format: definition.name } }); }
+    if (illegal.length)      { result.deckmain.push({ error: 'illegal', data: { cards: illegal, format: definition.name } }); }
+    if (notCommander.length) { result.deckside.push({ error: 'notcommander', data: { cards: notCommander, format: definition.name } }); }
     return result;
   }
 }

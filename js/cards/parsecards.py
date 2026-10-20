@@ -13,7 +13,9 @@ import unicodedata
 #   b - the FORMATS letter of each format the card is not legal in, omitted
 #       when it is legal in all of them
 #   r - the FORMATS letter of each format the card is restricted in (one
-#       copy only), omitted when there are none
+#       copy only), omitted when there are none. Duel Commander decks hold
+#       one copy of every card already, and restrict the cards that may not
+#       be the commander
 #   x - how many copies a deck may hold when the card itself says so, with 0
 #       for any number (basic lands, Relentless Rats); omitted otherwise
 #   n - the true name, 'True Name Nemesis'
@@ -62,7 +64,9 @@ NO_MANA_VALUE = 99
 # MTGJSON's name for each format a deck can be checked against, and the letter
 # the b and r fields write it as; decklist.js reads the same letters
 FORMATS = {'standard': 's', 'pioneer': 'p', 'modern': 'm', 'legacy': 'l',
-           'vintage': 'v', 'pauper': 'u', 'commander': 'c'}
+           'vintage': 'v', 'pauper': 'u', 'commander': 'c', 'premodern': 'e',
+           'oldschool': 'o', 'duel': 'd', 'paupercommander': 'a', 'predh': 'h',
+           'oathbreaker': 't'}
 
 # 'A deck can have any number of cards named Relentless Rats.'
 # 'A deck can have up to seven cards named Seven Dwarves.'

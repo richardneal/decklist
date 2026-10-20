@@ -184,10 +184,11 @@ function currentDeckFormat(parsedInput) {
   return $('#deckformat').val() || Decklist.detectFormat(parsedInput);
 }
 
-// Sorts the sideboard for the sheet. A Commander deck's sideboard keeps the order it
-// was entered in, so an imported deck's commander stays on its first line
+// Sorts the sideboard for the sheet. The sideboard of a deck led by its commander (or
+// Oathbreaker) keeps the order it was entered in, so an imported deck's commander
+// stays on its first line
 function sortSideboard(parsedInput) {
-  return currentDeckFormat(parsedInput) === 'commander' ? parsedInput['side'] : Decklist.sort(parsedInput['side']);
+  return Decklist.isSingleton(currentDeckFormat(parsedInput)) ? parsedInput['side'] : Decklist.sort(parsedInput['side']);
 }
 
 // Calls the appropriate decklist function based on user selection and returns resulting jsPDF object
@@ -1489,7 +1490,10 @@ function statusAndTooltips(valid) {
         else if (validationObject['error'] === 'toosmall') {
           notifications.push(prop, ['Decks may not consist of less than ' + validationObject['data'] + ' cards', validType]);
         } else if (validationObject['error'] === 'commandertoosmall' || validationObject['error'] === 'commandertoolarge') {
-          notifications.push(prop, ['Commander decks consist of exactly 100 cards, counting the commander (this one has ' +
+          notifications.push(prop, [validationObject['data']['format'] + ' decks consist of exactly 100 cards, counting the commander (this one has ' +
+            validationObject['data']['count'] + ')', validType]);
+        } else if (validationObject['error'] === 'oathbreakersize') {
+          notifications.push(prop, ['Oathbreaker decks consist of exactly 60 cards, counting the Oathbreaker and its signature spell (this one has ' +
             validationObject['data'] + ')', validType]);
         } else if (validationObject['warning'] === 'continued') {
           const extraPages = validationObject['data'];
@@ -1527,6 +1531,14 @@ function statusAndTooltips(valid) {
           notifications.push(prop, ['List your commander in the sideboard', validType]);
         } else if (validationObject['warning'] === 'commanderside') {
           notifications.push(prop, ['A Commander deck\'s sideboard holds only its commander and any companion', validType]);
+        } else if (validationObject['error'] === 'notcommander') {
+          const notCommanderHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
+          notifications.push(prop, ['The following cards may not be your commander in ' + validationObject['data']['format'] + ':' +
+            notCommanderHtml, validType]);
+        } else if (validationObject['warning'] === 'nooathbreaker') {
+          notifications.push(prop, ['List your Oathbreaker and its signature spell in the sideboard', validType]);
+        } else if (validationObject['warning'] === 'oathbreakerside') {
+          notifications.push(prop, ['An Oathbreaker deck\'s sideboard holds only its Oathbreaker and signature spell', validType]);
         }
       }
     }
