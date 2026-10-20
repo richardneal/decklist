@@ -173,6 +173,7 @@
               <button type="button" id="deckimport-undo" hidden>Undo import</button>
             </div>
             <p class="import-alternative">Have a text export? Paste it below.</p>
+            <p class="import-help">Shortcut: put <strong>decklist.app/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
           </section>
           <label for="deckname">
             <span>Deck Name / Archetype:</span>
@@ -186,21 +187,31 @@
             <span>Format (optional):</span>
             <select id="deckformat">
               <option value="" selected>Auto-detect</option>
-              <option value="standard">Standard</option>
-              <option value="pioneer">Pioneer</option>
-              <option value="modern">Modern</option>
-              <option value="legacy">Legacy</option>
-              <option value="vintage">Vintage</option>
-              <option value="pauper">Pauper</option>
-              <option value="commander">Commander</option>
-              <option value="constructed">Other constructed</option>
+              <optgroup label="Constructed">
+                <option value="standard">Standard</option>
+                <option value="pioneer">Pioneer</option>
+                <option value="modern">Modern</option>
+                <option value="legacy">Legacy</option>
+                <option value="vintage">Vintage</option>
+                <option value="pauper">Pauper</option>
+                <option value="premodern">Premodern</option>
+                <option value="oldschool">Old School</option>
+                <option value="constructed">Other constructed</option>
+              </optgroup>
+              <optgroup label="Commander">
+                <option value="commander">Commander</option>
+                <option value="duel">Duel Commander</option>
+                <option value="paupercommander">Pauper Commander</option>
+                <option value="predh">PreDH</option>
+                <option value="oathbreaker">Oathbreaker</option>
+              </optgroup>
               <option value="limited">Limited</option>
             </select>
           </label>
           <label for="deckmain">
             <span>Main Deck:</span>
             <textarea id="deckmain"></textarea>
-            <span id="protip">(Pro tip: You can simply paste in MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks without separating out the sideboard!)</span>
+            <span id="protip">(Pro tip: You can simply paste in MTG Arena, Moxfield, MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks, set codes and all, without separating out the sideboard!)</span>
           </label>
           <label for="deckside">
             <span>Sideboard:</span>
@@ -266,7 +277,7 @@
       </div>
       <form>
         <input type="button" id="download" value="📥 Download PDF" onclick="generateDecklistPDF('dataurlnewwindow');">
-        <input type="button" id="permalink" value="🔗 Copy Permalink" onclick="copyPermalinkToClipboard()">
+        <input type="button" id="permalink" value="🔗 Copy Permalink" onclick="sharePermalink()">
       </form>
 
       <!-- Deck management actions -->

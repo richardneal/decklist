@@ -41,9 +41,12 @@ $(document).ready(function() {
   // bind events to all the input fields on the left side, to generate a PDF on change
   $('div.left input:not([type="checkbox"]), div.left textarea, div.left select').on('input', pdfChangeWait);
   $('#eventdate').change(pdfChangeWait);
-  // radios and checkboxes are single clicks, not typing, so regenerate right away
+  // radios and checkboxes are single clicks, not typing, so regenerate right away.
+  // The sheet and sort order are in the link too; record it once the current event
+  // is done, so a back/forward restore that clicks several radios finishes first
   $('input[type="radio"], input[type="checkbox"]').change(function() {
     generateDecklistPDF();
+    setTimeout(pushHistoryState);
   });
 
   // bind a date picker to the event date (thanks, jQuery UI)
@@ -73,7 +76,7 @@ $(document).ready(function() {
 
   // Need to populate an initial history state so the first popstate event
   // has something to return to
-  history.replaceState(generatePermalinkSync(true), document.title, generatePermalinkSync());
+  history.replaceState(generatePermalink(true), document.title, generatePermalink());
   // and need to update our state whenever back/forward buttons are pushed.
   window.onpopstate = function(event) {
     parseUrlIntoGET(event.state);
@@ -88,16 +91,21 @@ function pdfChangeWait() {
   decklistChangeTimer = setTimeout(function() {
     const parsedInput = Decklist.parse();
     validateInput(parsedInput);
-    const newState = generatePermalinkSync(true);
-    if (newState !== history.state) {
-      console.log("pushing new state " + newState);
-      history.pushState(newState, document.title, generatePermalinkSync());
-    }
+    pushHistoryState();
   }, 400);
 
   // Wait 1500 milliseconds to generate a new PDF
   if (pdfChangeTimer) { clearTimeout(pdfChangeTimer); }
   pdfChangeTimer = setTimeout(generateDecklistPDF, 1500);
+}
+
+// Records the form in the address bar and history, unless the current state already holds it
+function pushHistoryState() {
+  const newState = generatePermalink(true);
+  if (newState !== history.state) {
+    console.log("pushing new state " + newState);
+    history.pushState(newState, document.title, generatePermalink());
+  }
 }
 
 // Good ol' Javascript, not having a capitalize function on string objects
@@ -184,10 +192,11 @@ function currentDeckFormat(parsedInput) {
   return $('#deckformat').val() || Decklist.detectFormat(parsedInput);
 }
 
-// Sorts the sideboard for the sheet. A Commander deck's sideboard keeps the order it
-// was entered in, so an imported deck's commander stays on its first line
+// Sorts the sideboard for the sheet. The sideboard of a deck led by its commander (or
+// Oathbreaker) keeps the order it was entered in, so an imported deck's commander
+// stays on its first line
 function sortSideboard(parsedInput) {
-  return currentDeckFormat(parsedInput) === 'commander' ? parsedInput['side'] : Decklist.sort(parsedInput['side']);
+  return Decklist.isSingleton(currentDeckFormat(parsedInput)) ? parsedInput['side'] : Decklist.sort(parsedInput['side']);
 }
 
 // Calls the appropriate decklist function based on user selection and returns resulting jsPDF object
@@ -1199,85 +1208,62 @@ function drawStandardContinuationPage(dl, columns, page, pageCount) {
   drawStandardFooter(dl, page, pageCount);
 }
 
-// Synchronous version for history state (no URL shortening)
-function generatePermalinkSync(includeBlank = false) {
-  // Use current origin to avoid SecurityError on localhost
-  let rv = window.location.origin + '/';
-
+// The link that pre-fills the form as it stands. The address bar and history use
+// this page's own origin, so they work on localhost; a shared link always points
+// at the live site. Everything rides in the link itself and nothing is sent anywhere
+function generatePermalink(includeBlank = false, origin = window.location.origin) {
   const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
-  let firstParam = true; // flag to track if any parameter has been appended
-  params.forEach(function(param) {
-    const field = '#' + param;
-    const value = $(field).val();
+  const values = params.map(param => [param, $('#' + param).val()])
+    .filter(([, value]) => value !== undefined && (includeBlank || value.length > 0));
 
-    if (value !== undefined && (includeBlank || value.length > 0)) {
-      if (firstParam) {
-        rv += '?'; // append ? before the first parameter
-        firstParam = false;
-      } else {
-        rv += '&'; // append & before subsequent parameters
-      }
-      rv += param + '=' + encodeURIComponent(value);
-    }
-  });
+  // The sheet and sort order are radios, named as parseGET() clicks them (#decksheet-scg,
+  // #sort-color). A link leaves them out at their defaults; the history state keeps
+  // them, so going back to a state restores them
+  [['decksheet', 'decksheetformat', 'decksheet-', 'wotc'], ['decksort', 'sortorder', 'sort-', 'type']]
+    .forEach(([param, name, prefix, fallback]) => {
+      const value = $('input[name=' + name + ']:checked').prop('id').replace(prefix, '');
+      if (includeBlank || value !== fallback) values.push([param, value]);
+    });
 
-  return rv;
+  // + for spaces keeps a long deck's link shorter; parseUrlIntoDict reads both
+  const query = values.map(([param, value]) => param + '=' + encodeURIComponent(value).replace(/%20/g, '+')).join('&');
+  return origin + '/' + (query ? '?' + query : '');
 }
 
-// Async version with URL shortening (for copying to clipboard)
-async function generatePermalink(includeBlank = false) {
-  // Always use production URL for sharing, even on localhost
-  let rv = 'https://decklist.app/';
-
-  const params = ['firstname', 'lastname', 'event', 'eventdate', 'eventlocation', 'deckmain', 'deckside', 'deckname', 'deckdesigner', 'deckformat'];
-  let firstParam = true;
-  params.forEach(function(param) {
-    const field = '#' + param;
-    const value = $(field).val();
-
-    if (value !== undefined && (includeBlank || value.length > 0)) {
-      if (firstParam) {
-        rv += '?';
-        firstParam = false;
-      } else {
-        rv += '&';
-      }
-      rv += param + '=' + encodeURIComponent(value);
-    }
-  });
-
-  // Shorten URL using is.gd
-  try {
-    const response = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(rv)}`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.shorturl;
-  } catch (error) {
-    console.error('Error while shortening URL:', error);
-    return rv; // Return the original URL in case of error
-  }
-}
-
-async function copyPermalinkToClipboard() {
+// Shares the permalink: the native share sheet on a phone or tablet, the clipboard
+// everywhere else (or if the share sheet fails)
+async function sharePermalink() {
   const button = document.getElementById('permalink');
-  button.value = 'Loading...';
-  button.disabled = true; // Disable the button
+  const label = button.value;
+  const permalink = generatePermalink(false, 'https://decklist.app');
+  button.disabled = true;
+
+  if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+    try {
+      await navigator.share({ title: document.title, url: permalink });
+      button.disabled = false;
+      return;
+    } catch (error) {
+      // AbortError: the player closed the share sheet
+      if (error.name === 'AbortError') {
+        button.disabled = false;
+        return;
+      }
+      console.error('Error while sharing:', error);
+    }
+  }
 
   try {
-      const permalink = await generatePermalink();
-      await navigator.clipboard.writeText(permalink);
-      button.value = 'Copied!';
+    await navigator.clipboard.writeText(permalink);
+    button.value = 'Copied!';
   } catch (error) {
-      console.error('Error:', error);
-      button.value = 'Failed to Copy';
-  } finally {
-      setTimeout(() => {
-          button.value = 'Copy Permalink to Clipboard';
-          button.disabled = false; // Re-enable the button
-      }, 3000); // Reset button text and state after 3 seconds
+    console.error('Error while copying:', error);
+    button.value = 'Failed to Copy';
   }
+  setTimeout(() => {
+    button.value = label;
+    button.disabled = false;
+  }, 3000); // Reset button text and state after 3 seconds
 }
 
 // Performs validation on user input and updates PDF
@@ -1489,7 +1475,10 @@ function statusAndTooltips(valid) {
         else if (validationObject['error'] === 'toosmall') {
           notifications.push(prop, ['Decks may not consist of less than ' + validationObject['data'] + ' cards', validType]);
         } else if (validationObject['error'] === 'commandertoosmall' || validationObject['error'] === 'commandertoolarge') {
-          notifications.push(prop, ['Commander decks consist of exactly 100 cards, counting the commander (this one has ' +
+          notifications.push(prop, [validationObject['data']['format'] + ' decks consist of exactly 100 cards, counting the commander (this one has ' +
+            validationObject['data']['count'] + ')', validType]);
+        } else if (validationObject['error'] === 'oathbreakersize') {
+          notifications.push(prop, ['Oathbreaker decks consist of exactly 60 cards, counting the Oathbreaker and its signature spell (this one has ' +
             validationObject['data'] + ')', validType]);
         } else if (validationObject['warning'] === 'continued') {
           const extraPages = validationObject['data'];
@@ -1527,6 +1516,14 @@ function statusAndTooltips(valid) {
           notifications.push(prop, ['List your commander in the sideboard', validType]);
         } else if (validationObject['warning'] === 'commanderside') {
           notifications.push(prop, ['A Commander deck\'s sideboard holds only its commander and any companion', validType]);
+        } else if (validationObject['error'] === 'notcommander') {
+          const notCommanderHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
+          notifications.push(prop, ['The following cards may not be your commander in ' + validationObject['data']['format'] + ':' +
+            notCommanderHtml, validType]);
+        } else if (validationObject['warning'] === 'nooathbreaker') {
+          notifications.push(prop, ['List your Oathbreaker and its signature spell in the sideboard', validType]);
+        } else if (validationObject['warning'] === 'oathbreakerside') {
+          notifications.push(prop, ['An Oathbreaker deck\'s sideboard holds only its Oathbreaker and signature spell', validType]);
         }
       }
     }

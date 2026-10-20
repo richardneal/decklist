@@ -8,7 +8,7 @@ decklist.app is a free, open-source web tool for creating tournament-legal Magic
 
 ## Key Features
 
-- **Format Support**: Imports decklists from MTGO, MTGGoldfish, TappedOut, Magic Workstation, MTG Salvation, and Deckbox
+- **Format Support**: Imports decklists from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, Magic Workstation, MTG Salvation, and Deckbox
 - **Import by Link**: Paste an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL and the main deck and sideboard are filled in automatically
 - **Tournament Formats**: WotC and SCG registration sheet templates
 - **Automatic Validation**: Checks for 60-card minimum, sideboard limits, and card quantity rules
@@ -35,7 +35,7 @@ The site supports direct linking with pre-filled data:
 - `firstname`, `lastname` - Player info
 - `event`, `eventdate`, `eventlocation` - Tournament details
 - `deckname`, `deckdesigner` - Deck name/archetype and designer
-- `deckformat` - Format to check the deck against (standard, pioneer, modern, legacy, vintage, pauper, commander, constructed, limited); auto-detected when absent
+- `deckformat` - Format to check the deck against (standard, pioneer, modern, legacy, vintage, pauper, premodern, oldschool, commander, duel, paupercommander, predh, oathbreaker, constructed, limited); auto-detected when absent
 - `deckmain`, `deckside` - Deck lists (use `%0A` for newlines)
 - `deckimport` - URL-encoded MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL, imported on page load (`deckmain`/`deckside` take precedence)
 - `decksheet` - Format (wotc/scg)
@@ -43,6 +43,8 @@ The site supports direct linking with pre-filled data:
 - `disableediting` - Lock the pre-filled fields
 
 Example: `https://decklist.app/?event=FNM&decksheet=wotc`
+
+To import a deck, put the site's address in front of its MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall link, unencoded: `https://decklist.app/https://moxfield.com/decks/<id>`
 
 ## Comparison to Alternatives
 

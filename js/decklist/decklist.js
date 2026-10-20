@@ -14,78 +14,154 @@ var Decklist = {
   parse: function(deckmain, deckside) {
     deckmain = deckmain || $('#deckmain').val(), deckmain = deckmain.split('\n'),
     deckside = deckside || $('#deckside').val(), deckside = deckside.split('\n');
-    var lists = {
-      main: [],
-      side: [],
-      unrecognized: [],
-      unparseable: [],
-    };
-    const cardRE = {
-      main: [
-        /^\s*(\d+)\s+\[.*\]\s+(.+?)\s*$/,      // MWS, what an ugly format
-        /^\s*(\d+)x*\s(.+?)\s*$/,              // MTGO deck format (4 Brainstorm) also TCG (4x Brainstorm)
-        /^\s*()?(.+?)\s*$/,                    // Single card
-      ],
-      side: [
-        /^\s*SB:\s*(\d+)\s+\[.*\]\s(.+?)\s*$/, // MWS, what an ugly format
-        /^\s*SB:\s+(\d+)\s(.+?)\s*$/,          // Sideboard lines begin with SB:
-        /^\s*()?(.+?)\s*$/,                    // Single card
-      ],
-    };
+    const cardRE = [
+      /^\s*(\d+)\s+\[.*\]\s+(.+?)\s*$/,      // MWS, what an ugly format
+      /^\s*(\d+)x*\s(.+?)\s*$/,              // MTGO deck format (4 Brainstorm) also TCG (4x Brainstorm)
+      /^\s*()?(.+?)\s*$/,                    // Single card
+    ];
+    // MWS and others mark each sideboard line instead: SB: 2 Blood Moon
+    const sbRE = /^\s*SB:\s*/i;
+    // MWS and Scryfall write comment lines: // Deck file for Magic Workstation
+    const commentRE = /^\s*\/\//;
+    // The printing Arena and Moxfield follow a name with: (2X2) 117, (MH2) 290 *F*
+    const printingRE = /(?:\s+\([a-z0-9]{2,8}\)(?:\s+[^\s()*]+)?)?(?:\s+\*[a-z]+\*)*$/i;
+    // Section headers, as Arena, MTGO and Moxfield export them: Deck, Sideboard:,
+    // Commander (1). About starts a block that names the deck, skipped to the next blank
+    // line, and cards under Maybeboard are left out, as the deck import leaves them
+    const headerRE = /^\s*([a-z]+(?: [a-z]+)?)\s*(?:\(\d+\))?\s*:?\s*$/i,
+      sections = {
+        deck: 'main', main: 'main', mainboard: 'main', maindeck: 'main',
+        sideboard: 'side', sb: 'side',
+        commander: 'commander', commanders: 'commander',
+        companion: 'companion', companions: 'companion',
+        maybeboard: 'maybe',
+        about: 'about',
+      };
 
     // Get cards from maindeck and sideboard inputs
-    lists = list_merge(lists, scan(deckmain, cardRE['main'].concat(cardRE['side'])));
-    lists = list_merge(lists, scan(deckside, cardRE['main'], 'side'));
+    const scans = [scan(deckmain, 'main'), scan(deckside, 'side')];
 
-    // de-duplicate unrecognized card names
-    lists['unrecognized'] = lists['unrecognized'].filter(onlyUnique);
+    // Commanders lead the sideboard, then a companion, as the deck import places them.
+    // Arena lists its companion again in the sideboard proper; that is the same card
+    const leaders = gather('commander', 'companion'),
+      sideboard = gather('side').filter(function(card) {
+        const leader = leaders.find(function(leader) { return leader['n'] === card['n']; });
+        if (leader) {
+          leader['q'] = Math.max(leader['q'], card['q']);
+        }
+        return !leader;
+      });
 
-    return lists;
+    return {
+      main: gather('main'),
+      side: leaders.concat(sideboard),
+      // de-duplicate unrecognized card names
+      unrecognized: gather('unrecognized').filter(onlyUnique),
+      unparseable: gather('unparseable'),
+    };
 
     // helper functions
 
+    // Collects one or more of the scans' lists into one, in order: each key from
+    // the maindeck input and then the sideboard input
+    // Accepts the keys of the lists to collect (see scan())
+    // Returns a single list, with duplicate cards merged by list_add()
+    function gather(...keys) {
+      var list = [];
+      keys.forEach(function(key) {
+        scans.forEach(function(scanned) {
+          scanned[key].forEach(function(card) {
+            list_add(list, card);
+          });
+        });
+      });
+      return list;
+    }
+
+    // Finds the section a header line starts
+    // Accepts an input string
+    // Returns 'main', 'side', 'commander', 'companion', 'maybe' or 'about', or null for any other line
+    function headerOf(line) {
+      // any line starting with Sideboard has always switched to it
+      if (/^\s*side ?board\b/i.test(line)) {
+        return 'side';
+      }
+      let match = headerRE.exec(line),
+        word = match && match[1].toLowerCase().replace(' ', '');
+      return word && sections.hasOwnProperty(word) ? sections[word] : null;
+    }
+
     // Scans lines of a given array for cards
-    // Accepts an array of input strings, an array of regexes to check against, and
-    // an optional "list" referring to the deck that should be used by default (default is 'main')
-    // Returns a "lists" object, structured like the one defined at the top of parse()
-    function scan(lines, regexes, list = 'main') {
+    // Accepts an array of input strings and the section its cards go to until a header
+    // says otherwise ('main' or 'side'). A blank line after main deck cards starts the
+    // sideboard, unless a header follows it. Comment lines and the maybeboard are skipped
+    // Returns an object structured like parse()'s result, with the cards listed under
+    // Commander and Companion headers in lists of their own
+    function scan(lines, section) {
       var identified = {
           main: [],
           side: [],
+          commander: [],
+          companion: [],
           unrecognized: [],
           unparseable: [],
         },
-        toSB = /^\s*Sideboard/,
         emptyLine = /^\s*$/,
         in_sb = false,
+        in_about = false,
         hasMainCards = false;
-    
-      // ensure list is actually a property of identified
-      if (!identified.hasOwnProperty(list)) {
-        list = 'main';
-      }
-    
+
       // main parsing loop
       linesLoop: for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
-    
-        // check for sideboard switch statement or empty line after main cards
-        if (list === 'main' && (toSB.test(line) || (emptyLine.test(line) && hasMainCards))) {
-          in_sb = true;
+        var line = lines[i],
+          header = headerOf(line);
+
+        // a comment changes nothing, not even a pending switch to the sideboard
+        if (commentRE.test(line)) {
           continue;
         }
-    
-        // check lines against passed regexes for cards
-        for (var j = 0; j < regexes.length; j++) {
-          let re = regexes[j];
+        // an empty line after main cards switches to the sideboard, once a card follows
+        if (emptyLine.test(line)) {
+          in_sb = in_sb || (section === 'main' && hasMainCards);
+          in_about = false;
+          continue;
+        }
+        if (header) {
+          in_about = header === 'about';
+          section = in_about ? section : header;
+          in_sb = false;
+          continue;
+        }
+        if (in_about || section === 'maybe') {
+          continue;
+        }
+        if (in_sb) {
+          section = 'side';
+          in_sb = false;
+        }
+
+        let list = section,
+          sb = sbRE.exec(line);
+        if (sb) {
+          line = line.slice(sb[0].length);
+          list = 'side';
+        }
+
+        // check lines against the card regexes
+        for (var j = 0; j < cardRE.length; j++) {
+          let re = cardRE[j];
           if (!re.test(line)) {
             continue;
           }
 
           let result = re.exec(line),
             quantity = parseInt(result[1]) || 1,
-            cardName = result[2],
-            card = getCard(cardName);
+            cardName = result[2];
+          // drop a trailing printing, unless it is part of the name (Hazmat Suit (Used))
+          if (!cards.hasOwnProperty(cardName.toLowerCase())) {
+            cardName = cardName.replace(printingRE, '');
+          }
+          let card = getCard(cardName);
           // add quantity field to card object
           if (card) {
             card['q'] = quantity;
@@ -101,14 +177,9 @@ var Decklist = {
               identified['unrecognized'].push(encodedCardName);
             }
           }
-           // Mark that we have encountered main deck cards
+          // Mark that we have encountered main deck cards
           if (list === 'main') {
             hasMainCards = true;
-          }
-
-          // switch to sideboard if sideboard switch has already been found
-          if (list === 'main' && in_sb) {
-            list = 'side';
           }
           // add card to identified list
           identified[list] = list_add(identified[list], card);
@@ -202,21 +273,6 @@ var Decklist = {
         }
         return -1;
       }
-    }
-    // Merges list objects
-    // Accepts two list objects (see lists of parse() for reference)
-    // Returns a single list with the items of b's list added to a's lists using list_add()
-    function list_merge(a, b) {
-      var list = {};
-      for (const keyA in a) {
-        if (!list.hasOwnProperty(keyA)) {
-          list[keyA] = a[keyA];
-        }
-        b[keyA].forEach(function (card) {
-          list_add(list[keyA], card);
-        });
-      }
-      return list;
     }
     // A uniqueness filtering function for use in array.filter()
     // Returns true only for unique values (the first value found for any duplicates)
@@ -404,17 +460,33 @@ var Decklist = {
 
   // The formats a deck can be checked against. code is the letter the card data's
   // b (not legal) and r (restricted) fields write the format as; Other constructed
-  // and Limited have no card pool to check
+  // and Limited have no card pool to check. A Pauper Commander deck's commander is a
+  // creature printed at uncommon, which the card data doesn't record, so its
+  // commander's legality goes unchecked (uncheckedCommander)
   formats: {
-    standard:    { name: 'Standard',          rules: 'constructed', code: 's' },
-    pioneer:     { name: 'Pioneer',           rules: 'constructed', code: 'p' },
-    modern:      { name: 'Modern',            rules: 'constructed', code: 'm' },
-    legacy:      { name: 'Legacy',            rules: 'constructed', code: 'l' },
-    vintage:     { name: 'Vintage',           rules: 'constructed', code: 'v' },
-    pauper:      { name: 'Pauper',            rules: 'constructed', code: 'u' },
-    commander:   { name: 'Commander',         rules: 'commander',   code: 'c' },
-    constructed: { name: 'Other constructed', rules: 'constructed' },
-    limited:     { name: 'Limited',           rules: 'limited' }
+    standard:        { name: 'Standard',          rules: 'constructed', code: 's' },
+    pioneer:         { name: 'Pioneer',           rules: 'constructed', code: 'p' },
+    modern:          { name: 'Modern',            rules: 'constructed', code: 'm' },
+    legacy:          { name: 'Legacy',            rules: 'constructed', code: 'l' },
+    vintage:         { name: 'Vintage',           rules: 'constructed', code: 'v' },
+    pauper:          { name: 'Pauper',            rules: 'constructed', code: 'u' },
+    premodern:       { name: 'Premodern',         rules: 'constructed', code: 'e' },
+    oldschool:       { name: 'Old School',        rules: 'constructed', code: 'o' },
+    commander:       { name: 'Commander',         rules: 'commander',   code: 'c' },
+    duel:            { name: 'Duel Commander',    rules: 'commander',   code: 'd' },
+    paupercommander: { name: 'Pauper Commander',  rules: 'commander',   code: 'a', uncheckedCommander: true },
+    predh:           { name: 'PreDH',             rules: 'commander',   code: 'h' },
+    oathbreaker:     { name: 'Oathbreaker',       rules: 'oathbreaker', code: 't' },
+    constructed:     { name: 'Other constructed', rules: 'constructed' },
+    limited:         { name: 'Limited',           rules: 'limited' }
+  },
+
+  // Whether a format's deck is led by cards listed in the sideboard (a commander, or an
+  // Oathbreaker and its signature spell), and holds one copy of each card
+  // Accepts a key of Decklist.formats
+  isSingleton: function(format) {
+    const rules = (Decklist.formats[format] || Decklist.formats.constructed).rules;
+    return rules === 'commander' || rules === 'oathbreaker';
   },
 
   // Guesses a parsed deck's format. Commander and Limited decks show by their shape:
@@ -456,12 +528,18 @@ var Decklist = {
       // 100 cards, commanders included; a companion starts outside the game, so a
       // sideboard of two or more may hold one beyond the 100
       if (main + side < 100) {
-        result.deckmain.push({ error: 'commandertoosmall', data: main + side });
+        result.deckmain.push({ error: 'commandertoosmall', data: { count: main + side, format: definition.name } });
       } else if (main + side > (side >= 2 ? 101 : 100)) {
-        result.deckmain.push({ error: 'commandertoolarge', data: main + side });
+        result.deckmain.push({ error: 'commandertoolarge', data: { count: main + side, format: definition.name } });
       }
       if (side === 0)    { result.deckside.push({ warning: 'nocommander' });   }
       else if (side > 3) { result.deckside.push({ warning: 'commanderside' }); }
+    } else if (definition.rules === 'oathbreaker') {
+      // 60 cards, counting the Oathbreaker and its signature spell, which take the
+      // sideboard's place
+      if (main + side !== 60) { result.deckmain.push({ error: 'oathbreakersize', data: main + side }); }
+      if (side < 2)      { result.deckside.push({ warning: 'nooathbreaker' });   }
+      else if (side > 2) { result.deckside.push({ warning: 'oathbreakerside' }); }
     } else if (definition.rules === 'limited') {
       if (main < 40) { result.deckmain.push({ error: 'toosmall', data: 40 }); }
       return result;
@@ -473,16 +551,21 @@ var Decklist = {
     }
 
     // copies across the main deck and sideboard: a card's own text (x) beats the
-    // format's limit, and a card restricted in the format is limited to one
-    const totals = new Map(), excess = [], restricted = [], illegal = [];
+    // format's limit, and a card restricted in a constructed format is limited to one.
+    // A Commander variant holds every card to one already, and restricts the cards
+    // that may not be the commander
+    const singleton = Decklist.isSingleton(format),
+      inFormat = function(card, field) { return Boolean(definition.code) && (card[field] || '').includes(definition.code); },
+      mainNames = new Set(deck.main.map(function(card) { return card['n']; })),
+      sideNames = new Set(deck.side.map(function(card) { return card['n']; })),
+      totals = new Map(), excess = [], restricted = [], illegal = [], notCommander = [];
     deck.main.concat(deck.side).forEach(function(card) {
       const total = totals.get(card['n']);
       if (total) { total['q'] += card['q']; } else { totals.set(card['n'], Object.assign({}, card)); }
     });
     totals.forEach(function(card) {
-      const isRestricted = definition.code && (card['r'] || '').includes(definition.code),
-        limit = 'x' in card ? (card['x'] || Infinity) :
-          (definition.rules === 'commander' || isRestricted) ? 1 : 4;
+      const isRestricted = !singleton && inFormat(card, 'r'),
+        limit = 'x' in card ? (card['x'] || Infinity) : (singleton || isRestricted) ? 1 : 4;
       if (card['q'] > limit) {
         if (isRestricted && !('x' in card)) {
           restricted.push(card['n']);
@@ -490,13 +573,19 @@ var Decklist = {
           excess.push(card['n'] + ' (' + card['q'] + ' copies; limit ' + limit + ')');
         }
       }
-      if (definition.code && (card['b'] || '').includes(definition.code)) {
+      // a card only in the sideboard is the commander or a companion
+      const uncheckedCommander = definition.uncheckedCommander && !mainNames.has(card['n']);
+      if (inFormat(card, 'b') && !uncheckedCommander) {
         illegal.push(card['n']);
       }
+      if (definition.rules === 'commander' && inFormat(card, 'r') && sideNames.has(card['n'])) {
+        notCommander.push(card['n']);
+      }
     });
-    if (excess.length)     { result.deckmain.push({ error: 'quantity', data: { cards: excess } }); }
-    if (restricted.length) { result.deckmain.push({ error: 'restricted', data: { cards: restricted, format: definition.name } }); }
-    if (illegal.length)    { result.deckmain.push({ error: 'illegal', data: { cards: illegal, format: definition.name } }); }
+    if (excess.length)       { result.deckmain.push({ error: 'quantity', data: { cards: excess } }); }
+    if (restricted.length)   { result.deckmain.push({ error: 'restricted', data: { cards: restricted, format: definition.name } }); }
+    if (illegal.length)      { result.deckmain.push({ error: 'illegal', data: { cards: illegal, format: definition.name } }); }
+    if (notCommander.length) { result.deckside.push({ error: 'notcommander', data: { cards: notCommander, format: definition.name } }); }
     return result;
   }
 }
