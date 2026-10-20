@@ -495,3 +495,39 @@ test("a Commander deck's sideboard keeps the commander first on the sheet", asyn
   await page.selectOption('#deckformat', 'oathbreaker');
   assert.deepEqual(await sideboard(), ['Jace, Multiverse Architect', 'Grizzly Bears', 'Counterspell']);
 });
+
+test('the Text file tab loads an uploaded deck file, and undo restores the last deck', async () => {
+  await page.fill('#deckmain', '4 Island');
+  await page.selectOption('#deckformat', 'modern');
+  assert.equal(await page.isVisible('#deckfile-button'), false);
+  await page.click('#import-tab-file');
+  assert.equal(await page.isVisible('#deckimport'), false);
+  assert.equal(await page.getAttribute('#import-tab-file', 'aria-selected'), 'true');
+  await page.setInputFiles('#deckfile', { name: 'burn.dek', mimeType: 'application/octet-stream', buffer: Buffer.from(
+    '<?xml version="1.0"?><Deck><Cards Quantity="4" Sideboard="false" Name="Lightning Bolt"/>' +
+    '<Cards Quantity="56" Sideboard="false" Name="Mountain"/><Cards Quantity="2" Sideboard="true" Name="Abrade"/></Deck>') });
+  await page.waitForSelector('#deckimport-status[data-state="success"]');
+  assert.equal(await page.inputValue('#deckmain'), '4 Lightning Bolt\n56 Mountain');
+  assert.equal(await page.inputValue('#deckside'), '2 Abrade');
+  // A file names no format, so the one chosen stays
+  assert.equal(await page.inputValue('#deckformat'), 'modern');
+  assert.match(await page.textContent('#deckimport-status'), /Loaded burn\.dek: 60 main-deck cards and 2 sideboard cards/);
+  await page.click('#deckimport-undo');
+  assert.equal(await page.inputValue('#deckmain'), '4 Island');
+
+  // An Arena export goes into the main deck box whole, and a file with no deck changes nothing
+  await page.setInputFiles('#deckfile', { name: 'arena.txt', mimeType: 'text/plain',
+    buffer: Buffer.from('About\nName Mono Red\n\nDeck\n4 Lightning Bolt\n56 Mountain\n\nSideboard\n2 Abrade\n') });
+  await page.waitForSelector('#deckimport-status[data-state="success"]');
+  assert.equal(await page.inputValue('#deckname'), 'Mono Red');
+  assert.equal(await page.inputValue('#deckside'), '');
+  await page.setInputFiles('#deckfile', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('Remember to sleeve up') });
+  await page.waitForSelector('#deckimport-status[data-state="error"]');
+  assert.match(await page.inputValue('#deckmain'), /^About/);
+
+  // The arrow keys move between the tabs
+  await page.focus('#import-tab-file');
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await page.isVisible('#deckimport'), true);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'import-tab-link');
+});

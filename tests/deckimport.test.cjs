@@ -84,7 +84,7 @@ function importerUI() {
     if (typeof selector === 'function') { selector(); return; }
     if (typeof selector !== 'string') return selector;
     const ids = selector.split(',').map(id => id.trim());
-    if (ids.length > 1) return { on(event, handler) { ids.forEach(id => $(id).on(event, handler)); } };
+    if (ids.length > 1) return { on(event, handler) { ids.forEach(id => $(id).on(event, handler)); return this; } };
     if (!elements.has(selector)) elements.set(selector, {
       value: '', properties: {}, handlers: {}, message: '', inputs: 0,
       val(value) { if (value === undefined) return this.value; this.value = value; return this; },
@@ -274,4 +274,57 @@ test('asks the API for the Scryfall source and deck ID', async () => {
     return { ok: true, text: async () => '4 Island\nSideboard\n2 Negate' };
   };
   assert.equal((await importer.load('https://scryfall.com/@nyuu/decks/' + SCRYFALL_ID)).side, '2 Negate');
+});
+
+test('reads a plain text deck file into the two deck boxes', () => {
+  const deck = importer.fromFile('﻿4 Lightning Bolt\r\n56 Mountain\r\n\r\n2 Smash to Smithereens\r\n');
+  assert.equal(deck.main, '4 Lightning Bolt\n56 Mountain');
+  assert.equal(deck.side, '2 Smash to Smithereens');
+  assert.equal(deck.name, '');
+  assert.equal(deck.format, undefined);
+});
+test('keeps a deck file with headers whole for the parser, with its Arena name', () => {
+  const text = 'About\nName Mono Red\n\nDeck\n4 Lightning Bolt (M10) 146\n\nSideboard\n2 Abrade';
+  const deck = importer.fromFile(text);
+  assert.equal(deck.main, text);
+  assert.equal(deck.side, null);
+  assert.equal(deck.name, 'Mono Red');
+});
+test('reads MTGO .dek files, merging printings', () => {
+  const deck = importer.fromFile(`<?xml version="1.0" encoding="utf-8"?>
+<Deck xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <NetDeckID>0</NetDeckID>
+  <Cards CatID="1" Quantity="2" Sideboard="false" Name="Lightning Bolt" Annotation="0" />
+  <Cards CatID="2" Quantity="2" Sideboard="false" Name="Lightning Bolt" Annotation="0" />
+  <Cards CatID="3" Quantity="56" Sideboard="false" Name="Mountain" />
+  <Cards Name="Kiki-Jiki, Mirror Breaker" Quantity="1" Sideboard="true" CatID="4" />
+  <Cards CatID="5" Quantity="2" Sideboard="true" Name="Fire &amp; Ice" />
+</Deck>`);
+  assert.equal(deck.main, '4 Lightning Bolt\n56 Mountain');
+  assert.equal(deck.side, '1 Kiki-Jiki, Mirror Breaker\n2 Fire & Ice');
+});
+test('reads Cockatrice .cod files and their deck name, dropping tokens', () => {
+  const deck = importer.fromFile(`<?xml version="1.0" encoding="UTF-8"?>
+<cockatrice_deck version="1">
+  <deckname>Burn &amp; Turn</deckname>
+  <comments></comments>
+  <zone name="main">
+    <card number="4" name="Lightning Bolt"/>
+    <card number="56" name="Mountain"/>
+  </zone>
+  <zone name="side">
+    <card number="2" name="Smash to Smithereens"/>
+  </zone>
+  <zone name="tokens">
+    <card number="1" name="Goblin"/>
+  </zone>
+</cockatrice_deck>`);
+  assert.equal(deck.main, '4 Lightning Bolt\n56 Mountain');
+  assert.equal(deck.side, '2 Smash to Smithereens');
+  assert.equal(deck.name, 'Burn & Turn');
+});
+test('rejects deck files that hold no decklist', () => {
+  for (const text of ['', 'just some notes', '<html><body>4 Island</body></html>', 'PK\u0003\u0004\u0000', '<?xml version="1.0"?><Deck></Deck>']) {
+    assert.throws(() => importer.fromFile(text), /decklist/);
+  }
 });

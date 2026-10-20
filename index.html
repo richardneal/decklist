@@ -145,19 +145,33 @@
           <h2>Deck Information</h2>
           <section class="deck-import" aria-labelledby="deckimport-title">
             <h3 id="deckimport-title">Import a deck</h3>
-            <p class="import-description">Paste a deck link from MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall. We’ll fill in the main deck and sideboard.</p>
-            <label for="deckimport" class="import-label">Deck link</label>
-            <div class="import-controls">
-              <input type="url" id="deckimport" placeholder="Paste your deck URL" autocomplete="off" spellcheck="false" aria-describedby="deckimport-help deckimport-status">
-              <button type="button" id="deckimport-button" class="icon-button" disabled>Import deck</button>
+            <div class="import-tabs" role="tablist" aria-label="Import from">
+              <button type="button" role="tab" id="import-tab-link" aria-controls="import-panel-link" aria-selected="true">Deck link</button>
+              <button type="button" role="tab" id="import-tab-file" aria-controls="import-panel-file" aria-selected="false" tabindex="-1">Text file</button>
             </div>
-            <p id="deckimport-help" class="import-help">Open a deck on any of those sites, then copy its address here.</p>
+            <div role="tabpanel" id="import-panel-link" aria-labelledby="import-tab-link">
+              <p class="import-description">Paste a deck link from MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall. We’ll fill in the main deck and sideboard.</p>
+              <label for="deckimport" class="import-label">Deck link</label>
+              <div class="import-controls">
+                <input type="url" id="deckimport" placeholder="Paste your deck URL" autocomplete="off" spellcheck="false" aria-describedby="deckimport-help deckimport-status">
+                <button type="button" id="deckimport-button" class="icon-button" disabled>Import deck</button>
+              </div>
+              <p id="deckimport-help" class="import-help">Open a deck on any of those sites, then copy its address here.</p>
+              <p class="import-help">Shortcut: put <strong>decklist.app/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
+            </div>
+            <div role="tabpanel" id="import-panel-file" aria-labelledby="import-tab-file" hidden>
+              <p class="import-description">Upload a deck file exported from MTG Arena, MTGO, Cockatrice or any deck site: a text list (.txt), an MTGO .dek or a Cockatrice .cod.</p>
+              <div id="deckfile-drop" class="import-drop">
+                <input type="file" id="deckfile" accept=".txt,.dek,.dec,.cod,.mwdeck,text/plain" hidden>
+                <button type="button" id="deckfile-button" class="icon-button" aria-describedby="deckimport-status">Choose file</button>
+                <span>or drop it here, or on a deck box below</span>
+              </div>
+            </div>
             <div class="import-result">
               <p id="deckimport-status" role="status" aria-live="polite" aria-atomic="true"></p>
               <button type="button" id="deckimport-undo" class="icon-button" hidden>Undo import</button>
             </div>
             <p class="import-alternative">Have a text export? Paste it below.</p>
-            <p class="import-help">Shortcut: put <strong>decklist.app/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
           </section>
           <label for="deckname">
             <span>Deck Name / Archetype (optional):</span>
