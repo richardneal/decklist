@@ -50,6 +50,24 @@ const touchScreen = window.matchMedia('(pointer: coarse)').matches;
 // The one-column layout (decklist.css), where the deck boxes list their own problems
 const oneColumn = window.matchMedia('(max-width: 1000px)');
 
+// The sidebar's top margin when stuck (16px in decklist.css), above and below it
+const STICKY_MARGIN = 16;
+
+// Makes the preview sidebar sticky only while it fits in the window with a margin
+// above and below. Its status grows and shrinks with the deck's problems, so it is
+// rechecked whenever the sidebar or the window changes size; one that outgrows the
+// window goes back to scrolling with the page
+function initStickySidebar() {
+  const sidebar = document.querySelector('.generator-page .right');
+  if (!sidebar) return;
+  const update = function() {
+    sidebar.classList.toggle('sticky', sidebar.offsetHeight + 2 * STICKY_MARGIN <= window.innerHeight);
+  };
+  if (window.ResizeObserver) new ResizeObserver(update).observe(sidebar);
+  window.addEventListener('resize', update);
+  update();
+}
+
 // When the page loads, generate a blank deck list preview
 $(document).ready(function() {
   // Initialize dark mode from localStorage
@@ -57,6 +75,8 @@ $(document).ready(function() {
 
   // Initialize save/load functionality
   initDeckManagement();
+
+  initStickySidebar();
 
   // The brand links home, but a plain click on the generator only scrolls to the
   // top: reloading would clear the form, which isn't saved as it is typed. A

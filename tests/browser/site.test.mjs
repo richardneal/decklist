@@ -265,6 +265,23 @@ test('an old link naming the SCG sheet opens the WotC sheet', async () => {
   assert.equal(await page.locator('input[name=decksheetformat]').count(), 0);
 });
 
+test('the preview sidebar is sticky only while it fits in the window', async () => {
+  const sticky = () => page.evaluate(() => getComputedStyle(document.querySelector('.right')).position === 'sticky');
+  await page.close();
+  await newPage({ viewport: { width: 1280, height: 1100 } }, '/index.html?deckmain=4+Counterspell%0A56+Island');
+  assert.equal(await sticky(), true);
+
+  // A long status makes it taller than the window, so it scrolls with the page again
+  await page.fill('#deckmain', Array.from({ length: 30 }, (_, i) => '1 Not A Card ' + i).join('\n'));
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.right')).position !== 'sticky');
+  await page.fill('#deckmain', '4 Counterspell\n56 Island');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.right')).position === 'sticky');
+
+  // and so does a window too short for it
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.right')).position !== 'sticky');
+});
+
 test('clicking the brand scrolls to the top and keeps the deck', async () => {
   await open('/index.html?deckname=Mono+Blue&deckmain=4+Counterspell%0A56+Island');
   await page.fill('#deckdesigner', 'Jace');
