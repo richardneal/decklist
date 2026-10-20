@@ -80,6 +80,7 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --transition: all 0.2s ease;
+  --text-placeholder: #9aa1a8;
 }
 
 /* Dark mode variables */
@@ -100,6 +101,15 @@ body.dark-mode {
   --success: #8ab4f0;
   --warning: #f4a261;
   --error: #f28b82;
+  --text-placeholder: #6c757d;
+}
+
+/* The archetype examples, dimmed and italic so they don't read as filled in */
+#deckname::placeholder,
+#deckdesigner::placeholder {
+  color: var(--text-placeholder);
+  font-style: italic;
+  opacity: 1;
 }
 
 .wrapper {
@@ -241,6 +251,13 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.5px;
+}
+
+/* On the generator the brand is a link home that keeps its text look */
+a.navbar-brand,
+a.navbar-brand:hover {
+  color: var(--text-primary);
+  text-decoration: none;
 }
 
 .brand-icon {
