@@ -228,10 +228,18 @@
             <textarea id="deckmain"></textarea>
             <span id="protip">(Pro tip: You can simply paste in MTG Arena, Moxfield, MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks, set codes and all, without separating out the sideboard!)</span>
           </label>
+          <div class="deckcheck" id="deckmain-check" aria-label="Main deck as read" role="region" hidden>
+            <ul></ul>
+            <button type="button" class="deckcheck-toggle" aria-expanded="false"></button>
+          </div>
           <label for="deckside">
             <span>Sideboard:</span>
             <textarea id="deckside"></textarea>
           </label>
+          <div class="deckcheck" id="deckside-check" aria-label="Sideboard as read" role="region" hidden>
+            <ul></ul>
+            <button type="button" class="deckcheck-toggle" aria-expanded="false"></button>
+          </div>
           <label for="separate-basic-lands" class="checkbox-label">
             <span>Separate basic lands</span>
             <input type="checkbox" id="separate-basic-lands" name="separate-basic-lands">

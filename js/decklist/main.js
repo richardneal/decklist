@@ -71,6 +71,12 @@ $(document).ready(function() {
     tooltipClass: 'tooltip'
   });
 
+  // the deck as read under each textarea: reveal the cards that check out on request
+  $('.deckcheck-toggle').on('click', function() {
+    $(this).closest('.deckcheck').toggleClass('expanded');
+    validateInput(Decklist.parse());
+  });
+
   // parse the GET parameters and set them, also generates preview (via event)
   parseGET();
 
@@ -1392,6 +1398,89 @@ function validateInput(parsedLists) {
 
   // pass validation data to output status/tooltip information
   statusAndTooltips(validate);
+  markCards(parsedLists, validate);
+}
+
+// Lists the deck as it was read under each textarea, with each card's problems on its
+// own row, worded as the status box words them. Only the rows with a problem show
+// until the player asks for the rest, which shows each name as it was matched
+function markCards(parsedLists, valid) {
+  // problems by card name, for the main deck list and the sideboard list
+  const problems = { deckmain: new Map(), deckside: new Map() },
+    mark = function(lists, name, level, message) {
+      lists.forEach(function(list) {
+        const marks = problems[list].get(name) || [];
+        marks.push([message, level]);
+        problems[list].set(name, marks);
+      });
+    },
+    both = ['deckmain', 'deckside'];
+
+  valid.deckmain.concat(valid.deckside).forEach(function(validationObject) {
+    const level = validationObject['warning'] ? 'warning' : 'error',
+      type = validationObject[level],
+      data = validationObject['data'];
+    if (type === 'quantity') {
+      data['copies'].forEach(function(card) {
+        mark(both, card['n'], level, 'Over its copy limit (' + Decklist.copiesNote(card) + ')');
+      });
+    } else if (type === 'restricted') {
+      data['cards'].forEach(function(name) {
+        mark(both, name, level, 'Restricted in ' + data['format'] + ', so a deck may hold only one copy');
+      });
+    } else if (type === 'illegal') {
+      data['cards'].forEach(function(name) { mark(both, name, level, 'Not legal in ' + data['format']); });
+    } else if (type === 'notcommander') {
+      data['cards'].forEach(function(name) {
+        mark(['deckside'], name, level, 'May not be your commander in ' + data['format']);
+      });
+    } else if (type === 'unrecognized') {
+      data.forEach(function(name) { mark(both, name, level, 'Couldn\'t recognize this card'); });
+    }
+  });
+
+  // an unparseable line is listed under the textarea it came from (already HTML-encoded)
+  const encode = function(string) { return $('<div>').text(string).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); },
+    sideLines = new Set($('#deckside').val().split('\n').map(encode)),
+    unrecognized = new Set(parsedLists['unrecognized']),
+    rows = { deckmain: [], deckside: [] };
+
+  [['deckmain', parsedLists['main']], ['deckside', parsedLists['side']]].forEach(function([list, deck]) {
+    deck.forEach(function(card) {
+      // an unrecognized card's name is HTML-encoded already
+      const name = unrecognized.has(card['n']) ? card['n'] : encode(card['n']);
+      rows[list].push({ q: card['q'], name: name, marks: problems[list].get(card['n']) || [] });
+    });
+  });
+  parsedLists['unparseable'].forEach(function(line) {
+    const list = sideLines.has(line) ? 'deckside' : 'deckmain';
+    rows[list].push({ q: '', name: line, marks: [['Couldn\'t parse this line', 'warning']] });
+  });
+
+  both.forEach(function(list) {
+    const container = $('#' + list + '-check'),
+      cardCount = parsedLists[list === 'deckmain' ? 'main' : 'side'].length,
+      problemCount = rows[list].filter(function(row) { return row.marks.length; }).length;
+    if (!rows[list].length) {
+      container.prop('hidden', true).find('ul').empty();
+      return;
+    }
+
+    container.find('ul').html(rows[list].map(function(row) {
+      const level = row.marks.some(function(m) { return m[1] === 'error'; }) ? 'error' : row.marks.length ? 'warning' : 'ok',
+        reasons = row.marks.map(function(m) { return '<span class="deckcheck-reason">' + m[0] + '</span>'; }).join('');
+      return '<li class="' + level + '"><span class="deckcheck-q">' + row.q + '</span>' +
+        '<span class="deckcheck-name">' + row.name + '</span>' + reasons + '</li>';
+    }).join(''));
+
+    const expanded = container.hasClass('expanded'),
+      cards = cardCount === 1 ? '1 card' : cardCount + ' cards';
+    container.prop('hidden', false).toggleClass('clean', problemCount === 0);
+    container.find('.deckcheck-toggle')
+      .attr('aria-expanded', String(expanded))
+      .text(expanded ? 'Hide the cards that check out' : (problemCount ? 'Show all ' + cards + ' as read' :
+        cardCount === 1 ? 'The card checks out. Show it as read' : 'All ' + cards + ' check out. Show them as read'));
+  });
 }
 
 

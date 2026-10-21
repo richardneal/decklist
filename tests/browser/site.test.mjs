@@ -366,3 +366,59 @@ test("a Commander deck's sideboard keeps the commander first on the sheet", asyn
   await page.selectOption('#deckformat', 'oathbreaker');
   assert.deepEqual(await sideboard(), ['Jace, Multiverse Architect', 'Grizzly Bears', 'Counterspell']);
 });
+
+// The rows under a textarea that the player sees, as "quantity name: reason; reason"
+function marked(list) {
+  return page.$$eval('#' + list + '-check li', items => items.filter(item => item.offsetParent).map(item => {
+    const reasons = [...item.querySelectorAll('.deckcheck-reason')].map(reason => reason.textContent);
+    const row = (item.querySelector('.deckcheck-q').textContent + ' ' + item.querySelector('.deckcheck-name').textContent).trim();
+    return item.className + ' ' + row + (reasons.length ? ': ' + reasons.join('; ') : '');
+  }));
+}
+
+test('each card with a problem is marked on its own row under its textarea', async () => {
+  await deck('5 Lightning Bolt\n4 Brainstorm\n1 Notacard\n50 Mountain', '15 Mountain', 'modern');
+  assert.deepEqual(await marked('deckmain'), [
+    'error 5 Lightning Bolt: Over its copy limit (5 copies; limit 4)',
+    'error 4 Brainstorm: Not legal in Modern',
+    'warning 1 Notacard: Couldn\'t recognize this card'
+  ]);
+  // The sideboard has no problems, so it lists nothing until asked
+  assert.deepEqual(await marked('deckside'), []);
+  assert.equal(await page.textContent('#deckside-check .deckcheck-toggle'), 'The card checks out. Show it as read');
+  // The status box keeps its messages
+  assert.ok((await deck('4 Brainstorm\n56 Island', '15 Island', 'modern')).messages
+    .includes('The following cards are not legal in Modern:\nBrainstorm'));
+
+  await deck('2 Brainstorm\n58 Island', '15 Island', 'vintage');
+  assert.deepEqual(await marked('deckmain'),
+    ['error 2 Brainstorm: Restricted in Vintage, so a deck may hold only one copy']);
+
+  await deck('99 Island', '1 Derevi, Empyrial Tactician', 'duel');
+  assert.deepEqual(await marked('deckside'),
+    ['error 1 Derevi, Empyrial Tactician: May not be your commander in Duel Commander']);
+  assert.deepEqual(await marked('deckmain'), []);
+
+  // A card is listed under the textarea it came from, its name shown as typed
+  await deck('60 Island', '14 Island\n<b>x', 'constructed');
+  assert.deepEqual(await marked('deckside'), ['warning 1 <b>x: Couldn\'t recognize this card']);
+});
+
+test('the full list shows each card as it was matched, and hides again', async () => {
+  await deck('4 fire ice\n1 Lightning Bolt\n1 Lightning Bolt\n50 Mountain', '15 Mountain', 'legacy');
+  assert.equal(await page.textContent('#deckmain-check .deckcheck-toggle'), 'All 3 cards check out. Show them as read');
+  assert.deepEqual(await marked('deckmain'), []);
+  await page.click('#deckmain-check .deckcheck-toggle');
+  assert.deepEqual(await marked('deckmain'), ['ok 4 Fire // Ice', 'ok 2 Lightning Bolt', 'ok 50 Mountain']);
+  assert.equal(await page.getAttribute('#deckmain-check .deckcheck-toggle', 'aria-expanded'), 'true');
+  // It stays open as the deck changes
+  await page.fill('#deckmain', '5 Mountain');
+  await page.press('#deckmain', 'Escape');  // close the autocomplete over the toggle
+  await page.waitForTimeout(600);
+  assert.deepEqual(await marked('deckmain'), ['ok 5 Mountain']);
+  await page.click('#deckmain-check .deckcheck-toggle');
+  assert.deepEqual(await marked('deckmain'), []);
+  // An empty textarea lists nothing at all
+  await deck('', '');
+  assert.equal(await page.isHidden('#deckmain-check'), true);
+});

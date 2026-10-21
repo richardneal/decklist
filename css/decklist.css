@@ -1329,6 +1329,7 @@ body.dark-mode .dark-mode-toggle .icon-sun {
 .generator-page .left form > label[for=deckmain], .generator-page .left form > label[for=deckside], .generator-page .left form > label[for=event], .generator-page .checkbox-label, .generator-page .deck-import { grid-column: 1 / -1; }
 .generator-page .left textarea { height: 180px; font-size: 13px; }
 .generator-page .left #deckside { height: 105px; }
+.generator-page .left form > .deckcheck { grid-column: 1 / -1; margin-top: -8px; }
 .generator-page .left #protip { margin: 0; font-style: normal; line-height: 1.5; font-size: 11px; }
 .generator-page .left form > .checkbox-label { flex-direction: row-reverse; justify-content: flex-end; align-items: center; }
 .generator-page .left form > .checkbox-label { min-height: 32px; gap: 10px; cursor: pointer; }
@@ -1427,3 +1428,21 @@ body.dark-mode .dark-mode-toggle .icon-sun {
 .ui-datepicker.ui-widget .ui-state-highlight { background: var(--bg-primary); color: var(--accent-color); border-color: var(--accent-color); }
 .ui-datepicker.ui-widget .ui-state-active { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
+
+/* The deck as read, under each textarea: rows with a problem, and on request the rest */
+.deckcheck { font-size: 13px; color: var(--text-primary); }
+.deckcheck[hidden] { display: none; }
+.deckcheck ul { list-style: none; margin: 0; padding: 0; }
+.deckcheck li { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; padding: 3px 0 3px 26px; position: relative; border-bottom: 1px solid var(--border-color); line-height: 1.4; }
+.deckcheck:not(.expanded) li.ok { display: none; }
+.deckcheck.clean:not(.expanded) ul { display: none; }
+.deckcheck li.warning::before, .deckcheck li.error::before { content: ""; position: absolute; left: 2px; top: 4px; width: 16px; height: 16px; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
+.deckcheck li.warning::before { background-color: var(--warning); -webkit-mask-image: var(--icon-warning); mask-image: var(--icon-warning); }
+.deckcheck li.error::before { background-color: var(--error); -webkit-mask-image: var(--icon-error); mask-image: var(--icon-error); }
+.deckcheck-q { min-width: 1.6em; text-align: right; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.deckcheck-name { font-weight: 600; overflow-wrap: anywhere; }
+.deckcheck-reason { flex-basis: 100%; padding-left: calc(1.6em + 8px); font-size: 12px; }
+.deckcheck li.warning .deckcheck-reason { color: var(--warning); }
+.deckcheck li.error .deckcheck-reason { color: var(--error); }
+.deckcheck-toggle { border: 0; background: none; color: var(--accent-color); padding: 4px 0; font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.deckcheck-toggle:focus-visible { outline: 3px solid var(--accent-color); outline-offset: 3px; }

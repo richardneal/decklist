@@ -514,10 +514,17 @@ var Decklist = {
     return narrowest || 'constructed';
   },
 
+  // Accepts one of the copies a 'quantity' check reports ({n, q, limit})
+  // Returns how far over its limit it is: "5 copies; limit 4"
+  copiesNote: function(card) {
+    return card['q'] + ' copies; limit ' + card['limit'];
+  },
+
   // Checks a parsed deck against the rules of a format
   // Accepts a parse() result and a key of Decklist.formats
   // Returns {deckmain: [...], deckside: [...]}, each a list of validation objects
-  // ({error: type} or {warning: type}, with data where the message needs it)
+  // ({error: type} or {warning: type}, with data where the message needs it). The
+  // card checks name their cards in data.cards; 'quantity' also lists data.copies
   check: function(deck, format) {
     const definition = Decklist.formats[format] || Decklist.formats.constructed,
       main = Decklist.count(deck.main),
@@ -570,7 +577,7 @@ var Decklist = {
         if (isRestricted && !('x' in card)) {
           restricted.push(card['n']);
         } else {
-          excess.push(card['n'] + ' (' + card['q'] + ' copies; limit ' + limit + ')');
+          excess.push({ n: card['n'], q: card['q'], limit: limit });
         }
       }
       // a card only in the sideboard is the commander or a companion
@@ -582,7 +589,12 @@ var Decklist = {
         notCommander.push(card['n']);
       }
     });
-    if (excess.length)       { result.deckmain.push({ error: 'quantity', data: { cards: excess } }); }
+    if (excess.length) {
+      result.deckmain.push({ error: 'quantity', data: {
+        cards: excess.map(function(card) { return card['n'] + ' (' + Decklist.copiesNote(card) + ')'; }),
+        copies: excess
+      } });
+    }
     if (restricted.length)   { result.deckmain.push({ error: 'restricted', data: { cards: restricted, format: definition.name } }); }
     if (illegal.length)      { result.deckmain.push({ error: 'illegal', data: { cards: illegal, format: definition.name } }); }
     if (notCommander.length) { result.deckside.push({ error: 'notcommander', data: { cards: notCommander, format: definition.name } }); }
