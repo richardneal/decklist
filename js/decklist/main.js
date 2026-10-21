@@ -5,16 +5,36 @@
 var decklistChangeTimer = null;
 var pdfChangeTimer = null;
 
-// Sheet artwork, preloaded into logoCache by id
+// Sheet artwork, preloaded into logoCache by id (the WotC sheet's logo)
 const LOGOS_CONFIG = [
-  // WotC sheet
-  { id: 'mtg', file: 'mtg.jpg', format: 'JPEG' },
-  // SCG sheet
-  { id: 'FUTcreature', file: 'FUTcreature.jpg', format: 'JPEG' },
-  { id: 'FUTland', file: 'FUTland.jpg', format: 'JPEG' },
-  { id: 'FUTmultiple', file: 'FUTmultiple.jpg', format: 'JPEG' },
-  { id: 'FUTsorcery', file: 'FUTsorcery.jpg', format: 'JPEG' },
-  { id: 'scglogo', file: 'starcitygames.webp', format: 'JPEG' }
+  { id: 'mtg', file: 'mtg.jpg', format: 'JPEG' }
+];
+
+// Famous archetypes and their designers, one pair picked at random as the placeholders of
+// #deckname and #deckdesigner by a script after them in index.html
+const ARCHETYPES = [
+  ['The Deck', 'Brian Weissman'],
+  ['Sligh', 'Jay Schneider'],
+  ['The Rock', 'Sol Malka'],
+  ['Turbo Xerox', 'Alan Comer'],
+  ['Miracle Grow', 'Alan Comer'],
+  ['Napster', 'Mike Flores'],
+  ['Jushi Blue', 'Mike Flores'],
+  ['Heezy Street', 'Mark Herberholz'],
+  ['Red Zone', 'Brian Kibler'],
+  ['Next Level Blue', 'Patrick Chapin'],
+  ['TurboZvi', 'Zvi Mowshowitz'],
+  ['The Solution', 'Zvi Mowshowitz'],
+  ['My Fires', 'Zvi Mowshowitz'],
+  ['Necro-Donate', 'Dan Burdick'],
+  ['Dragonstorm', 'Makihito Mihara'],
+  ['Draw-Go', 'Erik Lauer'],
+  ['Utility Belt', 'Rob Dougherty'],
+  ['Nassiferson', 'Gabriel Nassif'],
+  ['Boros Deck Wins', 'Tsuyoshi Fujita'],
+  ['Wafo-Tapa Control', 'Guillaume Wafo-Tapa'],
+  // Team ChannelFireball's ill-fated Pro Tour Dominaria deck
+  ['Simic Karn', 'Team ChannelFireball']
 ];
 
 // Cache for loaded logo images
@@ -23,6 +43,31 @@ var logoCache = {};
 // Resolves once every logo has loaded (or failed to)
 var logosReady = null;
 
+// Phones and tablets: the preview is drawn by PDF.js, since iOS Safari shows a PDF in an
+// iframe at full size, cropped to the frame, and the event date uses the native picker
+const touchScreen = window.matchMedia('(pointer: coarse)').matches;
+
+// The one-column layout (decklist.css), where the deck boxes list their own problems
+const oneColumn = window.matchMedia('(max-width: 1000px)');
+
+// The sidebar's top margin when stuck (16px in decklist.css), above and below it
+const STICKY_MARGIN = 16;
+
+// Makes the preview sidebar sticky only while it fits in the window with a margin
+// above and below. Its status grows and shrinks with the deck's problems, so it is
+// rechecked whenever the sidebar or the window changes size; one that outgrows the
+// window goes back to scrolling with the page
+function initStickySidebar() {
+  const sidebar = document.querySelector('.generator-page .right');
+  if (!sidebar) return;
+  const update = function() {
+    sidebar.classList.toggle('sticky', sidebar.offsetHeight + 2 * STICKY_MARGIN <= window.innerHeight);
+  };
+  if (window.ResizeObserver) new ResizeObserver(update).observe(sidebar);
+  window.addEventListener('resize', update);
+  update();
+}
+
 // When the page loads, generate a blank deck list preview
 $(document).ready(function() {
   // Initialize dark mode from localStorage
@@ -30,6 +75,17 @@ $(document).ready(function() {
 
   // Initialize save/load functionality
   initDeckManagement();
+
+  initStickySidebar();
+
+  // The brand links home, but a plain click on the generator only scrolls to the
+  // top: reloading would clear the form, which isn't saved as it is typed. A
+  // modified or middle click still opens a fresh generator
+  $('.navbar-brand').on('click', function(event) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 
   // Initialize autocomplete for deck textareas
   // Note: initAutocomplete() is now called when cards database loads (see index.html)
@@ -42,25 +98,36 @@ $(document).ready(function() {
   $('div.left input:not([type="checkbox"]), div.left textarea, div.left select').on('input', pdfChangeWait);
   $('#eventdate').change(pdfChangeWait);
   // radios and checkboxes are single clicks, not typing, so regenerate right away.
-  // The sheet and sort order are in the link too; record it once the current event
+  // The sort order is in the link too; record it once the current event
   // is done, so a back/forward restore that clicks several radios finishes first
   $('input[type="radio"], input[type="checkbox"]').change(function() {
     generateDecklistPDF();
     setTimeout(pushHistoryState);
   });
 
-  // bind a date picker to the event date (thanks, jQuery UI)
+  // bind a date picker to the event date (thanks, jQuery UI); a touch screen gets its
+  // native one instead, since jQuery UI's opens alongside the keyboard. Both use ISO-8601
+  if (touchScreen) {
+    document.getElementById('eventdate').type = 'date';
+    $('#decklistpreview').empty().addClass('drawn');
+  } else {
+    $('#eventdate').datepicker({ dateFormat: 'yy-mm-dd' }); // ISO-8601, woohoo
+  }
+
   // also skin the download and permalink buttons
-  $('#eventdate').datepicker({ dateFormat: 'yy-mm-dd' }); // ISO-8601, woohoo
   $('#download').button();
   $('#permalink').button();
   $('input[type=radio]').checkboxradio({
     icon: false
   });
 
-  // initialize field tooltips, replace | with <br /> in tooltip content
+  // initialize field tooltips, replace | with <br /> in tooltip content. In the one-column
+  // layout the deck boxes list their problems beneath them, so they open none
   $('.left input, .left textarea').tooltip({
     content: function(callback) {
+      if (oneColumn.matches && $(this).is('#deckmain, #deckside')) {
+        return callback('');
+      }
       callback($(this).prop('title').replace(/\|/g, '<br />'));
     },
     position: {
@@ -182,11 +249,6 @@ function parseGET() {
     generateDecklistPDF();
   });
 
-  // switch to the proper decksheet; doing it this way in case we ever support other formats
-  if ($._GET['decksheet'] !== undefined) {
-    $('#decksheet-' + $._GET['decksheet']).click();
-  }
-
   // process the decksort param, if present
   if ($._GET['decksort'] !== undefined) {
     $('#sort-' + $._GET['decksort']).click();
@@ -203,562 +265,6 @@ function currentDeckFormat(parsedInput) {
 // stays on its first line
 function sortSideboard(parsedInput) {
   return Decklist.isSingleton(currentDeckFormat(parsedInput)) ? parsedInput['side'] : Decklist.sort(parsedInput['side']);
-}
-
-// Calls the appropriate decklist function based on user selection and returns resulting jsPDF object
-function generateDecklistLayout(parsedInput) {
-  const decksheetFormat = $('#decksheetformatselector input[name=decksheetformat]:checked').prop('id').replace('decksheet-', '');
-  if (decksheetFormat === 'wotc') {
-    return generateStandardDecklist(parsedInput);
-  } else if (decksheetFormat === 'scg') {
-    return generateSCGDecklist(parsedInput);
-  }
-}
-
-// Generates a StarCityGames-formatted decklist
-// see: https://static.starcitygames.com/www/pdfs/Decklist.pdf
-function generateSCGDecklist(parsedInput) {
-  // Create a new SCG dl
-  let scgdl = new jsPDF('landscape', 'pt', 'letter');
-
-  // Create color definitions
-  const white = [255],
-    bggrey = [235],
-    black = [43, 46, 52], // used for first page line color, not fully black
-    trueblack = [0],      // used for front page text and second page text
-    urlblue = [27, 94, 162];
-
-  // Create deck variables
-  const maindeck = parsedInput['main'],
-    maindeck_count = Decklist.count(maindeck),
-    sideboard = sortSideboard(parsedInput),
-    sideboard_count = Decklist.count(sideboard),
-    letter_page_h = 792; // width is 612pt but not referenced, so no variable
-
-  // Set PDF variables
-  scgdl.setFont('helvetica');
-  scgdl.setDrawColor.apply(null, black);
-  scgdl.setTextColor.apply(null, trueblack);
-  scgdl.setLineWidth(1);
-
-  // add first name and last name boxes & text (as well as "required" text)
-
-  const monospaced_fields = {
-    'LAST NAME': {
-      text: $('#lastname').val().toUpperCase(),
-      label_x_offset: 18,
-      required: true,
-      required_x_offset: pxToPt(118.171),
-    },
-    'FIRST NAME': {
-      text: $('#firstname').val().toUpperCase(),
-      label_x_offset: pxToPt(289.152),
-      required: true,
-      required_x_offset: pxToPt(386.727),
-    }
-  };
-  
-  Object.keys(monospaced_fields).forEach(function(key, i) {
-    const field = monospaced_fields[key],
-      fieldoffset = (i - 1) * 0.8,
-      label_font_size = 12,
-      label_y = textY(54.6607, label_font_size),
-      required_font_size = 4,
-      required_y = textY(66.0617, required_font_size),
-      field_font_size = 11;
-
-    // draw field label
-    scgdl.setFontSize(label_font_size);
-    scgdl.setFontStyle('bold');
-    scgdl.text(key, field['label_x_offset'], label_y);
-
-    // draw "required" sub-label, if needed
-    if (field['required']) {
-      scgdl.setFontSize(required_font_size);
-      scgdl.setFontStyle('normal');
-      scgdl.text('*REQUIRED', field['required_x_offset'], required_y);
-    }
-
-    // draw fields and user-entered text
-    scgdl.setFontSize(field_font_size);
-    scgdl.setFontStyle('normal');
-    for (let j = 0; j < 10; j++) {
-      const letter_centering_y_offset = 4,
-        box_starting_x = 19.5,
-        box_w = 18,
-        box_h = 21.5,
-        box_x_offset = (i * 11 + j) * box_w,
-        box_x = box_starting_x + fieldoffset + box_x_offset,
-        box_y = 18.5,
-        letter = field['text'][j] || '',
-        letter_y = field_font_size + box_y + letter_centering_y_offset,
-        letter_x = box_x + box_w / 2;
-
-      scgdl.rect(box_x, box_y, box_w, box_h);
-      scgdl.text(letter, letter_x, letter_y, null, null, 'center');
-    }
-  });
-
-  // judge-use box and text
-
-  const judge_x = 616.3,
-    judge_y = 18.5,
-    judge_w = 81.2,
-    judge_h = 44,
-    shading_x = 622.8,
-    shading_y = 22,
-    shading_w = 68.8,
-    shading_h = 26,
-    divider_font_size = 12,
-    divider_x = pxToPt(872.4552),
-    divider_y = textY(35.5260375, divider_font_size),
-    judge_text_font_size = 9,
-    judge_text_x = 656, // hand-kerned as opposed to centered in judge box
-    judge_text_y = textY(65.6968, judge_text_font_size);
-
-  // outer box
-  scgdl.rect(judge_x, judge_y, judge_w, judge_h);
-  // grey inner shading
-  scgdl.setFillColor.apply(null, bggrey);
-  scgdl.rect(shading_x, shading_y, shading_w, shading_h, 'F');
-
-  // add judge box text (divider and "judge use only" text)
-  scgdl.setFontSize(divider_font_size);
-  scgdl.setFontStyle('bold');
-  scgdl.text('/', divider_x, divider_y);
-
-  scgdl.setFontSize(judge_text_font_size);
-  scgdl.setFontStyle('normal');
-  scgdl.text('JUDGE USE ONLY', judge_text_x, judge_text_y, null, null, 'center');
-
-  // draw "table number" field and text
-
-  const table_number_font_size = 12,
-    table_number_x = pxToPt(958.662),
-    table_number_y = textY(54.6607, table_number_font_size),
-    player_meeting_font_size = 4,
-    player_meeting_x = pxToPt(958.667),
-    player_meeting_y = textY(72.4616, player_meeting_font_size);
-
-  for (let i = 0; i < 3; i++) {
-    scgdl.rect((719.5 + i * 18), 18.5, 18, 21.5);
-  }
-  // table number label
-  scgdl.setFontSize(table_number_font_size);
-  scgdl.setFontStyle('bold');
-  scgdl.text('TABLE #', table_number_x, table_number_y);
-  // add "at players' meeting" text to table # field
-  scgdl.setFontSize(player_meeting_font_size);
-  scgdl.setFontStyle('normal');
-  scgdl.text('AT PLAYERS\' MEETING', player_meeting_x, player_meeting_y);
-
-  // decklist collection info
-  const decklist_collection_font_size = 8.5,
-    decklist_collection_x = letter_page_h / 2,
-    decklist_collection_y = textY(82.5093, decklist_collection_font_size);
-
-  scgdl.setFontSize(decklist_collection_font_size);
-  scgdl.setFontStyle('bolditalic');
-  scgdl.text('Judges will come by and collect all decklists at the players’ meeting before the start of the event',
-             decklist_collection_x,
-             decklist_collection_y,
-             null, null, 'center');
-
-  // creature, spells, and lands maindeck sections
-
-  const maindeck_sections = {
-      'CREATURES': Decklist.filter(maindeck, 't', '2'),
-      'SPELLS': Decklist.filter(maindeck, 't', ['1', '2'], 'exclude'),
-      'LANDS': Decklist.filter(maindeck, 't', '1'),
-    },
-    maindeck_section_title_x_offsets = {
-      'CREATURES': pxToPt(121.44),
-      'SPELLS': pxToPt(456.48),
-      'LANDS': pxToPt(805.44),
-    },
-    section_title_font_size = 12,
-    section_title_y = textY(110.821, section_title_font_size),
-    section_offset_y = 103.5,
-    section_total_font_size = 11,
-    listing_font_size = section_total_font_size,
-    section_total_y = 79.5,
-    section_total_w = 28,
-    section_total_h = 19.2,
-    section_total_text_y = section_total_y + section_total_font_size + 3, // hand-kerned
-    listing_gap = 257.4,
-    listing_w = 240,
-    listing_h = 291.5,
-    listing_quantity_column_w = 28,
-    rows = 15;
-  // sort and add separators to deck sections
-  Object.keys(maindeck_sections).forEach(function (key) {
-    maindeck_sections[key] = Decklist.section(Decklist.sort(maindeck_sections[key]));
-  });
-
-  // draw sections and deck entries
-  Object.keys(maindeck_sections).forEach(function (key, i) {
-    const deck_section = maindeck_sections[key],
-      offset_x = 18.7 + i * listing_gap,
-      section_total_x = offset_x,
-      quantity_column_x = listing_quantity_column_w + offset_x,
-      section_total_text_x = section_total_x + section_total_w / 2;
-
-    // section total box
-    scgdl.rect(offset_x, section_total_y, section_total_w, section_total_h);
-    // section total
-    scgdl.setFontSize(section_total_font_size);
-    scgdl.setFontStyle('bold');
-    scgdl.text(Decklist.count(deck_section).toString(),
-               section_total_text_x,
-               section_total_text_y,
-               null, null, 'center');
-
-    // section title
-    scgdl.setFontSize(section_title_font_size);
-    scgdl.setFontStyle('bold');
-    scgdl.text(key, maindeck_section_title_x_offsets[key], section_title_y);
-
-    // listing area outer border
-    scgdl.rect(offset_x, section_offset_y, listing_w, listing_h);
-    // column line
-    scgdl.line(quantity_column_x, section_offset_y,
-               quantity_column_x, section_offset_y + listing_h);
-    // row lines and text
-    scgdl.setFontSize(listing_font_size);
-    scgdl.setFontStyle('normal');
-    for (let j = 0; j < rows; j++) {
-      const quantity_x = offset_x + listing_quantity_column_w / 2,
-        card_name_padding = 5,
-        card_x = offset_x + listing_quantity_column_w + card_name_padding,
-        card_y = section_offset_y + (j * listing_h / rows) + listing_font_size + 3; // hand-kerned
-
-      // row line
-      if (j > 0) { // don't draw a line on top of the outside box
-        scgdl.line(offset_x,             section_offset_y + (j * listing_h/rows),
-                   offset_x + listing_w, section_offset_y + (j * listing_h/rows));
-      }
-      // write card
-      if (j < deck_section.length) {
-        const card = deck_section[j];
-        // ignore blank entries
-        if (card['q'] > 0) {
-          // quantity
-          scgdl.text(card['q'].toString(), quantity_x, card_y, null, null, 'center');
-          // card name
-          scgdl.text(card['n'], card_x, card_y);
-        }
-      }
-    }
-  });
-  // add section logos from cache
-  if (logoCache['FUTcreature']) {
-    scgdl.addImage(logoCache['FUTcreature'].data, logoCache['FUTcreature'].format, 59, 73.7, 30, 26.5);
-  }
-  if (logoCache['FUTsorcery']) {
-    scgdl.addImage(logoCache['FUTsorcery'].data, logoCache['FUTsorcery'].format, 317.7, 75, 20, 25.5);
-  }
-  if (logoCache['FUTland']) {
-    scgdl.addImage(logoCache['FUTland'].data, logoCache['FUTland'].format, 565.5, 74.2, 32.3, 25.8);
-  }
-
-  // sideboard section
-
-  const sb_x = 18.7,
-    sb_y = 413,
-    sb_w = 480,
-    sb_h = 155.5,
-    sb_rows = 8,
-    sb_title_font_size = 12,
-    sb_font_size = 11,
-    sb_quantity_column_w = 28;
-
-  // grey background
-  scgdl.setFillColor.apply(null, bggrey);
-  scgdl.rect(sb_x, sb_y, sb_w, sb_h, 'F');
-  // use a white background for the upper-left corner
-  scgdl.setFillColor.apply(null, white);
-  scgdl.rect(sb_x, sb_y, sb_w / 2, sb_h / sb_rows, 'F');
-  // outer border
-  scgdl.rect(sb_x, sb_y, sb_w, sb_h);
-  // column lines (divide into two columns and add quantity columns)
-  scgdl.line(sb_x + sb_quantity_column_w, sb_y + sb_h/sb_rows,
-             sb_x + sb_quantity_column_w, sb_y + sb_h);
-  scgdl.line(sb_x + (sb_w/2), sb_y,
-             sb_x + (sb_w/2), sb_y + sb_h);
-  scgdl.line(sb_x + (sb_w/2) + sb_quantity_column_w, sb_y,
-             sb_x + (sb_w/2) + sb_quantity_column_w, sb_y + sb_h);
-  // row lines
-  for (let i = 1; i < sb_rows; i++) {
-    scgdl.line(sb_x,        sb_y + (i * sb_h / sb_rows),
-               sb_x + sb_w, sb_y + (i * sb_h / sb_rows));
-  }
-  // sideboard title
-  scgdl.setFontSize(sb_title_font_size);
-  scgdl.setFontStyle('bold');
-  scgdl.text('SIDEBOARD', pxToPt(67.68), textY(552.421, sb_title_font_size));
-  // sideboard logo from cache
-  if (logoCache['FUTmultiple']) {
-    scgdl.addImage(logoCache['FUTmultiple'].data, logoCache['FUTmultiple'].format, 29.5, 414.8, 15, 15);
-  }
-  // sideboard cards
-  scgdl.setFontSize(sb_font_size);
-  scgdl.setFontStyle('normal');
-  for (let i = 0; i < sideboard.length && i < 15; i++) {
-    const card = sideboard[i],
-      row = i + 1, // first row of first column is skipped
-      row_y = row % sb_rows * sb_h / sb_rows,
-      column_w = sb_w / 2,
-      column_no = Math.floor(row / sb_rows),
-      offset_x = sb_x + column_no * column_w,
-      offset_y = sb_y + row_y;
-
-    //quantity
-    scgdl.text(card['q'].toString(),
-               offset_x + sb_quantity_column_w / 2,
-               offset_y + sb_font_size + 3,
-               null, null, 'center');
-    // card name
-    scgdl.text(card['n'], offset_x + sb_quantity_column_w + 5, offset_y + sb_font_size + 3);
-  }
-
-  // main deck and sideboard totals
-
-  const mdsb_totals = {
-      'main': {
-        title: 'MAIN DECK',
-        val: maindeck_count,
-        subtitle: '60 CARDS MINIMUM',
-      },
-      'side': {
-        title: 'SIDEBOARD',
-        val: sideboard_count,
-        subtitle: 'BETWEEN 0 & 15 CARDS',
-      },
-    },
-    mdsb_label_font_size = 11.5,
-    mdsb_label_x_offset = pxToPt(767.521),
-    mdsb_label_y_offset = textY(572.147, mdsb_label_font_size),
-    mdsb_title_y_offset = textY(544.271, mdsb_label_font_size),
-    mdsb_subtitle_font_size = 5,
-    mdsb_subtitle_y_offset = textY(602.648, mdsb_subtitle_font_size),
-    mdsb_font_size = 14;
-
-  // add "total" label
-  scgdl.setFontSize(mdsb_label_font_size);
-  scgdl.setFontStyle('normal');
-  scgdl.text('TOTAL', mdsb_label_x_offset, mdsb_label_y_offset);
-
-  // add totals boxes
-  for (let i = 0; i < 2; i++) {
-    const mdsb_gap = 77,
-      mdsb_x = 620.5 + i * mdsb_gap,
-      mdsb_y = 425.5,
-      mdsb_w = 63.2,
-      mdsb_h = 25.5,
-      mdsb_text_x = mdsb_x + mdsb_w / 2,
-      mdsb_text_y = mdsb_y + mdsb_font_size + 3, // hand-kerned
-      totals_object = Object.values(mdsb_totals)[i],
-      totals_title = totals_object['title'],
-      totals_subtitle = totals_object['subtitle'],
-      totals_text = totals_object['val'].toString();
-
-    // draw outer box
-    scgdl.rect(mdsb_x, mdsb_y, mdsb_w, mdsb_h);
-    // draw total title
-    scgdl.setFontSize(mdsb_label_font_size);
-    scgdl.setFontStyle('normal');
-    scgdl.text(totals_title, mdsb_x, mdsb_title_y_offset);
-    // draw total subtitle
-    scgdl.setFontSize(mdsb_subtitle_font_size);
-    scgdl.setFontStyle('normal');
-    scgdl.text(totals_subtitle, mdsb_x + mdsb_w / 2, mdsb_subtitle_y_offset, null, null, 'center');
-    // draw total (if at least one non-zero total)
-    if (Object.values(mdsb_totals).some(function(total) { return total.val > 0; })) {
-      scgdl.setFontSize(mdsb_font_size);
-      scgdl.setFontStyle('normal');
-      scgdl.text(totals_text, mdsb_text_x, mdsb_text_y, null, null, 'center');
-    }
-  }
-
-  // archetype and event boxes and text
-
-  const ae_metadata = {
-      'ARCHETYPE': $('#deckname').val().capitalize(),
-      'EVENT'    : $('#event').val().capitalize(),
-    },
-    ae_gap = 40,
-    ae_x = 511.5,
-    ae_w = 132,
-    ae_h = 32,
-    ae_title_font_size = 11,
-    ae_title_x = 518,
-    ae_font_size = 14;
-  for (let i = 0; i < 2; i++) {
-    const ae_y = 496.5 + i * ae_gap,
-      ae_title = Object.keys(ae_metadata)[i],
-      ae_text = Object.values(ae_metadata)[i];
-    // title is carefully hand-placed; looks better than supposedly mathematically-correct positioning
-    if (ae_title === 'ARCHETYPE') {
-      var ae_box_cutout_width = 72;
-      var ae_title_y = 500;
-    } else if (ae_title === 'EVENT') {
-      ae_box_cutout_width = 43,
-      ae_title_y = 541.5;
-    }
-
-    // border
-    scgdl.rect(ae_x, ae_y, ae_w, ae_h);
-    // cut out space for title
-    scgdl.setFillColor.apply(null, white);
-    scgdl.rect(ae_x + 3, ae_y - 2, ae_box_cutout_width, 4, 'F');
-    // title
-    scgdl.setFontSize(ae_title_font_size);
-    scgdl.setFontStyle('normal');
-    scgdl.text(ae_title, ae_title_x, ae_title_y);
-    // text
-    scgdl.setFontSize(ae_font_size);
-    scgdl.setFontStyle('bold');
-    scgdl.text(ae_text, ae_x + 5, ae_y + ae_font_size + (ae_h - ae_font_size) / 2);
-  }
-
-  // misc info and disclaimers (bottom of page)
-
-  const disclaimers_font_size = 8.5;
-  scgdl.setTextColor.apply(null, black);
-  scgdl.setFontSize(disclaimers_font_size);
-  scgdl.setFontStyle('bolditalic');
-  // y-positioning for the following lines is a bit wonky, so it is calculated by hand rather than via textY()
-  scgdl.text('Main Deck must contain at least 60 cards • Sideboard must contain between 0 and 15 cards • If you need additional space for a category, use other columns',
-             (letter_page_h / 2),
-             pxToPt(762.158) + disclaimers_font_size + 0.5,
-             null, null, 'center');
-  scgdl.text('Use full English card names • Failure to submit a legal decklist may result in a game loss penalty',
-             (letter_page_h / 2),
-             pxToPt(775.758) + disclaimers_font_size + 0.5,
-             null, null, 'center');
-
-  // SCG logo in bottom-right corner from cache
-  if (logoCache['scglogo']) {
-    scgdl.addImage(logoCache['scglogo'].data, logoCache['scglogo'].format, 651, 473, 113.5, 88);
-  }
-
-  // Add second page
-  scgdl.addPage('letter', 'portrait');
-  scgdl.setTextColor.apply(null, trueblack);
-
-  // Header
-  scgdl.setFontSize(9);
-  scgdl.setFontStyle('bold');
-  scgdl.text('STAR CITY COMICS & GAMES, INC. PUBLICITY RELEASE & TOURNAMENT POLICIES', 306, 55.117875, null, null, 'center');
-
-  const body_text_x_offset = 70.312875,
-    page_two_font_size = pxToPt(11.4667);
-
-  // Consent notice
-  scgdl.setFontSize(page_two_font_size);
-  scgdl.text('Consent to Photography; Audio and Video Recording and Use Thereof',
-             body_text_x_offset,
-             80);
-
-  // Body
-  scgdl.setFontStyle('normal');
-  const paragraphs = [
-      {
-        text: [
-          'Upon the earlier to occur of (i) registering for an StarCityGames.com event or (ii) entering the premises of a ',
-          'StarCityGames.com event, you consent to the display, transmittal, distribution, or other use of your name, image, ',
-          'voice or likeness and its/their release, publication, exhibition, or reproduction which may be used in whole or ',
-          'in part without restriction or limitation in any medium, including by photograph, video, audio taping, or the ',
-          'Internet, by StarCityGames.com and/or its affiliates, for any purpose as determined in StarCityGames.com’s sole ',
-          'discretion, including, but not limited to, webcasting, for public relations, in news articles or telecasts, in advertising, ',
-          'commercial purposes, or by inclusion on StarCityGames.com. You release and hold harmless StarCityGames.com, ',
-          'its officers, agents, and employees, and each and all persons involved from any and all claims, demands, causes ',
-          'of actions (including any rights of privacy or rights of publicity), liabilities, damages, rights, costs, and expenses ',
-          'connected with the display, transmittal, distribution, or other use of your name, image, voice or likeness, including ',
-          'the taking, recording, or publication of such interviews, photographs, slides, computer images, video recordings, or ',
-          'sound recordings which you have or may in the future have related to the foregoing.'
-        ],
-        offset: pxToPt(128.061) + page_two_font_size,
-      },
-      {
-        text: [
-          'You further agree that upon the earlier to occur of (i) registering for an StarCityGames.com event or (ii) entering the ',
-          'premises of an StarCityGames.com Event, you waive all rights you may have to any claims for payment or royalties ',
-          'in connection with any exhibition, televising, or other publication, in any medium and whether online or otherwise, ',
-          'of the above materials. You also waive any right to inspect or approve any photograph, sound or video recording, ',
-          'or film taken by StarCityGames.com, or the person or entity designated by it.'
-        ],
-        offset: pxToPt(365.394) + page_two_font_size,
-      },
-    ],
-    paragraphLineOffset = pxToPt(18.667);
-
-  // write paragraphs
-  paragraphs.forEach(function(paragraph) {
-    for (let i = 0; i < paragraph.text.length; i++) {
-      scgdl.text(paragraph.text[i],
-                 body_text_x_offset,
-                 paragraph.offset + i * paragraphLineOffset);
-    }
-  });
-
-  // Signing lines and text
-  // fields listed from left-to-right, top-to-bottom
-  const fields = [
-      'Name',
-      'Signature',
-      'Name of Parent or Guardian if minor',
-      'Signature of Parent or Guardian, if minor',
-      'Date'
-    ],
-    fieldTextYOrigin = pxToPt(509.394) + page_two_font_size,
-    fieldTextYOffset = 42,
-    evenFieldXOffset = 286.31025,
-    fieldLineYOffset = -10,
-    fieldLineLength = 175;
-
-  for (let i = 0; i < fields.length; i++) {
-    const lineNumber = Math.floor(i/2),
-      evenField = i % 2 === 1,
-      yOffset = fieldTextYOrigin + lineNumber * fieldTextYOffset,
-      xOffset = (evenField ? evenFieldXOffset : body_text_x_offset),
-      lineYOffset = yOffset + fieldLineYOffset;
-
-    // draw line
-    scgdl.line(xOffset, lineYOffset, xOffset + fieldLineLength, lineYOffset);
-    // draw text
-    scgdl.text(fields[i], xOffset, yOffset);
-  }
-
-  // SCG tournament policies note
-  scgdl.text('A full list of StarCityGames.com Tournament Policies can be obtained from an Event Representative or viewed at',
-             body_text_x_offset,
-             pxToPt(658.727) + page_two_font_size);
-  // set to URL color
-  scgdl.setTextColor.apply(null, urlblue);
-  scgdl.setDrawColor.apply(null, urlblue);
-  const urlXOffset = pxToPt(225.761),
-    urlYOffset = pxToPt(677.394) + page_two_font_size;
-  scgdl.text('http://static.starcitygames.com/www/pdfs/Tournament_Policy.pdf',
-             urlXOffset,
-             urlYOffset);
-  scgdl.line(urlXOffset,       urlYOffset + 1,
-             urlXOffset + 247, urlYOffset + 1);
-
-  return scgdl;
-
-  // helper functions
-
-  // Converts px values to pt values (pt = px * 3/4)
-  function pxToPt(px) {
-    return px * 3 / 4;
-  }
-  // Gives an approximate pt value for font Y placement given an offset and font size values
-  // Accepts a px value (derived from output PDF) of Y placement, and font size (in pt)
-  // Returns an adjusted pt value which should give a close approximate of placement
-  function textY(px, font_size) {
-    return pxToPt(px) + font_size * 1.1;
-  }
 }
 
 // Generates a WotC-style decklist
@@ -1222,14 +728,11 @@ function generatePermalink(includeBlank = false, origin = window.location.origin
   const values = params.map(param => [param, $('#' + param).val()])
     .filter(([, value]) => value !== undefined && (includeBlank || value.length > 0));
 
-  // The sheet and sort order are radios, named as parseGET() clicks them (#decksheet-scg,
-  // #sort-color). A link leaves them out at their defaults; the history state keeps
-  // them, so going back to a state restores them
-  [['decksheet', 'decksheetformat', 'decksheet-', 'wotc'], ['decksort', 'sortorder', 'sort-', 'type']]
-    .forEach(([param, name, prefix, fallback]) => {
-      const value = $('input[name=' + name + ']:checked').prop('id').replace(prefix, '');
-      if (includeBlank || value !== fallback) values.push([param, value]);
-    });
+  // The sort order is a radio, named as parseGET() clicks it (#sort-color). A link
+  // leaves it out at its default; the history state keeps it, so going back to a
+  // state restores it
+  const sort = $('input[name=sortorder]:checked').prop('id').replace('sort-', '');
+  if (includeBlank || sort !== 'type') values.push(['decksort', sort]);
 
   // + for spaces keeps a long deck's link shorter; parseUrlIntoDict reads both
   const query = values.map(([param, value]) => param + '=' + encodeURIComponent(value).replace(/%20/g, '+')).join('&');
@@ -1240,7 +743,7 @@ function generatePermalink(includeBlank = false, origin = window.location.origin
 // everywhere else (or if the share sheet fails)
 async function sharePermalink() {
   const button = document.getElementById('permalink');
-  const label = button.value;
+  const label = button.textContent;
   const permalink = generatePermalink(false, 'https://decklist.app');
   button.disabled = true;
 
@@ -1261,13 +764,15 @@ async function sharePermalink() {
 
   try {
     await navigator.clipboard.writeText(permalink);
-    button.value = 'Copied!';
+    button.textContent = 'Copied!';
+    button.classList.add('done');
   } catch (error) {
     console.error('Error while copying:', error);
-    button.value = 'Failed to Copy';
+    button.textContent = 'Failed to Copy';
   }
   setTimeout(() => {
-    button.value = label;
+    button.textContent = label;
+    button.classList.remove('done');
     button.disabled = false;
   }, 3000); // Reset button text and state after 3 seconds
 }
@@ -1284,10 +789,13 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
   validateInput(parsedInput);
 
   // get complete PDF
-  const dl = generateDecklistLayout(parsedInput);
+  const dl = generateStandardDecklist(parsedInput);
 
   // Output the dl as a blob to add to the DOM
-  if (outputtype === 'dataurlstring') {
+  if (outputtype === 'dataurlstring' && touchScreen) {
+    drawPreview(dl.output('arraybuffer'));
+  }
+  else if (outputtype === 'dataurlstring') {
     const domdl = dl.output('dataurlstring');
 
     // If we set the 'src' attr while the iframe is still part of the DOM, we generate
@@ -1301,6 +809,61 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
   }
   else {
     dl.save('decklist.pdf');
+  }
+}
+
+// ==================== TOUCH SCREEN PREVIEW ====================
+
+// PDF.js and the worker it parses in, loaded for the first touch screen preview
+var pdfjsReady = null;
+
+// Numbers each preview, so one that finishes late can't replace a newer one
+var previewNumber = 0;
+
+function loadPdfjs() {
+  if (!pdfjsReady) {
+    pdfjsReady = import(new URL('js/pdfjs/pdf-5.7.284.min.js', document.baseURI).href).then(function(pdfjs) {
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL('js/pdfjs/pdf.worker-5.7.284.min.js', document.baseURI).href;
+      return { pdfjs: pdfjs, worker: new pdfjs.PDFWorker() };
+    });
+    // a failed load is tried again by the next preview
+    pdfjsReady.catch(function() { pdfjsReady = null; });
+  }
+  return pdfjsReady;
+}
+
+// Draws each page of the sheet to a canvas as wide as the preview
+async function drawPreview(data) {
+  const number = ++previewNumber;
+  const container = document.getElementById('decklistpreview');
+  try {
+    const { pdfjs, worker } = await loadPdfjs();
+    const pdf = await pdfjs.getDocument({ data: data, worker: worker, isEvalSupported: false }).promise;
+    const canvases = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      const scale = container.clientWidth * window.devicePixelRatio / page.getViewport({ scale: 1 }).width;
+      const viewport = page.getViewport({ scale: scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', 'Decklist preview, page ' + pageNumber + ' of ' + pdf.numPages);
+      await page.render({ canvas: canvas, viewport: viewport }).promise;
+      canvases.push(canvas);
+    }
+    await pdf.destroy();
+    if (number === previewNumber) {
+      container.replaceChildren(...canvases);
+    }
+  } catch (error) {
+    console.error('Preview failed', error);
+    if (number === previewNumber) {
+      const message = document.createElement('p');
+      message.className = 'preview-unavailable';
+      message.textContent = 'The preview couldn’t be drawn. Download the PDF to see your sheet.';
+      container.replaceChildren(message);
+    }
   }
 }
 
@@ -1333,14 +896,8 @@ function validateInput(parsedLists) {
     unparseable = parsedLists['unparseable'];
 
   // check first name (non-blank, too long)
-  const decksheetFormat = $('#decksheetformatselector input[name=decksheetformat]:checked').prop('id').replace('decksheet-', '');
-  if (decksheetFormat === 'wotc') {
-    var maxFirstNameLength = 20;
-    var maxLastNameLength = maxFirstNameLength;
-  } else if (decksheetFormat === 'scg') {
-    maxFirstNameLength = 10;
+  const maxFirstNameLength = 20,
     maxLastNameLength = maxFirstNameLength;
-  }
   if ($('#firstname').val() === '')                           { validate.firstname.push({ warning: 'blank' });  }
   else if ($('#firstname').val().length > maxFirstNameLength) { validate.firstname.push({ error: 'toolarge' }); }
 
@@ -1352,18 +909,14 @@ function validateInput(parsedLists) {
   if ($('#event').val() === '') { validate.event.push({ warning: 'blank' }); }
 
   // check event date (non-blank, unrecognized format, before today)
-  if (decksheetFormat !== 'scg') {
-    if ($('#eventdate').val() === '')                             { validate.eventdate.push({ warning: 'blank' });      }
-    else if (!$('#eventdate').val().match(/^\d{4}-\d{2}-\d{2}$/)) { validate.eventdate.push({ error: 'unrecognized' }); }
-    else if (Date.parse($('#eventdate').val()) <= new Date(new Date().setDate(new Date().getDate()-1)).setHours(0)) {
-      validate.eventdate.push({ warning: 'futuredate' });
-    }
+  if ($('#eventdate').val() === '')                             { validate.eventdate.push({ warning: 'blank' });      }
+  else if (!$('#eventdate').val().match(/^\d{4}-\d{2}-\d{2}$/)) { validate.eventdate.push({ error: 'unrecognized' }); }
+  else if (Date.parse($('#eventdate').val()) <= new Date(new Date().setDate(new Date().getDate()-1)).setHours(0)) {
+    validate.eventdate.push({ warning: 'futuredate' });
   }
 
   // check event location (non-blank)
-  if (decksheetFormat !== 'scg') {
-    if ($('#eventlocation').val() === '') { validate.eventlocation.push({ warning: 'blank' }); }
-  }
+  if ($('#eventlocation').val() === '') { validate.eventlocation.push({ warning: 'blank' }); }
 
   // check the deck against its format (size, copies, legality); Auto-detect guesses
   // the format from the deck's shape, and says which it chose
@@ -1376,17 +929,10 @@ function validateInput(parsedLists) {
   validate.deckside.push(...formatCheck.deckside);
 
   // check maindeck (fits the sheet)
-  if (decksheetFormat === 'wotc') {
-    const separateBasicLands = $('#separate-basic-lands').is(':checked'),
-      rows = standardMainDeckRows(Decklist.section(Decklist.sort(maindeck.slice())), separateBasicLands),
-      extraPages = paginateStandardMainDeck(rows).length - 1;
-    if (extraPages > 0)                                { validate.deckmain.push({ warning: 'continued', data: extraPages }); }
-  } else if (decksheetFormat === 'scg') {
-    const maindeck_sections = [Decklist.filter(maindeck, 't', '2'), Decklist.filter(maindeck, 't', ['1', '2'], 'exclude'), Decklist.filter(maindeck, 't', '1')].map(Decklist.sort).map(Decklist.section);
-    if (maindeck_sections.some(function(arr) { return arr.length > 15; })) {
-      validate.deckmain.push({ error: 'sectiontoolarge' });
-    }
-  }
+  const separateBasicLands = $('#separate-basic-lands').is(':checked'),
+    rows = standardMainDeckRows(Decklist.section(Decklist.sort(maindeck.slice())), separateBasicLands),
+    extraPages = paginateStandardMainDeck(rows).length - 1;
+  if (extraPages > 0) { validate.deckmain.push({ warning: 'continued', data: extraPages }); }
 
   // check for unrecognized and unparseable cards
   if (unrecognized.length !== 0) {
@@ -1495,6 +1041,7 @@ function statusAndTooltips(valid) {
   //   for: [[message, level], [message, level], ...],
   //   ...
   // }
+  // a message listing cards adds a third entry, 'cards'
   // in this case, the key 'for' represents the input element id, and
   // the value 'level' represents the string 'warning' or 'error'
   const notifications = {};
@@ -1573,28 +1120,26 @@ function statusAndTooltips(valid) {
           const extraPages = validationObject['data'];
           notifications.push(prop, ['The first page has room for 44 rows (including spaces), so the main deck continues on ' +
             (extraPages === 1 ? 'a second page' : extraPages + ' more pages'), validType]);
-        } else if (validationObject['error'] === 'sectiontoolarge') {
-          notifications.push(prop, ['This PDF only has space for up to 15 cards per section (including spaces)', validType]);
         } else if (validationObject['error'] === 'quantity') {
           // include a list of cards over their limit across the main/side, each with its count and limit
           const excessCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['The following cards are over their copy limit:' + excessCardsHtml, validType]);
+          notifications.push(prop, ['The following cards are over their copy limit:' + excessCardsHtml, validType, 'cards']);
         } else if (validationObject['error'] === 'restricted') {
           const restrictedCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
           notifications.push(prop, ['The following cards are restricted in ' + validationObject['data']['format'] +
-            ', so a deck may hold only one copy:' + restrictedCardsHtml, validType]);
+            ', so a deck may hold only one copy:' + restrictedCardsHtml, validType, 'cards']);
         } else if (validationObject['error'] === 'illegal') {
           const illegalCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
           notifications.push(prop, ['The following cards are not legal in ' + validationObject['data']['format'] + ':' +
-            illegalCardsHtml, validType]);
+            illegalCardsHtml, validType, 'cards']);
         } else if (validationObject['warning'] === 'unrecognized') {
           // include a list of unrecognized card names
           const unrecognizedCardsHtml = '<ul><li>' + validationObject['data'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['Couldn\'t recognize the following card(s):' + unrecognizedCardsHtml, validType]);
+          notifications.push(prop, ['Couldn\'t recognize the following card(s):' + unrecognizedCardsHtml, validType, 'cards']);
         } else if (validationObject['warning'] === 'unparseable') {
           // include a list of unparseable lines
           const unparseableCardsHtml = '<ul><li>' + validationObject['data'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['Couldn\'t parse the following lines:' + unparseableCardsHtml, validType]);
+          notifications.push(prop, ['Couldn\'t parse the following lines:' + unparseableCardsHtml, validType, 'cards']);
         }
       } else if (prop === 'deckside') {
         if (validationObject['warning'] === 'toosmall') {
@@ -1608,7 +1153,7 @@ function statusAndTooltips(valid) {
         } else if (validationObject['error'] === 'notcommander') {
           const notCommanderHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
           notifications.push(prop, ['The following cards may not be your commander in ' + validationObject['data']['format'] + ':' +
-            notCommanderHtml, validType]);
+            notCommanderHtml, validType, 'cards']);
         } else if (validationObject['warning'] === 'nooathbreaker') {
           notifications.push(prop, ['List your Oathbreaker and its signature spell in the sideboard', validType]);
         } else if (validationObject['warning'] === 'oathbreakerside') {
@@ -1624,7 +1169,7 @@ function statusAndTooltips(valid) {
   let allEmpty = true;
   $('.left input, .left textarea').tooltip('close');
   $('.left input, .left textarea').each(function() {
-    if ($(this).is('input[type="text"], input[type="url"], textarea') && $(this).val()) {
+    if ($(this).is('input[type="text"], input[type="url"], input[type="date"], textarea') && $(this).val()) {
       allEmpty = false;
     }
     $(this).prop('title', '');
@@ -1680,6 +1225,18 @@ function statusAndTooltips(valid) {
     statusBoxHtml = STATUS_PROMPT_HTML;
   }
 
+  // list each deck box's problems beneath it too; the one-column layout shows them there,
+  // a long scroll away from the status box. Problems with named cards are left to
+  // markCards(), which puts each on its card's own row just below
+  ['deckmain', 'deckside'].forEach(function(key) {
+    const fieldNotifications = allEmpty ? [] : (notifications[key] || []).filter(function(notification) {
+      return notification[2] !== 'cards';
+    });
+    $('#' + key + '-messages').html(fieldNotifications.map(function(notification) {
+      return '<li class=\'' + notification[1] + '\'>' + notification[0] + '</li>';
+    }).join(''));
+  });
+
   // compute new status
   let newStatus = 'valid';
   if (errorLevel & 0x100)      { newStatus = 'error'; }
@@ -1734,6 +1291,8 @@ function loadLogos() {
 
 // ==================== DARK MODE FUNCTIONALITY ====================
 
+// The script at the top of <body> sets the starting mode before the first paint;
+// this labels the toggle and follows the system and the toggle from then on
 function initDarkMode() {
   const darkModeToggle = document.getElementById('darkModeToggle');
   const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
@@ -1746,9 +1305,8 @@ function initDarkMode() {
     darkModeToggle.setAttribute('aria-label', label);
   }
 
-  // A saved choice wins; with none, follow the system setting
-  const saved = localStorage.getItem('darkMode');
-  applyDarkMode(saved === null ? systemDark.matches : saved === 'true');
+  // Label the toggle for the mode the script at the top of <body> chose
+  applyDarkMode(document.body.classList.contains('dark-mode'));
 
   // Follow system changes while there's no saved choice
   systemDark.addEventListener('change', function(e) {
@@ -1810,7 +1368,6 @@ function initDeckManagement() {
       deckside: $('#deckside').val(),
       deckformat: $('#deckformat').val(),
       sortorder: $('input[name="sortorder"]:checked').prop('id'),
-      decksheet: $('input[name="decksheetformat"]:checked').prop('id'),
       separateBasicLands: $('#separate-basic-lands').is(':checked'),
       savedAt: new Date().toISOString()
     };
@@ -1821,9 +1378,11 @@ function initDeckManagement() {
     updateLoadButtonState();
 
     // Visual feedback
-    saveButton.textContent = '✅ Saved!';
+    saveButton.textContent = 'Saved!';
+    saveButton.classList.add('done');
     setTimeout(() => {
-      saveButton.textContent = '💾 Save Decklist';
+      saveButton.textContent = 'Save Decklist';
+      saveButton.classList.remove('done');
     }, 2000);
 
   });
@@ -1858,18 +1417,15 @@ function initDeckManagement() {
       $('#' + deckData.sortorder).click();
     }
 
-    // Restore deck sheet format
-    if (deckData.decksheet) {
-      $('#' + deckData.decksheet).click();
-    }
-
     // Trigger PDF regeneration
     pdfChangeWait();
 
     // Visual feedback
-    loadButton.textContent = '✅ Loaded!';
+    loadButton.textContent = 'Loaded!';
+    loadButton.classList.add('done');
     setTimeout(() => {
-      loadButton.textContent = '📂 Load Decklist';
+      loadButton.textContent = 'Load Decklist';
+      loadButton.classList.remove('done');
     }, 2000);
 
   });
@@ -1896,14 +1452,28 @@ function initDeckManagement() {
 // ==================== AUTOCOMPLETE FUNCTIONALITY ====================
 
 function initAutocomplete() {
-  let autocompleteContainer = null;
-  let selectedIndex = -1;
-  let suggestions = [];
+  const MAX_SUGGESTIONS = 10;
+  const MAX_LIST_HEIGHT = 220;
+  const GAP = 4;
 
-  // Create autocomplete container
-  autocompleteContainer = $('<div class="autocomplete-suggestions"></div>');
-  $('body').append(autocompleteContainer);
-  autocompleteContainer.hide();
+  // The deck box the list belongs to, its suggestions ({name, rank}), and the highlighted
+  // one, which Enter and Tab take
+  let textarea = null;
+  let suggestions = [];
+  let selectedIndex = 0;
+
+  const container = $('<div class="autocomplete-suggestions" role="listbox"></div>');
+  $('body').append(container);
+  container.hide();
+
+  // Pressing on the list must not take focus from the deck box: the typing would go
+  // nowhere afterwards, and on a phone the keyboard would close
+  container.on('mousedown pointerdown', function(e) {
+    e.preventDefault();
+  });
+  container.on('click', '.autocomplete-suggestion', function() {
+    selectSuggestion($(this).index());
+  });
 
   // Attach autocomplete to deck textareas
   $('#deckmain, #deckside').on('input', function(e) {
@@ -1915,29 +1485,9 @@ function initAutocomplete() {
       return;
     }
 
-    const textarea = $(this);
-    const cursorPos = textarea[0].selectionStart;
-    const text = textarea.val();
-    const textBeforeCursor = text.substring(0, cursorPos);
-
-    // Get the current line being typed
-    const lines = textBeforeCursor.split('\n');
-    const currentLine = lines[lines.length - 1];
-
-    // Extract card name (after quantity like "4 " or "2x ")
-    const matchWithQuantity = currentLine.match(/^\s*\d+x?\s+(.+)$/i);
-    // Also match card name without quantity at the start of a line
-    const matchWithoutQuantity = currentLine.match(/^\s*([a-zA-Z].*)$/i);
-
-    let searchTerm = null;
-    if (matchWithQuantity && matchWithQuantity[1].length >= 2) {
-      searchTerm = matchWithQuantity[1].toLowerCase();
-    } else if (matchWithoutQuantity && matchWithoutQuantity[1].length >= 2) {
-      searchTerm = matchWithoutQuantity[1].toLowerCase();
-    }
-
+    const searchTerm = currentSearchTerm(this);
     if (searchTerm) {
-      showAutocomplete(textarea, searchTerm);
+      showAutocomplete($(this), searchTerm);
     } else {
       hideAutocomplete();
     }
@@ -1945,7 +1495,7 @@ function initAutocomplete() {
 
   // Handle keyboard navigation
   $('#deckmain, #deckside').on('keydown', function(e) {
-    if (!autocompleteContainer.is(':visible')) return;
+    if (!container.is(':visible') || e.isComposing) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -1955,9 +1505,14 @@ function initAutocomplete() {
       e.preventDefault();
       selectedIndex = Math.max(selectedIndex - 1, 0);
       updateSelection();
-    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      // Enter after a name typed in full ends the line, as it would with no list open
+      if (e.key === 'Enter' && selectedIndex === 0 && suggestions[0].rank === 0) {
+        hideAutocomplete();
+        return;
+      }
       e.preventDefault();
-      selectSuggestion($(this), suggestions[selectedIndex]);
+      selectSuggestion(selectedIndex);
     } else if (e.key === 'Escape') {
       hideAutocomplete();
     }
@@ -1970,89 +1525,179 @@ function initAutocomplete() {
     }
   });
 
-  function showAutocomplete(textarea, searchTerm) {
-    // Search for matching cards in the global cards object
-    suggestions = [];
+  // Keep the list beside the caret as the page scrolls, the deck box scrolls, or a phone's
+  // keyboard opens or closes, once a frame at most
+  let repositionFrame = null;
+  function reposition() {
+    if (repositionFrame || !container.is(':visible')) return;
+    repositionFrame = requestAnimationFrame(function() {
+      repositionFrame = null;
+      if (container.is(':visible')) positionList();
+    });
+  }
+  window.addEventListener('scroll', reposition, { passive: true });
+  window.addEventListener('resize', reposition);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('scroll', reposition);
+    window.visualViewport.addEventListener('resize', reposition);
+  }
+  $('#deckmain, #deckside').on('scroll', reposition);
 
-    if (typeof cards !== 'undefined') {
-      // Compare loose forms, so "fire ice" suggests Fire // Ice
-      const term = Decklist.searchKey(searchTerm);
-      for (const [key, card] of Decklist.searchIndex()) {
-        if (key.includes(term)) {
-          suggestions.push(card.n);
-          if (suggestions.length >= 10) break; // Limit to 10 suggestions
-        }
+  // The card name on the caret's line, after any quantity ("4 " or "2x "), once it is
+  // at least two characters long; otherwise null
+  function currentSearchTerm(box) {
+    const textBeforeCursor = box.value.substring(0, box.selectionStart);
+    const currentLine = textBeforeCursor.substring(textBeforeCursor.lastIndexOf('\n') + 1);
+    const matchWithQuantity = currentLine.match(/^\s*\d+x?\s+(.+)$/i);
+    const matchWithoutQuantity = currentLine.match(/^\s*([a-zA-Z].*)$/i);
+    const name = (matchWithQuantity || matchWithoutQuantity || [])[1];
+    return name && name.length >= 2 ? name : null;
+  }
+
+  // Every card whose loose name contains the term, best first: the name itself, then
+  // names starting with it, then names with a word starting with it, then the rest,
+  // alphabetically within each. Loose forms, so "fire ice" finds Fire // Ice
+  function searchCards(searchTerm) {
+    const term = Decklist.searchKey(searchTerm);
+    const matches = [];
+    if (!term || typeof cards === 'undefined') return matches;
+
+    for (const [key, card] of Decklist.searchIndex()) {
+      const at = key.indexOf(term);
+      if (at === -1) continue;
+      let rank = 3;
+      if (key === term) {
+        rank = 0;
+      } else if (at === 0) {
+        rank = 1;
+      } else if (startsWord(key, term, at)) {
+        rank = 2;
       }
+      matches.push({ key: key, name: card.n, rank: rank });
     }
 
+    matches.sort(function(a, b) {
+      return a.rank - b.rank || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+    });
+    return matches.slice(0, MAX_SUGGESTIONS);
+  }
+
+  // Whether the term starts a word of the name anywhere from `at` on
+  function startsWord(key, term, at) {
+    for (; at !== -1; at = key.indexOf(term, at + 1)) {
+      if (!/[a-z0-9]/.test(key[at - 1])) return true;
+    }
+    return false;
+  }
+
+  function showAutocomplete(box, searchTerm) {
+    suggestions = searchCards(searchTerm);
     if (suggestions.length === 0) {
       hideAutocomplete();
       return;
     }
 
-    // Position autocomplete below textarea
-    const offset = textarea.offset();
-    const textareaHeight = textarea.outerHeight();
-
-    autocompleteContainer.css({
-      top: offset.top + textareaHeight + 'px',
-      left: offset.left + 'px',
-      width: textarea.outerWidth() + 'px'
+    textarea = box;
+    selectedIndex = 0;
+    container.empty();
+    suggestions.forEach(function(suggestion) {
+      container.append($('<div class="autocomplete-suggestion" role="option"></div>').text(suggestion.name));
     });
+    updateSelection();
+    container.show();
+    container.scrollTop(0);
+    positionList();
+  }
 
-    // Populate suggestions
-    autocompleteContainer.empty();
-    suggestions.forEach((suggestion, index) => {
-      const item = $('<div class="autocomplete-suggestion"></div>')
-        .text(suggestion)
-        .on('click', function() {
-          selectSuggestion(textarea, suggestion);
-        });
+  // Puts the list under the caret's line, or above it when there's more room there inside
+  // what's visible: a phone's keyboard shrinks the visual viewport, and a list below the
+  // box would sit behind it
+  function positionList() {
+    const box = textarea[0];
+    const rect = box.getBoundingClientRect();
+    const caret = caretLine(box);
+    const lineTop = Math.min(Math.max(rect.top + caret.top, rect.top), rect.bottom);
+    const lineBottom = Math.min(lineTop + caret.height, rect.bottom);
 
-      autocompleteContainer.append(item);
+    const view = window.visualViewport;
+    const viewTop = view ? view.offsetTop : 0;
+    const viewBottom = view ? view.offsetTop + view.height : window.innerHeight;
+    const spaceBelow = viewBottom - lineBottom - 2 * GAP;
+    const spaceAbove = lineTop - viewTop - 2 * GAP;
+
+    container.css({ maxHeight: 'none', left: rect.left + window.scrollX + 'px', width: rect.width + 'px' });
+    const listHeight = Math.min(container.outerHeight(), MAX_LIST_HEIGHT);
+    const below = spaceBelow >= listHeight || spaceBelow >= spaceAbove;
+    const height = Math.max(Math.min(listHeight, below ? spaceBelow : spaceAbove), 0);
+
+    container.css({
+      maxHeight: height + 'px',
+      top: (below ? lineBottom + GAP : lineTop - GAP - height) + window.scrollY + 'px'
     });
+  }
 
-    selectedIndex = -1;
-    autocompleteContainer.show();
+  // The caret's line inside a textarea, as {top, height} from its border edge with its
+  // scroll applied, measured on a hidden copy with the same width and text styles so
+  // wrapped lines count
+  function caretLine(box) {
+    const style = getComputedStyle(box);
+    const mirror = document.createElement('div');
+    ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle',
+      'letterSpacing', 'wordSpacing', 'lineHeight', 'textTransform', 'textIndent', 'tabSize'].forEach(function(prop) {
+      mirror.style[prop] = style[prop];
+    });
+    Object.assign(mirror.style, {
+      position: 'absolute', visibility: 'hidden', top: '0', left: '-9999px', border: '0', boxSizing: 'border-box',
+      width: box.clientWidth + 'px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word'
+    });
+    mirror.textContent = box.value.substring(0, box.selectionEnd);
+    const marker = document.createElement('span');
+    marker.textContent = '​';
+    mirror.appendChild(marker);
+    document.body.appendChild(mirror);
+    const line = { top: box.clientTop + marker.offsetTop - box.scrollTop, height: marker.offsetHeight };
+    mirror.remove();
+    return line;
   }
 
   function hideAutocomplete() {
-    autocompleteContainer.hide();
-    selectedIndex = -1;
+    container.hide();
+    selectedIndex = 0;
     suggestions = [];
   }
 
   function updateSelection() {
-    autocompleteContainer.find('.autocomplete-suggestion').removeClass('selected');
-    if (selectedIndex >= 0) {
-      autocompleteContainer.find('.autocomplete-suggestion').eq(selectedIndex).addClass('selected');
-    }
+    container.find('.autocomplete-suggestion').each(function(index) {
+      $(this).toggleClass('selected', index === selectedIndex).attr('aria-selected', index === selectedIndex);
+    });
+    const selected = container.find('.selected')[0];
+    if (selected) selected.scrollIntoView({ block: 'nearest' });
   }
 
-  function selectSuggestion(textarea, cardName) {
-    const cursorPos = textarea[0].selectionStart;
-    const text = textarea.val();
+  function selectSuggestion(index) {
+    const box = textarea[0];
+    const cardName = suggestions[index].name;
+    const cursorPos = box.selectionStart;
+    const text = box.value;
     const textBeforeCursor = text.substring(0, cursorPos);
     const textAfterCursor = text.substring(cursorPos);
 
     // Get the current line
-    const lines = textBeforeCursor.split('\n');
     const currentLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
-    const currentLine = lines[lines.length - 1];
+    const currentLine = textBeforeCursor.substring(currentLineStart);
 
     // Extract quantity, default to "1 " if none present
     const match = currentLine.match(/^\s*(\d+x?\s+)/i);
     const quantity = match ? match[1] : '1 ';
 
     // Replace current line with selected card
-    const newText = text.substring(0, currentLineStart) + quantity + cardName + textAfterCursor;
-    textarea.val(newText);
+    box.value = text.substring(0, currentLineStart) + quantity + cardName + textAfterCursor;
 
-    // Set cursor position after card name
-    const newCursorPos = currentLineStart + quantity.length + cardName.length;
-    textarea[0].setSelectionRange(newCursorPos, newCursorPos);
-
+    // Keep typing in the deck box, with the cursor after the card name
     hideAutocomplete();
+    box.focus();
+    const newCursorPos = currentLineStart + quantity.length + cardName.length;
+    box.setSelectionRange(newCursorPos, newCursorPos);
 
     // Trigger change event
     textarea.trigger('input');

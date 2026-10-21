@@ -4,8 +4,8 @@
   <title>MTG Decklist Generator - Free Tournament Registration Sheet Builder | decklist.app</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Free Magic: The Gathering tournament decklist generator. Create WotC and SCG registration sheets instantly. Supports MTGO, MTGGoldfish, and TappedOut formats. Perfect for competitive MTG players.">
-  <meta name="keywords" content="MTG decklist, Magic tournament, DCI registration, decklist generator, WotC decklist, SCG decklist, MTGO decklist, MTGGoldfish, tournament registration, Magic: The Gathering, deck registration sheet">
+  <meta name="description" content="Free Magic: The Gathering tournament decklist generator. Create official WotC registration sheets instantly. Supports MTGO, MTGGoldfish, and TappedOut formats. Perfect for competitive MTG players.">
+  <meta name="keywords" content="MTG decklist, Magic tournament, DCI registration, decklist generator, WotC decklist, MTGO decklist, MTGGoldfish, tournament registration, Magic: The Gathering, deck registration sheet">
   <meta name="author" content="decklist.app">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://decklist.app/">
@@ -17,10 +17,6 @@
   <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
   <meta name="theme-color" content="#1f5fa8">
 
-  <!-- Preconnect to external domains -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
   <!-- LLM Discovery -->
   <link rel="alternate" type="text/plain" href="https://decklist.app/llms.txt" title="LLMs.txt">
 
@@ -29,7 +25,7 @@
   <meta property="og:url" content="https://decklist.app/">
   <meta property="og:site_name" content="decklist.app">
   <meta property="og:title" content="MTG Decklist Generator">
-  <meta property="og:description" content="Free Magic: The Gathering decklist generator. Paste or import a deck from Moxfield, Archidekt, MTGGoldfish, MTGTop8, Scryfall or Arena, check it against your format, and print a WotC or SCG registration sheet.">
+  <meta property="og:description" content="Free Magic: The Gathering decklist generator. Paste or import a deck from Moxfield, Archidekt, MTGGoldfish, MTGTop8, Scryfall or Arena, check it against your format, and print a WotC registration sheet.">
   <meta property="og:image" content="https://decklist.app/images/og-image.png?v=2">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
@@ -39,13 +35,12 @@
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="MTG Decklist Generator">
-  <meta name="twitter:description" content="Free Magic: The Gathering decklist generator. Paste or import a deck from Moxfield, Archidekt, MTGGoldfish, MTGTop8, Scryfall or Arena, check it against your format, and print a WotC or SCG registration sheet.">
+  <meta name="twitter:description" content="Free Magic: The Gathering decklist generator. Paste or import a deck from Moxfield, Archidekt, MTGGoldfish, MTGTop8, Scryfall or Arena, check it against your format, and print a WotC registration sheet.">
   <meta name="twitter:image" content="https://decklist.app/images/og-image.png?v=2">
   <meta name="twitter:image:alt" content="decklist.app: No more decklist problems, with a sample Modern registration sheet">
 
-  <!-- Optimized Google Fonts loading -->
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"></noscript>
+  <!-- Roboto, declared in decklist.css; fetched now so it is usually in by the first paint -->
+  <link rel="preload" href="css/fonts/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
 
   <!-- JSON-LD Structured Data -->
   <script type="application/ld+json">
@@ -55,7 +50,7 @@
     "name": "MTG Decklist Generator",
     "alternateName": "decklist.app",
     "url": "https://decklist.app",
-    "description": "Free Magic: The Gathering tournament decklist generator. Create WotC and SCG registration sheets instantly. Supports MTGO, MTGGoldfish, and TappedOut formats.",
+    "description": "Free Magic: The Gathering tournament decklist generator. Create official WotC registration sheets instantly. Supports MTGO, MTGGoldfish, and TappedOut formats.",
     "applicationCategory": "GameApplication",
     "operatingSystem": "Web Browser",
     "offers": {
@@ -65,7 +60,6 @@
     },
     "featureList": [
       "WotC tournament registration sheets",
-      "SCG tournament registration sheets",
       "MTGO decklist import",
       "MTGGoldfish format support",
       "TappedOut format support",
@@ -79,37 +73,12 @@
   }
   </script>
 
-<!-- Critical CSS inlined for fastest initial render -->
-  <style>
-    :root{--bg-primary:#fff;--bg-secondary:#f8f9fa;--bg-tertiary:#e9ecef;--text-primary:#212529;--text-secondary:#495057;--border-color:#dee2e6;--border-color-hover:#adb5bd;--accent-color:#1f5fa8;--accent-hover:#184c87;--shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 6px rgba(0,0,0,.1);--shadow-lg:0 10px 20px rgba(0,0,0,.12);--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--transition:all .2s ease}
-    body.dark-mode{--bg-primary:#1a1a1a;--bg-secondary:#2d2d2d;--bg-tertiary:#3a3a3a;--text-primary:#e9ecef;--text-secondary:#adb5bd;--border-color:#495057;--border-color-hover:#6c757d;--shadow-sm:0 1px 3px rgba(0,0,0,.3);--shadow-md:0 4px 6px rgba(0,0,0,.4);--shadow-lg:0 10px 20px rgba(0,0,0,.5);--accent-color:#8ab4f0;--accent-hover:#a8c8f5}
-    body{padding:0;margin:0;font-family:"Roboto",sans-serif;background:var(--bg-secondary);color:var(--text-primary);transition:background .3s ease,color .3s ease;overflow-x:hidden}
-    .navbar{background:var(--bg-primary);box-shadow:var(--shadow-md);border-bottom:2px solid var(--accent-color)}
-    .navbar-container{max-width:1400px;margin:0 auto;padding:16px 40px;display:flex;align-items:center;justify-content:space-between;gap:20px}
-    .navbar-brand{display:flex;align-items:center;gap:12px;font-size:28px;font-weight:700;color:var(--text-primary);letter-spacing:-.5px}
-    .brand-icon{width:24px;height:24px;color:var(--accent-color);flex-shrink:0}
-    .brand-icon .bi-back{fill:var(--bg-primary)}
-    .brand-icon .bi-gap{fill:var(--bg-primary);stroke:var(--bg-primary)}
-    .brand-icon .bi-rules{stroke:var(--bg-primary)}
-    .brand-text{color:var(--accent-color);background:linear-gradient(135deg,var(--accent-color) 0%,var(--accent-hover) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:700}
-    .brand-highlight{color:var(--accent-color);font-weight:800;-webkit-text-fill-color:var(--accent-color)}
-    .navbar-container h1{font-size:13px;color:var(--text-secondary);font-weight:500;letter-spacing:.3px;margin:0;padding:0;flex:1;text-align:left;line-height:1.4}
-    .wrapper{width:95%;max-width:1400px;margin:0 auto;padding:20px 0}
-    .content-row{display:flex;gap:30px;align-items:flex-start;margin-bottom:20px}
-    .wrapleft{flex:1;min-width:0}
-    a{text-decoration:none;color:var(--accent-color);transition:var(--transition)}
-    a:hover{color:var(--accent-hover);text-decoration:underline}
-  </style>
-
-  <!-- Load non-critical CSS asynchronously -->
-  <link rel="preload" href="css/decklist.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <!-- The stylesheet blocks the first paint: loaded asynchronously, the page
+       painted unstyled and then visibly zoomed when it arrived -->
+  <link rel="stylesheet" type="text/css" href="css/decklist.css">
+  <!-- jQuery UI's styles are only for the date picker, so they can arrive late -->
   <link rel="preload" href="css/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-
-  <!-- Noscript fallback for users without JavaScript -->
-  <noscript>
-    <link rel="stylesheet" type="text/css" href="css/decklist.css">
-    <link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css">
-  </noscript>
+  <noscript><link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css"></noscript>
 
   <!-- jQuery - Load synchronously as it's a critical dependency -->
   <script type="text/javascript" src="js/jquery/jquery-3.1.1.min.js"></script>
@@ -141,7 +110,7 @@
   <!-- Navigation Bar -->
   <nav class="navbar">
     <div class="navbar-container">
-      <div class="navbar-brand">
+      <a class="navbar-brand" href="/">
         <svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <g class="bi-back" fill="#fff" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
             <rect x="5" y="3.6" width="9" height="13.5" rx="2"></rect>
@@ -156,7 +125,7 @@
           </g>
         </svg>
         <span class="brand-text">decklist</span>
-      </div>
+      </a>
       <h1>No more decklist problems</h1>
       <div class="navbar-links">
         <a href="docs.html">Docs & FAQ</a>
@@ -176,28 +145,50 @@
           <h2>Deck Information</h2>
           <section class="deck-import" aria-labelledby="deckimport-title">
             <h3 id="deckimport-title">Import a deck</h3>
-            <p class="import-description">Paste a deck link from MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall. We’ll fill in the main deck and sideboard.</p>
-            <label for="deckimport" class="import-label">Deck link</label>
-            <div class="import-controls">
-              <input type="url" id="deckimport" placeholder="Paste your deck URL" autocomplete="off" spellcheck="false" aria-describedby="deckimport-help deckimport-status">
-              <button type="button" id="deckimport-button" disabled>Import deck</button>
+            <div class="import-tabs" role="tablist" aria-label="Import from">
+              <button type="button" role="tab" id="import-tab-link" aria-controls="import-panel-link" aria-selected="true">Deck link</button>
+              <button type="button" role="tab" id="import-tab-file" aria-controls="import-panel-file" aria-selected="false" tabindex="-1">Text file</button>
             </div>
-            <p id="deckimport-help" class="import-help">Open a deck on any of those sites, then copy its address here.</p>
+            <div role="tabpanel" id="import-panel-link" aria-labelledby="import-tab-link">
+              <p class="import-description">Paste a deck link from MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall. We’ll fill in the main deck and sideboard.</p>
+              <label for="deckimport" class="import-label">Deck link</label>
+              <div class="import-controls">
+                <input type="url" id="deckimport" placeholder="Paste your deck URL" autocomplete="off" spellcheck="false" aria-describedby="deckimport-help deckimport-status">
+                <button type="button" id="deckimport-button" class="icon-button" disabled>Import deck</button>
+              </div>
+              <p id="deckimport-help" class="import-help">Open a deck on any of those sites, then copy its address here.</p>
+              <p class="import-help">Shortcut: put <strong>decklist.app/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
+            </div>
+            <div role="tabpanel" id="import-panel-file" aria-labelledby="import-tab-file" hidden>
+              <p class="import-description">Upload a deck file exported from MTG Arena, MTGO, Cockatrice or any deck site: a text list (.txt), an MTGO .dek or a Cockatrice .cod.</p>
+              <div id="deckfile-drop" class="import-drop">
+                <input type="file" id="deckfile" accept=".txt,.dek,.dec,.cod,.mwdeck,text/plain" hidden>
+                <button type="button" id="deckfile-button" class="icon-button" aria-describedby="deckimport-status">Choose file</button>
+                <span>or drop it here, or on a deck box below</span>
+              </div>
+            </div>
             <div class="import-result">
               <p id="deckimport-status" role="status" aria-live="polite" aria-atomic="true"></p>
-              <button type="button" id="deckimport-undo" hidden>Undo import</button>
+              <button type="button" id="deckimport-undo" class="icon-button" hidden>Undo import</button>
             </div>
             <p class="import-alternative">Have a text export? Paste it below.</p>
-            <p class="import-help">Shortcut: put <strong>decklist.app/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
           </section>
           <label for="deckname">
-            <span>Deck Name / Archetype:</span>
-            <input type="text" id="deckname" placeholder="(optional)">
+            <span>Deck Name / Archetype (optional):</span>
+            <input type="text" id="deckname" placeholder="The Deck" autocorrect="off" spellcheck="false">
           </label>
           <label for="deckdesigner">
-            <span>Deck Designer:</span>
-            <input type="text" id="deckdesigner" placeholder="(optional)">
+            <span>Deck Designer (optional):</span>
+            <input type="text" id="deckdesigner" placeholder="Brian Weissman" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
+          <script>
+            // A famous archetype and its designer as the placeholders, set before the first paint
+            (function() {
+              var archetype = ARCHETYPES[Math.floor(Math.random() * ARCHETYPES.length)];
+              document.getElementById('deckname').placeholder = archetype[0];
+              document.getElementById('deckdesigner').placeholder = archetype[1];
+            })();
+          </script>
           <label for="deckformat">
             <span>Format (optional):</span>
             <select id="deckformat">
@@ -225,17 +216,19 @@
           </label>
           <label for="deckmain">
             <span>Main Deck:</span>
-            <textarea id="deckmain"></textarea>
-            <span id="protip">(Pro tip: You can simply paste in MTG Arena, Moxfield, MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks, set codes and all, without separating out the sideboard!)</span>
+            <textarea id="deckmain" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckmain-messages protip"></textarea>
           </label>
+          <ul class="field-messages" id="deckmain-messages"></ul>
           <div class="deckcheck" id="deckmain-check" aria-label="Main deck as read" role="region" hidden>
             <ul></ul>
             <button type="button" class="deckcheck-toggle" aria-expanded="false"></button>
           </div>
+          <p id="protip">(Pro tip: You can simply paste in MTG Arena, Moxfield, MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks, set codes and all, without separating out the sideboard!)</p>
           <label for="deckside">
             <span>Sideboard:</span>
-            <textarea id="deckside"></textarea>
+            <textarea id="deckside" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckside-messages"></textarea>
           </label>
+          <ul class="field-messages" id="deckside-messages"></ul>
           <div class="deckcheck" id="deckside-check" aria-label="Sideboard as read" role="region" hidden>
             <ul></ul>
             <button type="button" class="deckcheck-toggle" aria-expanded="false"></button>
@@ -248,16 +241,16 @@
           <h2>Personal Information</h2>
           <label for="firstname">
             <span>First Name:</span>
-            <input type="text" id="firstname">
+            <input type="text" id="firstname" autocomplete="given-name" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <label for="lastname">
             <span>Last Name:</span>
-            <input type="text" id="lastname">
+            <input type="text" id="lastname" autocomplete="family-name" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <h2>Event Information</h2>
           <label for="event">
             <span>Event:</span>
-            <input type="text" id="event">
+            <input type="text" id="event" autocapitalize="words">
           </label>
           <label for="eventdate">
             <span>Event Date:</span>
@@ -265,29 +258,24 @@
           </label>
           <label for="eventlocation">
             <span>Event Location:</span>
-            <input type="text" id="eventlocation">
+            <input type="text" id="eventlocation" autocapitalize="words">
           </label>
           <h2>Deck Sort Order</h2>
         </form>
       </div>
       <div id="sortorderwrapper">
         <div id="sortorderfloat">
+          <input type="radio" id="sort-type" name="sortorder" checked><label for="sort-type">Type (recommended)</label>
           <input type="radio" id="sort-alphabetical" name="sortorder"><label for="sort-alphabetical">Alphabetically</label>
           <input type="radio" id="sort-manavalue" name="sortorder"><label for="sort-manavalue">Mana Value</label>
           <input type="radio" id="sort-color" name="sortorder"><label for="sort-color">Color</label>
           <input type="radio" id="sort-numeric" name="sortorder"><label for="sort-numeric">Numerically</label>
           <input type="radio" id="sort-original" name="sortorder"><label for="sort-original">Original</label>
-          <input type="radio" id="sort-type" name="sortorder" checked><label for="sort-type">Type (recommended)</label>
         </div>
       </div>
     </div>
 
     <div class="right">
-      <h2>Decksheet Format</h2>
-      <div id="decksheetformatselector">
-        <input type="radio" id="decksheet-wotc" name="decksheetformat" checked><label for="decksheet-wotc"><abbr title="Wizards of the Coast">WotC</abbr></label>
-        <input type="radio" id="decksheet-scg" name="decksheetformat"><label for="decksheet-scg"><abbr title="Star City Games">SCG</abbr></label>
-      </div>
       <h2>
         Decklist Preview
       </h2>
@@ -299,19 +287,19 @@
         <div class="deckliststatus" id="dlw1"><span class="status-icon warning" role="img" aria-label="Warning"></span>Decklist contains &gt;60 cards.</div>
       </div>
       <form>
-        <input type="button" id="download" value="📥 Download PDF" onclick="generateDecklistPDF('dataurlnewwindow');">
-        <input type="button" id="permalink" value="🔗 Copy Permalink" onclick="sharePermalink()">
+        <button type="button" id="download" class="icon-button" onclick="generateDecklistPDF('dataurlnewwindow');">Download PDF</button>
+        <button type="button" id="permalink" class="icon-button" onclick="sharePermalink()">Copy Permalink</button>
       </form>
 
       <!-- Deck management actions -->
       <div class="deck-actions">
-        <button id="saveDeck">💾 Save Decklist</button>
-        <button id="loadDeck">📂 Load Decklist</button>
-        <button id="clearDeck">🗑️ Clear All</button>
+        <button type="button" id="saveDeck" class="icon-button">Save Decklist</button>
+        <button type="button" id="loadDeck" class="icon-button">Load Decklist</button>
+        <button type="button" id="clearDeck" class="icon-button">Clear All</button>
       </div>
       <h2>Status</h2>
       <div class="status default">
-        <div class="statusmark"></div>
+        <div class="statusmark">Ready to print</div>
         <ul class="details"><li class="prompt">Fill in the form to check your decklist.</li></ul>
       </div>
     </div>

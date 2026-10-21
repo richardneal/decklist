@@ -108,6 +108,7 @@ test('auto-detect names the format it picked', async () => {
 
 test('a deck auto-detect reads correctly has no deck messages', async () => {
   assert.deepEqual((await deck(...LEGACY)).messages, []);
+  assert.equal(await page.innerText('.status.valid .statusmark'), 'Ready to print');
   // No 60-card or 15-card warnings for a Commander or Limited deck
   assert.deepEqual((await deck(...COMMANDER)).messages, []);
   assert.deepEqual((await deck('6 Grizzly Bears\n34 Forest')).messages, []);
@@ -118,6 +119,8 @@ test('a 59-card deck is still a card short', async () => {
   const { label, messages } = await deck('4 Counterspell\n55 Island', '15 Island');
   assert.equal(label, 'Auto-detect (Pauper)');
   assert.deepEqual(messages, ['Decks may not consist of less than 60 cards']);
+  // Beside the status box, the deck box doesn't list its problems again
+  assert.equal(await page.isVisible('#deckmain-messages'), false);
 });
 
 test('an Arena export with a companion pasted into the main deck fills both sections', async () => {
@@ -206,27 +209,24 @@ async function copyPermalink() {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
   outside.length = 0;
   await page.click('#permalink');
-  await page.waitForFunction(() => document.querySelector('#permalink').value === 'Copied!');
+  await page.waitForFunction(() => document.querySelector('#permalink').textContent === 'Copied!');
   assert.deepEqual(outside, []);
   const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
   assert.equal(link.origin, 'https://decklist.app');
   return link;
 }
 
-// The sheet and sort order radios that are checked
-const radios = () => page.evaluate(() => ({
-  sheet: document.querySelector('input[name=decksheetformat]:checked').id,
-  sort: document.querySelector('input[name=sortorder]:checked').id
-}));
+// The sort order radio that is checked
+const sortOrder = () => page.evaluate(() => document.querySelector('input[name=sortorder]:checked').id);
 
 test('Copy Permalink copies a link that reopens the deck, and sends it nowhere', async () => {
   await deck("1 Sol Ring\n1 +2 Mace\n1 Fire // Ice\n96 Island", "1 Atraxa, Praetors' Voice", 'commander');
   await page.fill('#deckname', 'Atraxa & Friends 100%');
   const filled = await fields();
-  const label = await page.inputValue('#permalink');
+  const label = await page.textContent('#permalink');
   const link = await copyPermalink();
   // The button puts its own label back
-  await page.waitForFunction(label => document.querySelector('#permalink').value === label, label, { timeout: 5000 });
+  await page.waitForFunction(label => document.querySelector('#permalink').textContent === label, label, { timeout: 5000 });
 
   // A fresh page, so nothing carries over but the link
   await page.close();
@@ -234,28 +234,65 @@ test('Copy Permalink copies a link that reopens the deck, and sends it nowhere',
   assert.deepEqual(await fields(), filled);
 });
 
-test('a permalink keeps the sheet and sort order, and back and forward restore them', async () => {
+test('a permalink keeps the sort order, and back and forward restore it', async () => {
   await page.fill('#deckmain', '4 Counterspell\n56 Island');
   await page.waitForTimeout(600);
-  await page.click('label[for=decksheet-scg]');
   await page.click('label[for=sort-manavalue]');
+  await page.click('label[for=sort-color]');
   const link = await copyPermalink();
-  assert.equal(link.search, '?deckmain=4+Counterspell%0A56+Island&decksheet=scg&decksort=manavalue');
+  assert.equal(link.search, '?deckmain=4+Counterspell%0A56+Island&decksort=color');
   // Each radio is a step in the address bar's history
   assert.equal(new URL(page.url()).search, link.search);
 
-  // Going back two steps undoes both radios at once and keeps the steps ahead
+  // Going back two steps undoes both clicks at once and keeps the steps ahead
   await page.evaluate(() => history.go(-2));
   await page.waitForTimeout(200);
-  assert.deepEqual(await radios(), { sheet: 'decksheet-wotc', sort: 'sort-type' });
+  assert.equal(await sortOrder(), 'sort-type');
   assert.equal(new URL(page.url()).search, '?deckmain=4+Counterspell%0A56+Island');
   await page.evaluate(() => history.go(2));
   await page.waitForTimeout(200);
-  assert.deepEqual(await radios(), { sheet: 'decksheet-scg', sort: 'sort-manavalue' });
+  assert.equal(await sortOrder(), 'sort-color');
 
   await page.close();
   await newPage({}, '/index.html' + link.search);
-  assert.deepEqual(await radios(), { sheet: 'decksheet-scg', sort: 'sort-manavalue' });
+  assert.equal(await sortOrder(), 'sort-color');
+});
+
+test('an old link naming the SCG sheet opens the WotC sheet', async () => {
+  await page.close();
+  await newPage({}, '/index.html?deckmain=4+Counterspell%0A56+Island&decksheet=scg');
+  assert.equal(await page.inputValue('#deckmain'), '4 Counterspell\n56 Island');
+  assert.equal(await page.locator('input[name=decksheetformat]').count(), 0);
+});
+
+test('the preview sidebar is sticky only while it fits in the window', async () => {
+  const sticky = () => page.evaluate(() => getComputedStyle(document.querySelector('.right')).position === 'sticky');
+  await page.close();
+  await newPage({ viewport: { width: 1280, height: 1100 } }, '/index.html?deckmain=4+Counterspell%0A56+Island');
+  assert.equal(await sticky(), true);
+
+  // A long status makes it taller than the window, so it scrolls with the page again
+  await page.fill('#deckmain', Array.from({ length: 30 }, (_, i) => '1 Not A Card ' + i).join('\n'));
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.right')).position !== 'sticky');
+  await page.fill('#deckmain', '4 Counterspell\n56 Island');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.right')).position === 'sticky');
+
+  // and so does a window too short for it
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.right')).position !== 'sticky');
+});
+
+test('clicking the brand scrolls to the top and keeps the deck', async () => {
+  await open('/index.html?deckname=Mono+Blue&deckmain=4+Counterspell%0A56+Island');
+  await page.fill('#deckdesigner', 'Jace');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const url = page.url();
+  await page.click('.navbar-brand');
+  await page.waitForFunction(() => window.scrollY === 0);
+  assert.equal(page.url(), url);
+  assert.equal(await page.inputValue('#deckdesigner'), 'Jace');
+  assert.equal(await page.inputValue('#deckmain'), '4 Counterspell\n56 Island');
+  assert.equal(await page.getAttribute('.navbar-brand', 'href'), '/');
 });
 
 test('links with %20 for spaces still open', async () => {
@@ -272,18 +309,20 @@ test('on a phone, Copy Permalink opens the share sheet with the same link', asyn
     navigator.clipboard.writeText = async () => { throw new Error('the clipboard was used'); };
   });
   await page.fill('#deckmain', '4 Counterspell\n56 Island');
-  const label = await page.inputValue('#permalink');
+  const label = await page.textContent('#permalink');
   outside.length = 0;
   await page.click('#permalink');
   const shared = await page.waitForFunction(() => window.shared).then(handle => handle.jsonValue());
   assert.equal(shared.url, 'https://decklist.app/?deckmain=4+Counterspell%0A56+Island');
-  assert.equal(await page.inputValue('#permalink'), label);
+  assert.equal(await page.textContent('#permalink'), label);
   assert.deepEqual(outside, []);
 });
 
 test('Save and Load keep the format, and Clear resets it', async () => {
   await deck(...LEGACY, 'legacy');
   await page.click('#saveDeck');
+  assert.equal(await page.textContent('#saveDeck'), 'Saved!');
+  assert.ok(await page.$eval('#saveDeck', button => button.classList.contains('done')));
   await page.click('#clearDeck');
   assert.equal(await page.inputValue('#deckformat'), '');
   await page.click('#loadDeck');
@@ -353,6 +392,97 @@ test('the preview renders a PDF', async () => {
     null, { timeout: 5000 });
 });
 
+test('a phone draws the preview, picks the date natively, and lists deck problems under the deck box', async () => {
+  await page.close();
+  await newPage({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+  assert.equal(await page.getAttribute('#eventdate', 'type'), 'date');
+  await deck('4 Lightning Bolt\n4 Not A Card\n51 Mountain', '15 Mountain');
+  const messages = await page.$$eval('#deckmain-messages > li', items => items.map(item => item.innerText));
+  assert.deepEqual(messages, ['Decks may not consist of less than 60 cards']);
+  assert.ok(await page.isVisible('#deckmain-messages'));
+  // A problem with a named card is on that card's own row instead, just below
+  assert.deepEqual(await marked('deckmain'), ['warning 4 Not A Card: Couldn\'t recognize this card']);
+  assert.equal(await page.isVisible('#deckside-messages'), false);
+  // PDF.js draws the sheet in place of the iframe, and it isn't blank
+  await page.waitForSelector('#decklistpreview canvas', { timeout: 10000 });
+  assert.equal(await page.$('#decklist'), null);
+  const inked = await page.$eval('#decklistpreview canvas', canvas => {
+    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    let count = 0;
+    for (let i = 0; i < pixels.length; i += 4) if (pixels[i] < 128) count++;
+    return count;
+  });
+  assert.ok(inked > 1000, 'the drawn preview has ' + inked + ' dark pixels');
+  // The status comes before the download button
+  assert.ok((await page.locator('.status').boundingBox()).y < (await page.locator('#download').boundingBox()).y);
+});
+
+// Types at the end of the main deck as a player would, and returns the suggestions shown.
+// The deck box is focused directly: a click could land on an open list
+async function typeInDeck(text) {
+  await page.$eval('#deckmain', box => {
+    box.focus();
+    box.setSelectionRange(box.value.length, box.value.length);
+  });
+  await page.keyboard.type(text);
+  return page.$$eval('.autocomplete-suggestion', items => items.filter(item => item.offsetParent).map(item => item.textContent));
+}
+
+test('autocomplete puts the name typed, then names starting with it, first', async () => {
+  assert.equal((await typeInDeck('4 island'))[0], 'Island');
+  await page.fill('#deckmain', '');
+  const thought = await typeInDeck('2 thoughtse');
+  assert.equal(thought[0], 'Thoughtseize');
+  await page.fill('#deckmain', '');
+  // A word starting with the term beats the term inside a word
+  const bolt = await typeInDeck('4 bolt');
+  const firstInside = bolt.findIndex(name => !/(^|[^a-z0-9])bolt/i.test(name));
+  assert.ok(firstInside === -1 || bolt.slice(firstInside).every(name => !/(^|[^a-z0-9])bolt/i.test(name)), bolt.join(', '));
+  assert.ok(bolt.slice(0, firstInside === -1 ? bolt.length : firstInside).every(name => /(^|[^a-z0-9])bolt/i.test(name)));
+});
+
+test('picking a suggestion keeps typing in the deck box', async () => {
+  await typeInDeck('4 snapcas');
+  await page.click('.autocomplete-suggestion >> text=Snapcaster Mage');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'deckmain');
+  await page.keyboard.type('\n2 Island');
+  assert.equal(await page.inputValue('#deckmain'), '4 Snapcaster Mage\n2 Island');
+});
+
+test('Enter and Tab take the highlighted suggestion, and Enter after a full name ends the line', async () => {
+  await typeInDeck('4 snapcas');
+  await page.keyboard.press('Enter');
+  await typeInDeck('\n1 lightning bo');
+  await page.keyboard.press('ArrowDown');
+  const second = await page.textContent('.autocomplete-suggestion.selected');
+  await page.keyboard.press('Tab');
+  assert.equal(await page.inputValue('#deckmain'), '4 Snapcaster Mage\n1 ' + second);
+  await page.fill('#deckmain', '');
+  await typeInDeck('4 island');
+  await page.keyboard.press('Enter');
+  assert.equal(await page.inputValue('#deckmain'), '4 island\n');
+});
+
+test('the suggestions sit at the caret, inside the visible part of the page', async () => {
+  await page.close();
+  await newPage({ viewport: { width: 375, height: 500 }, hasTouch: true, isMobile: true });
+  await page.$eval('#deckmain', box => {
+    box.value = Array.from({ length: 20 }, () => '1 Island').join('\n');
+    box.scrollIntoView({ block: 'end' });
+  });
+  await typeInDeck('\n4 bolt');
+  const { list, box, caretLine, view } = await page.evaluate(() => {
+    const rect = element => element.getBoundingClientRect().toJSON();
+    const box = document.querySelector('#deckmain');
+    return { list: rect(document.querySelector('.autocomplete-suggestions')), box: rect(box),
+      caretLine: box.getBoundingClientRect().bottom, view: innerHeight };
+  });
+  // The caret is on the box's last line, so the list opens above it rather than below the box
+  assert.ok(list.bottom <= caretLine, JSON.stringify({ list, box }));
+  assert.ok(list.top >= 0 && list.bottom <= view, JSON.stringify({ list, view }));
+  assert.ok(list.height >= 44);
+});
+
 test("a Commander deck's sideboard keeps the commander first on the sheet", async () => {
   importReply = { body: '1 Sol Ring\n96 Island\nSideboard\n1 Jace, Multiverse Architect\n1 Grizzly Bears\n1 Counterspell',
     format: 'commander' };
@@ -365,6 +495,42 @@ test("a Commander deck's sideboard keeps the commander first on the sheet", asyn
   // An Oathbreaker deck's sideboard holds its Oathbreaker and signature spell, and keeps its order too
   await page.selectOption('#deckformat', 'oathbreaker');
   assert.deepEqual(await sideboard(), ['Jace, Multiverse Architect', 'Grizzly Bears', 'Counterspell']);
+});
+
+test('the Text file tab loads an uploaded deck file, and undo restores the last deck', async () => {
+  await page.fill('#deckmain', '4 Island');
+  await page.selectOption('#deckformat', 'modern');
+  assert.equal(await page.isVisible('#deckfile-button'), false);
+  await page.click('#import-tab-file');
+  assert.equal(await page.isVisible('#deckimport'), false);
+  assert.equal(await page.getAttribute('#import-tab-file', 'aria-selected'), 'true');
+  await page.setInputFiles('#deckfile', { name: 'burn.dek', mimeType: 'application/octet-stream', buffer: Buffer.from(
+    '<?xml version="1.0"?><Deck><Cards Quantity="4" Sideboard="false" Name="Lightning Bolt"/>' +
+    '<Cards Quantity="56" Sideboard="false" Name="Mountain"/><Cards Quantity="2" Sideboard="true" Name="Abrade"/></Deck>') });
+  await page.waitForSelector('#deckimport-status[data-state="success"]');
+  assert.equal(await page.inputValue('#deckmain'), '4 Lightning Bolt\n56 Mountain');
+  assert.equal(await page.inputValue('#deckside'), '2 Abrade');
+  // A file names no format, so the one chosen stays
+  assert.equal(await page.inputValue('#deckformat'), 'modern');
+  assert.match(await page.textContent('#deckimport-status'), /Loaded burn\.dek: 60 main-deck cards and 2 sideboard cards/);
+  await page.click('#deckimport-undo');
+  assert.equal(await page.inputValue('#deckmain'), '4 Island');
+
+  // An Arena export goes into the main deck box whole, and a file with no deck changes nothing
+  await page.setInputFiles('#deckfile', { name: 'arena.txt', mimeType: 'text/plain',
+    buffer: Buffer.from('About\nName Mono Red\n\nDeck\n4 Lightning Bolt\n56 Mountain\n\nSideboard\n2 Abrade\n') });
+  await page.waitForSelector('#deckimport-status[data-state="success"]');
+  assert.equal(await page.inputValue('#deckname'), 'Mono Red');
+  assert.equal(await page.inputValue('#deckside'), '');
+  await page.setInputFiles('#deckfile', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('Remember to sleeve up') });
+  await page.waitForSelector('#deckimport-status[data-state="error"]');
+  assert.match(await page.inputValue('#deckmain'), /^About/);
+
+  // The arrow keys move between the tabs
+  await page.focus('#import-tab-file');
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await page.isVisible('#deckimport'), true);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'import-tab-link');
 });
 
 // The rows under a textarea that the player sees, as "quantity name: reason; reason"

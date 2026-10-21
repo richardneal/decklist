@@ -47,7 +47,7 @@
         "name": "How do I use the MTG decklist generator?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Simply paste your deck from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, or any supported format into the Main Deck field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events."
+          "text": "Simply paste your deck from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, or any supported format into the Main Deck field. The generator will automatically parse your cards, validate them, and create a tournament-ready WotC registration sheet as a PDF."
         }
       },
       {
@@ -56,14 +56,6 @@
         "acceptedAnswer": {
           "@type": "Answer",
           "text": "Our decklist generator supports MTG Arena, MTGO (Magic Online), Moxfield, MTGGoldfish, TappedOut, MTG Salvation, Deckbox Print format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Can I create both WotC and SCG registration sheets?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes! You can choose between Wizards of the Coast (WotC) official tournament registration sheets or Star City Games (SCG) format sheets using the decksheet format selector."
         }
       },
       {
@@ -94,13 +86,14 @@
   }
   </script>
 
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
+  <link rel="preload" href="css/fonts/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" type="text/css" href="css/decklist.css">
 
   <!-- jQuery -->
   <script type="text/javascript" src="js/jquery/jquery-3.1.1.min.js"></script>
 
-  <!-- Dark mode script -->
+  <!-- Dark mode script: the script at the top of <body> sets the starting mode before
+       the first paint; this follows the system and the toggle from then on -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const body = document.body;
@@ -115,9 +108,8 @@
         darkModeToggle.setAttribute('aria-label', label);
       }
 
-      // A saved choice wins; with none, follow the system setting
-      const saved = localStorage.getItem('darkMode');
-      applyDarkMode(saved === null ? systemDark.matches : saved === 'true');
+      // Label the toggle for the mode the script at the top of <body> chose
+      applyDarkMode(body.classList.contains('dark-mode'));
 
       // Follow system changes while there's no saved choice
       systemDark.addEventListener('change', function(e) {
@@ -211,7 +203,6 @@
             <li><strong>Enter your information:</strong> Fill in your first and last name</li>
             <li><strong>Add event details:</strong> Event name, date, and location</li>
             <li><strong>Add your deck:</strong> Paste an MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck link and click "Import deck", or copy your decklist from MTG Arena, MTGO, Moxfield, MTGGoldfish, or TappedOut and paste it directly</li>
-            <li><strong>Choose format:</strong> Select WotC (Wizards of the Coast) or SCG (Star City Games) sheet format</li>
             <li><strong>Download:</strong> Click "Download PDF" to get your tournament-ready registration sheet</li>
           </ol>
         </div>
@@ -223,17 +214,12 @@
 
         <div class="faq-item">
           <h3>How do I use the MTG decklist generator?</h3>
-          <p>Simply paste your deck from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, or any supported format into the "Main Deck" field. The generator will automatically parse your cards, validate them, and create a tournament-ready PDF registration sheet for WotC or SCG events.</p>
+          <p>Simply paste your deck from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, or any supported format into the "Main Deck" field. The generator will automatically parse your cards, validate them, and create a tournament-ready WotC registration sheet as a PDF.</p>
         </div>
 
         <div class="faq-item">
           <h3>What deck formats are supported?</h3>
           <p>Our decklist generator supports MTG Arena, MTGO (Magic Online), Moxfield, MTGGoldfish, TappedOut, MTG Salvation, Deckbox "Print" format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard.</p>
-        </div>
-
-        <div class="faq-item">
-          <h3>Can I create both WotC and SCG registration sheets?</h3>
-          <p>Yes! You can choose between Wizards of the Coast (WotC) official tournament registration sheets or Star City Games (SCG) format sheets using the decksheet format selector.</p>
         </div>
 
         <div class="faq-item">
@@ -321,6 +307,11 @@ Sideboard
         </div>
 
         <div class="docs-subsection">
+          <h3>Deck files</h3>
+          <p>Have your deck saved as a file? Open the "Text file" tab in "Import a deck" and choose it, or drop it on the main deck box. A text list (<code>.txt</code>) from MTG Arena or any deck site, an MTGO <code>.dek</code> and a Cockatrice <code>.cod</code> all work. The file is read in your browser and never uploaded anywhere. "Undo import" puts back the deck it replaced.</p>
+        </div>
+
+        <div class="docs-subsection">
           <h3>Manual Entry</h3>
           <p>You can also manually type your deck in this format:</p>
           <pre><code>Quantity CardName
@@ -377,7 +368,6 @@ decklist.app/https://www.mtgtop8.com/event?e=…&amp;d=…&amp;f=MO</code></pre>
 
           <h4>Display Options</h4>
           <ul>
-            <li><strong>decksheet</strong> - Sheet format: <code>wotc</code> or <code>scg</code> (defaults to wotc; a permalink includes it when it isn't the default)</li>
             <li><strong>decksort</strong> - Sort order: <code>alphabetical</code>, <code>manavalue</code>, <code>color</code>, <code>numeric</code>, <code>original</code>, or <code>type</code> (defaults to type; a permalink includes it when it isn't the default)</li>
             <li><strong>disableediting</strong> - Prevent users from editing pre-filled fields</li>
           </ul>

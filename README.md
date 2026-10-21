@@ -32,7 +32,6 @@ This fork includes additional features and improvements aimed at providing a mor
 
 ### Registration Sheets
 - **WotC Format**: Official Wizards of the Coast tournament registration sheets
-- **SCG Format**: Star City Games tournament registration sheets
 - **Direct Linking**: Pre-fill forms via URL parameters for tournament organizers
 
 ### Card Database
@@ -49,7 +48,6 @@ Interested in directly linking to [decklist.app](https://decklist.app) for your 
 - **`event`**: the name of the event (e.g. RCQ Minneapolis)
 - **`eventdate`**: the date of the event (e.g. 2027-12-31)
 - **`eventlocation`**: the physical location of the event (e.g. Minneapolis Convention Center)
-- **`decksheet`**: the deck sheet to use (either `wotc` or `scg`, defaults to `wotc`)
 - **`deckname`**: the name of the deck (e.g. "RUG Twin")
 - **`deckdesigner`**: the name of the designer of the decklist
 - **`deckmain`**: the deck itself; this can be in any format the website understands (use `%0A` for newlines)
