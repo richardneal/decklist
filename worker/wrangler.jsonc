@@ -19,5 +19,7 @@
     "name": "IMPORT_LIMITER",
     "namespace_id": "1001",
     "simple": { "limit": 20, "period": 60 }
-  }]
+  }],
+  // Each import's source, outcome and time (record() in index.mjs)
+  "analytics_engine_datasets": [{ "binding": "IMPORTS", "dataset": "decklist_imports" }]
 }

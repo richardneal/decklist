@@ -96,10 +96,46 @@ function importerUI() {
     });
     return elements.get(selector);
   }
-  const ui = vm.createContext({ URL, AbortSignal, $ });
+  // report.js runs for real, its beacons kept in `beacons`
+  const beacons = [];
+  const ui = vm.createContext({ URL, AbortSignal, $, Blob, JSON,
+    window: { addEventListener() {} },
+    location: { protocol: 'https:', href: 'https://decklist.app/', origin: 'https://decklist.app' },
+    navigator: { sendBeacon: (url, blob) => beacons.push(blob) } });
+  vm.runInContext(fs.readFileSync('js/decklist/report.js', 'utf8'), ui);
   vm.runInContext(fs.readFileSync('js/decklist/deckimport.js', 'utf8'), ui);
-  return { $, ui };
+  // The reports sent so far, as [event, ...codes]
+  const reports = async () => (await Promise.all(beacons.map(blob => blob.text())))
+    .map(text => JSON.parse(text)).map(({ e, d }) => [e, ...d]);
+  return { $, ui, reports };
 }
+
+test('names only known deck sites for a link the import cannot read', () => {
+  assert.equal(importer.site('https://tappedout.net/mtg-decks/secret/'), 'tappedout.net');
+  assert.equal(importer.site('www.deckstats.net/decks/1'), 'deckstats.net');
+  assert.equal(importer.site('https://moxfield.com/decks/public'), 'moxfield.com');
+  for (const value of ['https://jace.example/deck', 'not a link', '', 'https://tappedout.net.evil.test/']) {
+    assert.equal(importer.site(value), 'other');
+  }
+});
+
+test('reports a failed import by source and kind, and a link it cannot read by site', async () => {
+  const { $, ui, reports } = importerUI();
+  $('#deckimport').val('https://mtggoldfish.com/deck/123');
+  ui.fetch = async () => { throw new TypeError('Failed to fetch'); };
+  await $('#deckimport-button').trigger('click');
+  ui.fetch = async () => { throw new DOMException('timed out', 'TimeoutError'); };
+  await $('#deckimport-button').trigger('click');
+  $('#deckimport').val('https://moxfield.com/decks/abcdefghijklmnopqrstuv');
+  ui.fetch = async () => ({ ok: false, status: 502, headers: new Map(), text: async () => '' });
+  await $('#deckimport-button').trigger('click');
+  $('#deckimport').val('https://tappedout.net/mtg-decks/my-secret-deck/');
+  await $('#deckimport-button').trigger('click');
+  // The same failure is reported once
+  await $('#deckimport-button').trigger('click');
+  assert.deepEqual(await reports(), [['import', 'mtggoldfish', 'network'], ['import', 'mtggoldfish', 'timeout'],
+    ['import', 'moxfield', 'failed'], ['badlink', 'tappedout.net']]);
+});
 
 test('button updates textareas, refreshes the preview, and preserves edits during a request', async () => {
   const { $, ui } = importerUI();

@@ -14,10 +14,18 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.svg': 'image/svg+xml' };
 const API = 'https://import.decklist.app/api/import';
 
-let server, browser, origin, page, pageErrors, importReply, outside;
+let server, browser, origin, page, pageErrors, importReply, outside, events;
 
 before(async () => {
   server = createServer(async (request, response) => {
+    // The page's error and outcome reports (report.js), kept with the headers the site
+    // Worker reads
+    if (request.method === 'POST' && request.url === '/api/event') {
+      let body = '';
+      for await (const chunk of request) body += chunk;
+      events.push({ ...JSON.parse(body), origin: request.headers.origin });
+      return response.writeHead(204).end();
+    }
     const path = normalize(decodeURIComponent(new URL(request.url, 'http://localhost').pathname));
     try {
       const body = await readFile(join(ROOT, path === '/' ? 'index.html' : path));
@@ -39,6 +47,7 @@ after(async () => {
 beforeEach(async () => {
   pageErrors = [];
   importReply = { body: '4 Island', format: null, name: null };
+  events = [];
   await newPage();
 });
 
@@ -54,7 +63,7 @@ async function newPage(options = {}, path = '/index.html') {
   await page.route(url => !url.href.startsWith(origin), route => {
     outside.push(route.request().url());
     if (!route.request().url().startsWith(API)) return route.abort();
-    return route.fulfill({ status: 200, body: importReply.body, headers: {
+    return route.fulfill({ status: importReply.status || 200, body: importReply.body, headers: {
       'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*',
       'Access-Control-Expose-Headers': 'X-Deck-Format, X-Deck-Name',
       ...(importReply.format ? { 'X-Deck-Format': importReply.format } : {}),
@@ -587,4 +596,46 @@ test('the full list shows each card as it was matched, and hides again', async (
   // An empty textarea lists nothing at all
   await deck('', '');
   assert.equal(await page.isHidden('#deckmain-check'), true);
+});
+
+// The reports sent so far, once the given number have arrived
+async function reports(count) {
+  await page.waitForFunction(count => performance.getEntriesByType('resource')
+    .filter(entry => entry.name.endsWith('/api/event')).length >= count, count, { timeout: 5000 });
+  await page.waitForTimeout(100);
+  return events.map(({ e, d }) => [e, ...d]);
+}
+
+test('a download reports its format, problems and unrecognized cards, and nothing from the form', async () => {
+  await deck('4 Lightning Bolt\n4 Notacard Atall\n50 Mountain', '', 'modern');
+  await page.fill('#deckname', 'Secret Burn');
+  await Promise.all([page.waitForEvent('download'), page.click('#download')]);
+  assert.deepEqual(await reports(1), [['download', 'modern:error', 'toosmall,unrecognized', '1-2']]);
+  assert.equal(events[0].origin, origin);
+  assert.doesNotMatch(JSON.stringify(events), /Jace|Beleren|Test Open|Minneapolis|Secret|Bolt|Notacard|Mountain/);
+});
+
+test('a failed import reports its source and kind, and a link it cannot read only its site', async () => {
+  importReply = { status: 502, body: 'The deck source returned HTTP 403.' };
+  await page.fill('#deckimport', 'https://moxfield.com/decks/abcdefghijklmnopqrstuv');
+  await page.click('#deckimport-button');
+  await page.waitForSelector('#deckimport-status[data-state="error"]');
+  await page.fill('#deckimport', 'https://tappedout.net/mtg-decks/my-secret-deck/');
+  await page.click('#deckimport-button');
+  await page.fill('#deckimport', 'https://example.com/jace/deck');
+  await page.click('#deckimport-button');
+  assert.deepEqual(await reports(3), [['import', 'moxfield', 'failed'], ['badlink', 'tappedout.net'], ['badlink', 'other']]);
+});
+
+test('nothing is reported while the browser sends Global Privacy Control', async () => {
+  await page.close();
+  page = await browser.newPage();
+  page.on('pageerror', error => pageErrors.push(error.message));
+  await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get: () => true }));
+  await page.route(url => !url.href.startsWith(origin), route => route.abort());
+  await open('/index.html');
+  await deck('4 Lightning Bolt\n56 Mountain', '', 'modern');
+  await Promise.all([page.waitForEvent('download'), page.click('#download')]);
+  await page.waitForTimeout(500);
+  assert.deepEqual(events, []);
 });

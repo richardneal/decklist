@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { inflateSync, crc32 } from 'node:zlib';
-import { handle, countDeck, preview, imageDeck } from '../hosting/index.mjs';
+import { handle, countDeck, preview, imageDeck, client } from '../hosting/index.mjs';
 
 // The assets binding: the front page, one other file, and a 404 for anything else
 const page = await readFile(new URL('../index.html', import.meta.url), 'utf8');
@@ -232,4 +232,57 @@ test("an image's query is taken on no trust", async () => {
   // Any text draws, in characters the font lacks too
   const png = new Uint8Array(await (await run('/preview.png?name=' + encodeURIComponent('Æther 日本 <b>') + '&cards=' + encodeURIComponent('4 Lim-Dûl\nnot a card'))).arrayBuffer());
   assert.deepEqual(size(png), [1200, 630]);
+});
+
+// Posts a report to /api/event, with the page's origin unless headers say otherwise,
+// and returns the response and the data points written
+async function report(body, headers = {}, limited = false) {
+  const points = [];
+  const events = { ...env, EVENTS: { writeDataPoint: point => points.push(point) },
+    EVENT_LIMITER: { limit: async () => ({ success: !limited }) } };
+  const response = await handle(new Request('https://decklist.app/api/event', { method: 'POST',
+    body: typeof body === 'string' ? body : JSON.stringify(body), headers: {
+      Origin: 'https://decklist.app', 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.7 Mobile/15E148 Safari/604.1',
+      ...headers } }), events);
+  return { response, points };
+}
+
+test("a report is counted with its codes, the browser family and the device, and nothing else", async () => {
+  const { response, points } = await report({ e: 'download', d: ['modern:ok', '', '0'] });
+  assert.equal(response.status, 204);
+  assert.deepEqual(points, [{ indexes: ['download'], blobs: ['download', 'modern:ok', '', '0', 'safari', 'mobile'] }]);
+  const short = await report({ e: 'badlink', d: ['tappedout.net'] });
+  assert.deepEqual(short.points[0].blobs, ['badlink', 'tappedout.net', '', '', 'safari', 'mobile']);
+});
+
+test('a report from another site, with Global Privacy Control, or not from the list is dropped', async () => {
+  const dropped = [
+    await report({ e: 'download', d: [] }, { Origin: 'https://example.com' }),
+    await report({ e: 'download', d: [] }, { Origin: '' }),
+    await report({ e: 'download', d: [] }, { 'Sec-GPC': '1' }),
+    await report({ e: 'deckmain', d: ['4 Lightning Bolt'] }),
+    await report({ e: 'error', d: ['a', 'b', 'c', 'd'] }),
+    await report({ e: 'error', d: [{ deck: 1 }] }),
+    await report('not json'),
+    await report({ e: 'error', d: ['x'.repeat(2000)] }),
+    await report({ e: 'download', d: [] }, {}, true)
+  ];
+  for (const { response, points } of dropped) {
+    assert.equal(response.status, 204);
+    assert.deepEqual(points, []);
+  }
+  const get = await handle(new Request('https://decklist.app/api/event', { headers: { Origin: 'https://decklist.app' } }), env);
+  assert.equal(get.status, 204);
+});
+
+test('a long code is clipped and control characters are blanked', async () => {
+  const { points } = await report({ e: 'error', d: ['/js/decklist/main.js:1:2', 'bad\nline' + 'x'.repeat(200)] });
+  assert.equal(points[0].blobs[2], 'bad line' + 'x'.repeat(112));
+});
+
+test('the browser family and device are read from the User-Agent', () => {
+  assert.deepEqual(client('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0'), ['edge', 'desktop']);
+  assert.deepEqual(client('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Mobile Safari/537.36'), ['chrome', 'mobile']);
+  assert.deepEqual(client('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7; rv:140.0) Gecko/20100101 Firefox/140.0'), ['firefox', 'desktop']);
+  assert.deepEqual(client('curl/8.7.1'), ['other', 'desktop']);
 });

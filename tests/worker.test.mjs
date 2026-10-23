@@ -4,12 +4,13 @@ import { handle } from '../worker/index.mjs';
 
 function setup(options = {}) {
   const entries = new Map();
-  const calls = [];
+  const calls = [], points = [];
   const env = {
     ALLOWED_ORIGINS: 'https://decklist.app,https://nealston.com',
     MOXFIELD_USER_AGENT: 'decklist-test/1.0',
     USER_AGENT: 'decklist-generic/1.0',
-    IMPORT_LIMITER: { limit: async () => ({ success: !options.limited }) }
+    IMPORT_LIMITER: { limit: async () => ({ success: !options.limited }) },
+    IMPORTS: { writeDataPoint: point => points.push(point) }
   };
   const ctx = { waitUntil: promise => promise };
   const services = {
@@ -23,7 +24,9 @@ function setup(options = {}) {
       return new Response(options.body ?? '4 Island\n\n2 Negate', { status: options.status || 200, headers: options.headers });
     }
   };
-  return { calls, entries, run: (query = '?source=mtggoldfish&id=123', origin = 'https://decklist.app', method = 'GET') =>
+  // The import outcomes counted so far, as [source, outcome, detail]
+  const outcomes = () => points.map(point => point.blobs);
+  return { calls, entries, points, outcomes, run: (query = '?source=mtggoldfish&id=123', origin = 'https://decklist.app', method = 'GET') =>
     handle(new Request('https://import.decklist.app/api/import' + query, {
       method, headers: { Origin: origin, 'CF-Connecting-IP': '192.0.2.1' }
     }), env, ctx, services) };
@@ -351,4 +354,31 @@ test('reports the paper variants by the name each source gives them', async () =
   for (const format of ['premodern', 'oldschool', 'duel', 'paupercommander', 'predh', 'oathbreaker']) {
     assert.equal(await reported('scryfall', SCRYFALL_ID, { format, entries: { mainboard: [entry('Island', 60)] } }), format);
   }
+});
+
+test('counts each import by source and outcome, without its deck ID', async () => {
+  const s = setup();
+  await s.run();
+  await s.run();
+  await s.run('?source=moxfield&id=public');
+  assert.deepEqual(s.outcomes(), [['mtggoldfish', 'ok', ''], ['mtggoldfish', 'cached', ''], ['moxfield', 'badrequest', '']]);
+  assert.ok(s.points.every(point => typeof point.doubles[0] === 'number' && !JSON.stringify(point).includes('123')));
+  const unknown = setup();
+  await unknown.run('?source=tappedout&id=1');
+  assert.deepEqual(unknown.outcomes(), [['unknown', 'badrequest', '']]);
+});
+
+test('counts rate limits, upstream refusals and bad exports', async () => {
+  const limited = setup({ limited: true });
+  await limited.run();
+  assert.deepEqual(limited.outcomes(), [['mtggoldfish', 'limited', '']]);
+  const refused = setup({ status: 403 });
+  await refused.run();
+  assert.deepEqual(refused.outcomes(), [['mtggoldfish', 'upstream', '403']]);
+  const html = setup({ body: '<html><body>Login</body></html>' });
+  await html.run();
+  assert.deepEqual(html.outcomes(), [['mtggoldfish', 'invalid', 'The source did not return a deck export.']]);
+  const failed = setup({ throws: true });
+  await failed.run();
+  assert.deepEqual(failed.outcomes(), [['mtggoldfish', 'invalid', 'Network failure']]);
 });

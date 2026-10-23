@@ -786,7 +786,7 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
   const parsedInput = Decklist.parse();
 
   // Validate the input
-  validateInput(parsedInput);
+  const validate = validateInput(parsedInput);
 
   // get complete PDF
   const dl = generateStandardDecklist(parsedInput);
@@ -809,6 +809,7 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
   }
   else {
     dl.save('decklist.pdf');
+    reportDownload(parsedInput, validate);
   }
 }
 
@@ -858,6 +859,7 @@ async function drawPreview(data) {
     }
   } catch (error) {
     console.error('Preview failed', error);
+    Report.event('preview', error.name, Report.scrub(error.message));
     if (number === previewNumber) {
       const message = document.createElement('p');
       message.className = 'preview-unavailable';
@@ -945,6 +947,20 @@ function validateInput(parsedLists) {
   // pass validation data to output status/tooltip information
   statusAndTooltips(validate);
   markCards(parsedLists, validate);
+  return validate;
+}
+
+// Reports a download: the format, the worst problem left on the sheet, the deck's
+// problems by type, and how many cards it didn't recognize, so a rise in sheets printed
+// with problems, or with unrecognized cards, shows up (report.js)
+function reportDownload(parsedInput, validate) {
+  const problems = validate.deckmain.concat(validate.deckside),
+    all = Object.values(validate).flat(),
+    level = all.some(item => item['error']) ? 'error' : all.some(item => item['warning']) ? 'warning' : 'ok',
+    types = [...new Set(problems.map(item => item['error'] || item['warning']))].sort().join(','),
+    unrecognized = parsedInput['unrecognized'].length;
+  Report.event('download', currentDeckFormat(parsedInput) + ':' + level, types,
+    unrecognized === 0 ? '0' : unrecognized < 3 ? '1-2' : '3+');
 }
 
 // Lists the deck as it was read under each textarea, with each card's problems on its

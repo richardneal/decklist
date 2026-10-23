@@ -241,6 +241,17 @@
           <h3>Do I need to create an account?</h3>
           <p>No! decklist.app works entirely in your browser without any registration. Pasted decks are processed in your browser. Importing a link sends the deck source and ID to our import API; copying a permalink sends nothing anywhere, but the link itself carries the name, event and deck you entered, so share it only with people who should see them.</p>
         </div>
+
+        <div class="faq-item" id="what-we-count">
+          <h3>What does decklist.app count?</h3>
+          <p>To find out when something breaks, the page counts a few outcomes and sends each one to decklist.app itself, with no cookies, IDs or outside services:</p>
+          <ul>
+            <li><strong>Downloads:</strong> the format, whether the sheet still had a warning or error, the kinds of deck problems (such as "toosmall" or "banned") and whether any cards weren't recognized (none, 1–2, or 3 or more)</li>
+            <li><strong>Imports and uploads that fail:</strong> the deck site and the kind of failure (timeout, network or failed), the site of a link the importer can't read when it's one of a fixed list of deck sites ("other" otherwise), and an uploaded file's extension</li>
+            <li><strong>Errors:</strong> a script error in the site's own code (its file, line and message, with any quoted text removed), a site file that failed to load, or a preview that couldn't be drawn</li>
+          </ul>
+          <p>Each count also records the browser family (Chrome, Safari, Firefox…) and whether it came from a phone. Nothing you type is sent: not your name, event, deck name, cards or links. No IP address is stored. Importing a link also counts the import's outcome at our import API, without the deck's ID. If your browser sends Global Privacy Control, nothing is counted. The site is hosted on Cloudflare, whose Web Analytics also counts page loads, without cookies.</p>
+        </div>
       </section>
 
       <!-- Supported Formats Section -->

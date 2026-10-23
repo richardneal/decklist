@@ -19,5 +19,12 @@
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none",
     "run_worker_first": true
-  }
+  },
+  // The page's error and outcome counts (/api/event in index.mjs)
+  "analytics_engine_datasets": [{ "binding": "EVENTS", "dataset": "decklist_events" }],
+  "ratelimits": [{
+    "name": "EVENT_LIMITER",
+    "namespace_id": "1002",
+    "simple": { "limit": 30, "period": 60 }
+  }]
 }
