@@ -236,7 +236,7 @@ To see when people hit problems, without learning who they are or what their dec
 - `recordEvent()` in `hosting/index.mjs` accepts only those names, at most three codes of 120 characters, from the site's own `Origin` and without `Sec-GPC: 1`, behind the `EVENT_LIMITER` rate limit (30 a minute per IP, which isn't stored), and writes `[event, code1, code2, code3, browser, device]` to the `decklist_events` Analytics Engine dataset (`EVENTS` binding). It always answers 204
 - The import Worker's `record()` writes `[source, outcome, detail]` and the time taken in ms to `decklist_imports` (`IMPORTS` binding): outcomes `ok`, `cached`, `limited`, `badrequest`, `upstream` (detail: its HTTP status), `timeout` and `invalid` (detail: the error message). Never the deck ID
 - `docs.html` ("What does decklist.app count?", `#what-we-count`) lists every field; keep it in step when adding an event. Never send what a player typed: names, the event, the deck name, card names, links
-- Read the counts with `CLOUDFLARE_API_TOKEN=… node hosting/counts.mjs [days]`; the token needs Account Analytics: Read, which wrangler's login lacks
+- Read the counts with `CLOUDFLARE_API_TOKEN=… node hosting/counts.mjs [days]`; the token needs Account Analytics: Read, which wrangler's login lacks (on a Mac it falls back to the `decklist-counts` Keychain item)
 - Don't turn on Workers Logs for the site Worker: its logs would record each request's URL, and a permalink's query holds the player's name and deck
 
 ## Important Notes
