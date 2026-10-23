@@ -1,5 +1,5 @@
 /* exported DeckImport */
-/* global $, fetch */
+/* global $, fetch, Report */
 
 // Adapted from Richard Neal's MTGGoldfish and MTGTop8 importers.
 var DeckImport = {
@@ -13,6 +13,23 @@ var DeckImport = {
   // MTGTop8 deck links name their format in the f parameter. EDH is Duel Commander.
   mtgtop8Formats: { ST: 'standard', PI: 'pioneer', MO: 'modern', LE: 'legacy', VI: 'vintage', PAU: 'pauper',
     PREM: 'premodern', EDH: 'duel' },
+
+  // Deck sites a link the import doesn't read may come from. Report.event names only
+  // these, so an unrecognized link reports its site without the link itself, and any
+  // other host as 'other'.
+  otherSites: ['mtggoldfish.com', 'mtgtop8.com', 'moxfield.com', 'archidekt.com', 'scryfall.com',
+    'tappedout.net', 'deckstats.net', 'aetherhub.com', 'mtgdecks.net', 'untapped.gg', 'melee.gg',
+    'deckbox.org', 'cubecobra.com', 'edhrec.com', 'mtga.untapped.gg', 'manabox.app', 'magic.wizards.com'],
+
+  // The site of a link the import couldn't read, from otherSites, or 'other'.
+  site: function(value) {
+    try {
+      var host = new URL(/^https?:/i.test(value.trim()) ? value.trim() : 'https://' + value.trim()).hostname.replace(/^www\./, '');
+      return this.otherSites.indexOf(host) !== -1 ? host : 'other';
+    } catch (_) {
+      return 'other';
+    }
+  },
 
   // Describes a recognized deck link as {source, label, id, url}, or returns null.
   parse: function(value) {
@@ -233,6 +250,12 @@ $(function() {
       importedMain: deck.main, importedSide: side, importedName: $('#deckname').val() };
     $('#deckimport-undo').prop('hidden', false);
   }
+  // An uploaded file's kind for Report.event: its extension, if it's one people save
+  // decks as
+  function fileType(file) {
+    var extension = (file.name.match(/\.([a-z0-9]{1,5})$/i) || ['', ''])[1].toLowerCase();
+    return ['dek', 'cod', 'txt', 'dec', 'mwdeck', 'csv'].indexOf(extension) !== -1 ? extension : 'other';
+  }
   async function upload(file) {
     if (busy || !file) return;
     var originals = snapshot(), requestRevision = revision;
@@ -241,7 +264,9 @@ $(function() {
       var deck = DeckImport.fromFile(await file.text());
       if (revision !== requestRevision) return;
       apply(deck, originals, 'Loaded ' + file.name);
+      Report.event('upload', fileType(file), 'ok');
     } catch (error) {
+      Report.event('upload', fileType(file), Report.scrub(error.message));
       message(error.message + ' Your deck hasn’t changed.', 'error');
     }
   }
@@ -303,6 +328,7 @@ $(function() {
     var originals = snapshot(), originalURL = $('#deckimport').val(), requestRevision = revision;
     var target = DeckImport.parse(originalURL);
     if (!target) {
+      Report.event('badlink', DeckImport.site(originalURL));
       $('#deckimport').attr('aria-invalid', 'true');
       message(/mtgtop8\.com/i.test(originalURL) ?
         'Choose a specific deck on MTGTop8, then copy its link. The link needs a d= deck ID.' :
@@ -332,6 +358,7 @@ $(function() {
       var timedOut = error.name === 'TimeoutError' || error.name === 'AbortError';
       var detail = timedOut ? 'The import timed out.' :
         error instanceof TypeError ? 'Couldn’t reach the import service.' : error.message;
+      Report.event('import', target.source, Report.kind(error));
       message(detail + ' Your deck hasn’t changed. Try again, or paste an exported deck below.', 'error');
     } finally {
       busy = false;

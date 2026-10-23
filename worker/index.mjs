@@ -234,15 +234,34 @@ export async function handle(request, env, ctx, services = {}) {
   if (request.method !== 'GET') return reply('Use GET.', 405, { Allow: 'GET, OPTIONS' });
   const source = url.searchParams.get('source'), id = url.searchParams.get('id');
   const definition = SOURCES[source], target = upstreamURL(source, id);
-  if (!target) return reply('Provide a supported source and a valid deck ID.', 400);
+  // Counts each import in Analytics Engine (the IMPORTS binding): the source, the
+  // outcome, a detail (the upstream status or the error) and the time it took. The
+  // deck ID and the visitor's address are not kept.
+  const started = Date.now();
+  function record(outcome, detail = '') {
+    try {
+      env.IMPORTS?.writeDataPoint({ indexes: [definition ? source : 'unknown'],
+        blobs: [definition ? source : 'unknown', outcome, String(detail).slice(0, 120)], doubles: [Date.now() - started] });
+    } catch (_) {
+      // a count that can't be written is dropped
+    }
+  }
+  if (!target) {
+    record('badrequest');
+    return reply('Provide a supported source and a valid deck ID.', 400);
+  }
   if (!env.IMPORT_LIMITER) return reply('Import service is not configured.', 503);
   const { success } = await env.IMPORT_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
-  if (!success) return reply('Too many imports. Please try again in a minute.', 429, { 'Retry-After': '60' });
+  if (!success) {
+    record('limited');
+    return reply('Too many imports. Please try again in a minute.', 429, { 'Retry-After': '60' });
+  }
   const cache = services.cache || caches.default;
   const key = new Request(url.origin + '/api/import?source=' + source + '&id=' + id);
   const cached = await cache.match(key);
   if (cached) {
     const headers = DECK_HEADERS.filter(name => cached.headers.has(name)).map(name => [name, cached.headers.get(name)]);
+    record('cached');
     return reply(await cached.text(), 200, Object.fromEntries(headers));
   }
   const controller = new AbortController();
@@ -255,6 +274,7 @@ export async function handle(request, env, ctx, services = {}) {
     });
     if (!response.ok) {
       await response.body?.cancel();
+      record('upstream', response.status);
       return reply('The deck source returned HTTP ' + response.status + '. Try exporting and pasting the deck text.', 502);
     }
     const body = await readBody(response, definition.limit);
@@ -268,9 +288,11 @@ export async function handle(request, env, ctx, services = {}) {
     ctx.waitUntil(cache.put(key, new Response(text, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=300', ...described }
     })).catch(() => {}));
+    record('ok');
     return reply(text, 200, described);
   } catch (error) {
     console.error('Deck import failed:', error.name, error.message);
+    record(controller.signal.aborted ? 'timeout' : 'invalid', error.message);
     if (controller.signal.aborted) return reply('The deck source timed out. Please try again.', 504);
     return reply('Unable to download a valid deck export. Try exporting and pasting the deck text.', 502);
   } finally {

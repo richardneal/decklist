@@ -18,6 +18,16 @@ The build copies only public website files into the ignored `hosting/dist` direc
 
 For import API changes, use `npm run deploy --prefix worker`. Its origin allowlist includes `https://decklist.app`.
 
+## Error and outcome counts
+
+The page (`js/decklist/report.js`) posts a few counts to `/api/event`, which `index.mjs` writes to the `decklist_events` Analytics Engine dataset; the import Worker writes each import's outcome to `decklist_imports`. Neither keeps an IP address, deck, name or URL (docs.html, "What does decklist.app count?", lists every field). Each dataset appears on its first write. To read the last week (or `node hosting/counts.mjs 30` for a month):
+
+```sh
+CLOUDFLARE_API_TOKEN=… node hosting/counts.mjs
+```
+
+The token needs **Account → Account Analytics → Read**; wrangler's login can't query Analytics Engine. Make one under My Profile → API Tokens.
+
 ## The old host
 
 The site was served from `decklist.nealston.com` until October 2026. That host stays attached to the Worker in `wrangler.jsonc`, which keeps its DNS record and certificate, and a Redirect Rule in the `nealston.com` zone (Rules → Redirect Rules) sends every request to the new domain, so shared permalinks and tournament organizers' direct links keep working:

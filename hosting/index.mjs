@@ -3,8 +3,8 @@
 // A permalink to a deck (/?deckname=…&deckmain=…) gets the page with its link preview
 // naming the deck, and /preview.png draws that preview's image (preview.mjs). A deck
 // link written after the site's address (decklist.app/https://moxfield.com/decks/…) is
-// sent on to the page's deckimport parameter, which imports it on load; anything else
-// is a 404.
+// sent on to the page's deckimport parameter, which imports it on load; /api/event counts
+// the page's error and outcome reports; anything else is a 404.
 
 import { render } from './preview.mjs';
 
@@ -192,6 +192,46 @@ async function previewImage(request, url, env, ctx) {
   return request.method === 'HEAD' ? new Response(null, response) : response;
 }
 
+// The events the page reports (js/decklist/report.js), each with up to three short codes
+const EVENTS = new Set(['error', 'load', 'preview', 'import', 'badlink', 'upload', 'download']);
+
+// The browser family and kind of device, from the User-Agent, which isn't stored
+export function client(agent = '') {
+  const browser = /Edg\//.test(agent) ? 'edge' : /Firefox\/|FxiOS/.test(agent) ? 'firefox' :
+    /SamsungBrowser/.test(agent) ? 'samsung' : /Chrome\/|CriOS/.test(agent) ? 'chrome' :
+    /Safari\//.test(agent) ? 'safari' : 'other';
+  return [browser, /Mobi|iPhone|iPad|Android/.test(agent) ? 'mobile' : 'desktop'];
+}
+
+// Records one of the page's events in Analytics Engine (the EVENTS binding): its name,
+// its codes, the browser family and the device kind. No address, User-Agent, cookie or
+// page URL is kept, and a browser sending Global Privacy Control is not counted. Every
+// answer is a 204, so the page learns nothing either way.
+export async function recordEvent(request, env) {
+  const done = new Response(null, { status: 204 });
+  if (request.method !== 'POST' || request.headers.get('Origin') !== new URL(request.url).origin ||
+      request.headers.get('Sec-GPC') === '1' || !env.EVENTS) return done;
+  if (Number(request.headers.get('Content-Length')) > 1024) return done;
+  let event;
+  try {
+    const text = await request.text();
+    if (text.length > 1024) return done;
+    event = JSON.parse(text);
+  } catch (_) {
+    return done;
+  }
+  if (!event || !EVENTS.has(event.e) || !Array.isArray(event.d) || event.d.length > 3 ||
+      !event.d.every(code => typeof code === 'string')) return done;
+  const codes = event.d.map(code => code.replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 120));
+  while (codes.length < 3) codes.push('');
+  if (env.EVENT_LIMITER) {
+    const { success } = await env.EVENT_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
+    if (!success) return done;
+  }
+  env.EVENTS.writeDataPoint({ indexes: [event.e], blobs: [event.e, ...codes, ...client(request.headers.get('User-Agent') || '')] });
+  return done;
+}
+
 export async function handle(request, env, ctx) {
   const url = new URL(request.url);
   const read = request.method === 'GET' || request.method === 'HEAD';
@@ -200,6 +240,8 @@ export async function handle(request, env, ctx) {
     url.hostname = url.hostname.slice(4);
     return Response.redirect(url.href, 301);
   }
+
+  if (url.pathname === '/api/event') return recordEvent(request, env);
 
   if (url.pathname !== '/') {
     const asset = await env.ASSETS.fetch(request);
