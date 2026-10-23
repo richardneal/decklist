@@ -26,6 +26,12 @@ The page (`js/decklist/report.js`) posts a few counts to `/api/event`, which `in
 CLOUDFLARE_API_TOKEN=… node hosting/counts.mjs
 ```
 
+On a Mac, store the token once in the Keychain instead (`security` prompts for it) and leave out the variable:
+
+```sh
+security add-generic-password -a "$USER" -s decklist-counts -w
+```
+
 The token needs **Account → Account Analytics → Read**; wrangler's login can't query Analytics Engine. Make one under My Profile → API Tokens.
 
 ## The old host

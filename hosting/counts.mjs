@@ -4,12 +4,30 @@
 // Analytics:
 //
 //   CLOUDFLARE_API_TOKEN=… node hosting/counts.mjs [days]
+//
+// Without CLOUDFLARE_API_TOKEN, a Mac reads it from the login Keychain, where it is
+// stored once with (security prompts for the token, so it stays out of shell history):
+//
+//   security add-generic-password -a "$USER" -s decklist-counts -w
+
+import { execFileSync } from 'node:child_process';
 
 const ACCOUNT = 'f81e0f0d52bb815d2073e9e646641867';
 const days = Math.max(1, Math.min(90, Number(process.argv[2]) || 7));
-const token = process.env.CLOUDFLARE_API_TOKEN;
+
+function keychainToken() {
+  try {
+    return execFileSync('security', ['find-generic-password', '-s', 'decklist-counts', '-w'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch (_) {
+    return '';
+  }
+}
+
+const token = process.env.CLOUDFLARE_API_TOKEN || keychainToken();
 if (!token) {
-  console.error('Set CLOUDFLARE_API_TOKEN to a token with Account Analytics: Read.');
+  console.error('Set CLOUDFLARE_API_TOKEN to a token with Account Analytics: Read, or store it in the Keychain:\n' +
+    '  security add-generic-password -a "$USER" -s decklist-counts -w');
   process.exit(1);
 }
 
