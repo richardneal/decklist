@@ -26,6 +26,8 @@ The page (`js/decklist/report.js`) posts a few counts to `/api/event`, which `in
 CLOUDFLARE_API_TOKEN=… node hosting/counts.mjs
 ```
 
+The **Health check** workflow runs `node hosting/health.mjs` every day: it imports a test deck from MTGGoldfish, MTGTop8 and Archidekt, checks the last day's counts against the limits in `health.mjs`, and fails (so GitHub emails) when something needs a look. It reads the `CLOUDFLARE_ANALYTICS_TOKEN` repository secret, a read-only Account Analytics token.
+
 On a Mac, store the token once in the Keychain instead (`security` prompts for it) and leave out the variable:
 
 ```sh
