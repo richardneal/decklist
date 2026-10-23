@@ -128,7 +128,7 @@ The preview is an iframe on desktop and PDF.js canvases on a touch screen (see `
 
 ### Automated Tests
 
-Seven suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+Eight suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
 
 ```bash
 npm ci --prefix worker
@@ -155,6 +155,7 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
   ```
 
   Keep `playwright` pinned to a version whose Chromium is installed; a Claude Code cloud session ships the browsers for 1.56.1 in `/opt/pw-browsers`. Like `decklist.test.cjs` it uses the real card data, so a ban list change can break a test
+- `tests/health.test.mjs` - Covers `hosting/health.mjs`: which day's counts cross a threshold (a source's import failures, load failures, script errors, preview failures, failed imports in the browser), the notes on a quiet day, and the probe imports (stubbed fetch)
 - `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved, and checks the legality, restriction and copy-limit fields. This is the gate the card-refresh workflow runs before committing.
 
 ### Common Modifications
@@ -236,7 +237,8 @@ To see when people hit problems, without learning who they are or what their dec
 - `recordEvent()` in `hosting/index.mjs` accepts only those names, at most three codes of 120 characters, from the site's own `Origin` and without `Sec-GPC: 1`, behind the `EVENT_LIMITER` rate limit (30 a minute per IP, which isn't stored), and writes `[event, code1, code2, code3, browser, device]` to the `decklist_events` Analytics Engine dataset (`EVENTS` binding). It always answers 204
 - The import Worker's `record()` writes `[source, outcome, detail]` and the time taken in ms to `decklist_imports` (`IMPORTS` binding): outcomes `ok`, `cached`, `limited`, `badrequest`, `upstream` (detail: its HTTP status), `timeout` and `invalid` (detail: the error message). Never the deck ID
 - `docs.html` ("What does decklist.app count?", `#what-we-count`) lists every field; keep it in step when adding an event. Never send what a player typed: names, the event, the deck name, card names, links
-- Read the counts with `CLOUDFLARE_API_TOKEN=… node hosting/counts.mjs [days]`; the token needs Account Analytics: Read, which wrangler's login lacks (on a Mac it falls back to the `decklist-counts` Keychain item)
+- Read the counts with `node hosting/counts.mjs [days]`. The token (`analyticsToken()` in `hosting/analytics.mjs`, shared with `health.mjs`) comes from `CLOUDFLARE_ANALYTICS_TOKEN` or `CLOUDFLARE_API_TOKEN`, else on a Mac the `decklist-counts` Keychain item. It needs Account Analytics: Read, which wrangler's login lacks
+- The **Health check** workflow (`.github/workflows/health-check.yml`, daily at 14:23 UTC, or manual dispatch) runs `hosting/health.mjs`: it imports the test decks in `PROBES` through the import Worker (MTGGoldfish, MTGTop8, Archidekt; Moxfield refuses servers, and Scryfall has no public deck to find), then checks the last day's counts against `LIMITS` in `assess()`. Anything wrong fails the run, which GitHub emails about; the run's summary lists the problems and the day in brief. It reads the `CLOUDFLARE_ANALYTICS_TOKEN` secret. Its probe imports land in `decklist_imports` too, about three a day. If a test deck disappears, replace its ID in `PROBES`
 - Don't turn on Workers Logs for the site Worker: its logs would record each request's URL, and a permalink's query holds the player's name and deck
 
 ## Important Notes
