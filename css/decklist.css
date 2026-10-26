@@ -412,14 +412,12 @@ body.dark-mode .dark-mode-toggle .icon-sun {
   .navbar-links .nav-more { display: none; }
 }
 
-/* Too narrow for the brand and links side by side: the links get a line of their own */
+/* Down to 320px the brand, links and toggle still share a row: a smaller brand and links */
 @media (max-width: 359px) {
-  .navbar-container {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "brand toggle" "tagline tagline" "links links";
-  }
-
-  .navbar-links { margin: 4px 0 0 -5px; }
+  .navbar-container { column-gap: 2px; }
+  .navbar-brand { gap: 6px; font-size: 18px; letter-spacing: -0.8px; }
+  .brand-icon { width: 16px; height: 16px; }
+  .navbar-links a { padding: 0 3px; font-size: 11px; }
 }
 
 /* Touch targets at least 44px */
