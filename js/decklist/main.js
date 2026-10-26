@@ -1326,7 +1326,7 @@ function initDarkMode() {
 
   // Follow system changes while there's no saved choice
   systemDark.addEventListener('change', function(e) {
-    if (localStorage.getItem('darkMode') === null) {
+    if (decklistTheme.saved() === null) {
       applyDarkMode(e.matches);
     }
   });
@@ -1338,11 +1338,7 @@ function initDarkMode() {
 
     // Save only a choice that differs from the system, so switching
     // back to the system's mode resumes following it
-    if (isDark === systemDark.matches) {
-      localStorage.removeItem('darkMode');
-    } else {
-      localStorage.setItem('darkMode', isDark);
-    }
+    decklistTheme.save(isDark === systemDark.matches ? null : isDark);
 
   });
 }

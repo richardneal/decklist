@@ -103,9 +103,31 @@
   <!-- Set the theme before anything paints, so a dark page doesn't load light
        and then fade over; the toggle's own script takes over once the page loads -->
   <script>
+    // The theme choice is shared with decklist.app's other sites (standings.decklist.app)
+    // through a "theme" cookie on the parent domain. A choice saved in localStorage
+    // ("darkMode") before the cookie still counts until the toggle is next used.
+    var decklistTheme = {
+      // true for dark, false for light, null when the system decides
+      saved: function() {
+        try {
+          var m = document.cookie.match(/(?:^|;\s*)theme=(dark|light)/);
+          if (m) return m[1] === 'dark';
+          var old = localStorage.getItem('darkMode');
+          return old === null ? null : old === 'true';
+        } catch (e) { return null; }
+      },
+      // null forgets the choice, so the page follows the system again
+      save: function(isDark) {
+        var domain = /(^|\.)decklist\.app$/.test(location.hostname) ? '; domain=decklist.app' : '';
+        document.cookie = isDark === null
+          ? 'theme=; max-age=0; path=/' + domain
+          : 'theme=' + (isDark ? 'dark' : 'light') + '; max-age=31536000; path=/; samesite=lax' + domain;
+        try { localStorage.removeItem('darkMode'); } catch (e) {}
+      }
+    };
     try {
-      var savedDarkMode = localStorage.getItem('darkMode');
-      if (savedDarkMode === null ? matchMedia('(prefers-color-scheme: dark)').matches : savedDarkMode === 'true') {
+      var savedDark = decklistTheme.saved();
+      if (savedDark === null ? matchMedia('(prefers-color-scheme: dark)').matches : savedDark) {
         document.body.classList.add('dark-mode');
       }
     } catch (e) {}
@@ -131,6 +153,7 @@
       </a>
       <h1>No more decklist problems</h1>
       <div class="navbar-links">
+        <a href="https://standings.decklist.app/">Swiss odds</a>
         <a href="docs.html">Docs & FAQ</a>
       </div>
       <button class="dark-mode-toggle" id="darkModeToggle" type="button" title="Switch to dark mode" aria-label="Switch to dark mode">
