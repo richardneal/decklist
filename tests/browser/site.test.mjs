@@ -302,6 +302,12 @@ test('clicking the brand scrolls to the top and keeps the deck', async () => {
   assert.equal(await page.inputValue('#deckdesigner'), 'Jace');
   assert.equal(await page.inputValue('#deckmain'), '4 Counterspell\n56 Island');
   assert.equal(await page.getAttribute('.navbar-brand', 'href'), '/');
+  // So does the navbar's own Decklist link
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.click('.navbar-links a[aria-current="page"]');
+  await page.waitForFunction(() => window.scrollY === 0);
+  assert.equal(page.url(), url);
+  assert.equal(await page.inputValue('#deckdesigner'), 'Jace');
 });
 
 test('links with %20 for spaces still open', async () => {
