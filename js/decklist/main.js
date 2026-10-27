@@ -95,7 +95,7 @@ $(document).ready(function() {
   logosReady = loadLogos();
 
   // bind events to all the input fields on the left side, to generate a PDF on change
-  $('div.left input:not([type="checkbox"]), div.left textarea, div.left select').on('input', pdfChangeWait);
+  $('div.left input:not([type="checkbox"]):not([type="radio"]), div.left textarea, div.left select').on('input', pdfChangeWait);
   $('#eventdate').change(pdfChangeWait);
   // radios and checkboxes are single clicks, not typing, so regenerate right away.
   // The sort order is in the link too; record it once the current event

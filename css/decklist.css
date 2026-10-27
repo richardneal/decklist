@@ -1289,9 +1289,26 @@ body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
   .generator-page .right > form, .generator-page .right > .deck-actions { order: 2; }
 }
 
-/* Sort orders in three even columns across the box, so no option wraps onto a row of its own */
+/* The sort order sits with the deck boxes, under the sideboard, as a field of the form
+   (a fieldset, labeled like the fields around it), not a box of its own */
+.generator-page #sortorderwrapper { grid-column: 1 / -1; min-width: 0; width: auto; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; text-align: left; }
+.generator-page #sortorderwrapper > legend { padding: 0; margin: 0 0 8px; font-size: 13px; font-weight: 500; color: var(--text-primary); }
+/* The Format menu's caret is drawn, as standings draws its own: the native one sits at a
+   different inset in each browser */
+.generator-page .left select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position: right 17px center, right 12px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+/* Sort orders in three even columns across the form, so no option wraps onto a row of its own */
 .generator-page #sortorderfloat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.generator-page #sortorderfloat label { display: flex; align-items: center; justify-content: center; min-height: 34px; padding-top: 6px; padding-bottom: 6px; box-sizing: border-box; text-align: center; }
+.generator-page #sortorderfloat label { display: flex; align-items: center; justify-content: center; width: auto; margin: 0; min-height: 34px; padding-top: 6px; padding-bottom: 6px; box-sizing: border-box; text-align: center; }
 
 @media (max-width: 600px) {
   /* Deck boxes grow with the deck, rather than scrolling inside the scrolling page */
