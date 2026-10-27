@@ -1,0 +1,254 @@
+/* The design shared by decklist.app and standings.decklist.app: the light and dark colors,
+   and the navbar with its dark mode toggle.
+
+   This file is the one copy. decklist.app's pages load it before decklist.css; the standings
+   repo keeps a copy in app/static/shared.css, fetched from https://decklist.app/css/shared.css
+   by its scripts/sync_shared_css.py, and its CI flags the copy when it falls behind. After
+   changing this file and deploying, run that script in the standings repo.
+
+   Keep it to rules that are the same on both sites. Fonts stay with each site: decklist.app
+   declares Roboto at 400 and 700, standings at the whole 400-700 range. So does anything else
+   either site sets only for itself, such as --radius-lg and color-scheme. */
+
+/* Colors, light and dark. The dark mode class is set on <body> before the first paint, from
+   the "theme" cookie on decklist.app (shared by both sites) or else the system setting. */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-placeholder: #9aa1a8;
+  --border-color: #dee2e6;
+  --border-color-hover: #adb5bd;
+  --accent-color: #1f5fa8;
+  --accent-hover: #184c87;
+  --on-accent: #ffffff;
+  /* Status colors, tuned to sit beside the blue accent */
+  --success: #1f5fa8;
+  --warning: #c2621a;
+  --error: #b42318;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --transition: all 0.2s ease;
+}
+
+body.dark-mode {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3a3a3a;
+  --text-primary: #e9ecef;
+  --text-secondary: #adb5bd;
+  --text-placeholder: #6c757d;
+  --border-color: #495057;
+  --border-color-hover: #6c757d;
+  --accent-color: #8ab4f0;
+  --accent-hover: #a8c8f5;
+  --on-accent: #1a1a1a;
+  --success: #8ab4f0;
+  --warning: #f4a261;
+  --error: #f28b82;
+}
+
+/* Navbar: the same on every page of both sites, with the same links in the same order. Each
+   rule sets the sizes it depends on, so neither site's other styles change the bar's height.
+   Its text is 400 or 700 only: decklist.app declares Roboto at those two weights, so a 500
+   would draw as 400 there and as 500 on standings. */
+.navbar {
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.navbar-container {
+  box-sizing: border-box;
+  max-width: 1336px;
+  margin: 0 auto;
+  padding: 18px 28px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 24px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+/* The brand is a link home that keeps its text look */
+a.navbar-brand,
+a.navbar-brand:hover {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.brand-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+.brand-icon .bi-back {
+  fill: var(--bg-primary);
+}
+
+.brand-icon .bi-gap {
+  fill: var(--bg-primary);
+  stroke: var(--bg-primary);
+}
+
+.brand-icon .bi-rules {
+  stroke: var(--bg-primary);
+}
+
+.navbar-tagline {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+  line-height: 18px;
+  text-align: left;
+  text-transform: none;
+  color: var(--text-secondary);
+}
+
+.navbar-links {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 0 auto;
+}
+
+.navbar-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.navbar-links a:hover {
+  color: var(--accent-color);
+  background: var(--bg-secondary);
+  text-decoration: none;
+}
+
+.navbar-links a[aria-current="page"] {
+  color: var(--accent-color);
+}
+
+/* Dark mode toggle: a quiet icon button, like the navbar links */
+.dark-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: var(--transition);
+}
+
+.dark-mode-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dark-mode-toggle:hover {
+  color: var(--accent-color);
+  background: var(--bg-secondary);
+}
+
+.dark-mode-toggle .icon-sun,
+body.dark-mode .dark-mode-toggle .icon-moon {
+  display: none;
+}
+
+body.dark-mode .dark-mode-toggle .icon-sun {
+  display: block;
+}
+
+@media (max-width: 1000px) {
+  /* Two lines: the brand over the tagline, with the links and toggle beside both */
+  .navbar-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "brand links toggle" "tagline links toggle";
+    column-gap: 8px;
+    row-gap: 2px;
+  }
+
+  .navbar-brand { grid-area: brand; }
+  .navbar-tagline { grid-area: tagline; font-size: 12px; line-height: 16px; }
+  .navbar-links { grid-area: links; margin: 0; }
+  .dark-mode-toggle { grid-area: toggle; }
+}
+
+@media (max-width: 600px) {
+  /* The tagline across the bar, under the brand, links and toggle */
+  .navbar-container {
+    padding: 14px 16px;
+    column-gap: 4px;
+    grid-template-areas: "brand links toggle" "tagline tagline tagline";
+  }
+
+  .navbar-brand { gap: 8px; font-size: 21px; line-height: 24px; }
+  .navbar-links { gap: 0; }
+  .navbar-links a { padding: 0 5px; font-size: 12px; }
+}
+
+/* The links' longer words where they fit */
+@media (max-width: 420px) {
+  .navbar-links .nav-more { display: none; }
+}
+
+/* Down to 320px the brand, links and toggle still share a row: a smaller brand and links */
+@media (max-width: 359px) {
+  .navbar-container { column-gap: 2px; }
+  .navbar-brand { gap: 6px; font-size: 18px; letter-spacing: -0.8px; }
+  .brand-icon { width: 16px; height: 16px; }
+  .navbar-links a { padding: 0 3px; font-size: 11px; }
+}
+
+/* Touch targets at least 44px */
+@media (pointer: coarse) {
+  .navbar-links a { min-width: 44px; height: 44px; }
+  .dark-mode-toggle { width: 44px; height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar-links a,
+  .dark-mode-toggle { transition: none; }
+}

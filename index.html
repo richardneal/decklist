@@ -73,8 +73,10 @@
   }
   </script>
 
-  <!-- The stylesheet blocks the first paint: loaded asynchronously, the page
-       painted unstyled and then visibly zoomed when it arrived -->
+  <!-- The stylesheets block the first paint: loaded asynchronously, the page
+       painted unstyled and then visibly zoomed when they arrived. shared.css (the
+       colors and navbar, shared with standings.decklist.app) comes first. -->
+  <link rel="stylesheet" type="text/css" href="css/shared.css">
   <link rel="stylesheet" type="text/css" href="css/decklist.css">
   <!-- jQuery UI's styles are only for the date picker, so they can arrive late -->
   <link rel="preload" href="css/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
