@@ -50,21 +50,38 @@ const touchScreen = window.matchMedia('(pointer: coarse)').matches;
 // The one-column layout (decklist.css), where the deck boxes list their own problems
 const oneColumn = window.matchMedia('(max-width: 1000px)');
 
-// The sidebar's top margin when stuck (16px in decklist.css), above and below it
+// The sidebar's margin from the window's top or bottom edge when stuck (decklist.css)
 const STICKY_MARGIN = 16;
 
-// Makes the preview sidebar sticky only while it fits in the window with a margin
-// above and below. Its status grows and shrinks with the deck's problems, so it is
-// rechecked whenever the sidebar or the window changes size; one that outgrows the
-// window goes back to scrolling with the page
+// Keeps the preview sidebar in view beside the form (it is position: sticky in
+// decklist.css). One that fits in the window stays STICKY_MARGIN below its top. A
+// taller one, with a long status or in a short window, moves with the page until its
+// far end is in view and then stays: its bottom while scrolling down, its top while
+// scrolling up, so every part of it can be reached without leaving the form. Its
+// status grows and shrinks with the deck's problems, so it is rechecked whenever the
+// sidebar or the window changes size
 function initStickySidebar() {
   const sidebar = document.querySelector('.generator-page .right');
   if (!sidebar) return;
+  let top = STICKY_MARGIN;
+  let lastY = window.scrollY;
+  let queued = false;
   const update = function() {
-    sidebar.classList.toggle('sticky', sidebar.offsetHeight + 2 * STICKY_MARGIN <= window.innerHeight);
+    queued = false;
+    const lowest = Math.min(STICKY_MARGIN, window.innerHeight - sidebar.offsetHeight - STICKY_MARGIN);
+    top = Math.max(lowest, Math.min(STICKY_MARGIN, top - (window.scrollY - lastY)));
+    lastY = window.scrollY;
+    sidebar.style.top = top + 'px';
   };
-  if (window.ResizeObserver) new ResizeObserver(update).observe(sidebar);
-  window.addEventListener('resize', update);
+  const queue = function() {
+    if (!queued) {
+      queued = true;
+      requestAnimationFrame(update);
+    }
+  };
+  if (window.ResizeObserver) new ResizeObserver(queue).observe(sidebar);
+  window.addEventListener('scroll', queue, { passive: true });
+  window.addEventListener('resize', queue);
   update();
 }
 

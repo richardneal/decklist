@@ -1173,10 +1173,11 @@ button.icon-button[hidden] { display: none; }
 .generator-page #decklistpreview { width: 100%; }
 /* The preview is one letter page tall, so the sheet fills it without padding */
 .generator-page #decklist { display: block; width: 100%; height: auto; aspect-ratio: 8.5 / 11; }
-/* Beside the form, the preview sidebar stays in view as the page scrolls, while it
-   fits in the window (initStickySidebar); a taller one scrolls with the page */
+/* Beside the form, the preview sidebar stays in view as the page scrolls; one taller
+   than the window keeps its bottom in view scrolling down and its top scrolling up
+   (initStickySidebar sets top) */
 @media (min-width: 1001px) {
-  .generator-page .right.sticky { position: sticky; top: 16px; }
+  .generator-page .right { position: sticky; top: 16px; }
 }
 .generator-page #sortorderfloat label { font-size: 12px; padding: 10px 12px; box-shadow: none; }
 .generator-page #download { background: var(--accent-color); box-shadow: none; }
