@@ -1012,7 +1012,7 @@ button.icon-button[hidden] { display: none; }
   font-size: 36px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 30px;
+  margin: 0 0 30px;
   text-align: left;
   border-left: none;
   padding: 0;
@@ -1023,7 +1023,8 @@ button.icon-button[hidden] { display: none; }
   gap: 4px;
   margin-bottom: 40px;
   padding: 8px;
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   /* The section links stay at the top of the window, marking the section being read
      (the script in docs.html). One row, scrolling sideways where it doesn't fit, so it
@@ -1062,13 +1063,48 @@ button.icon-button[hidden] { display: none; }
 
 .docs-nav a[aria-current="location"] {
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-tertiary);
 }
 
 .docs-section {
   margin-bottom: 60px;
   /* A section link scrolls its heading to just below the stuck links */
   scroll-margin-top: 72px;
+}
+
+.faq-item,
+.docs-subsection {
+  scroll-margin-top: 72px;
+}
+
+/* Each question and topic links to itself: a link icon after its heading, shown on
+   hover or focus, and always on a touch screen, which has no hover */
+.docs-anchor {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  vertical-align: -1px;
+  background: var(--text-secondary);
+  -webkit-mask: var(--icon-link) center / contain no-repeat;
+  mask: var(--icon-link) center / contain no-repeat;
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.faq-item:hover .docs-anchor,
+.docs-subsection:hover .docs-anchor,
+.docs-anchor:focus-visible {
+  opacity: 1;
+}
+
+.docs-anchor:hover,
+.docs-anchor:focus-visible {
+  background: var(--accent-color);
+}
+
+@media (pointer: coarse) {
+  .docs-anchor { opacity: 0.6; }
 }
 
 .docs-section h2 {
