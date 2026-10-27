@@ -133,6 +133,56 @@
       document.getElementById('current-year').textContent = new Date().getFullYear();
     });
   </script>
+
+  <!-- The section links stay at the top of the window (CSS) and mark the section being read -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const nav = document.querySelector('.docs-nav');
+      const links = Array.from(nav.querySelectorAll('a'));
+      const sections = links.map(function(a) { return document.querySelector(a.getAttribute('href')); });
+      let current = null;
+      let queued = false;
+
+      function update() {
+        queued = false;
+        nav.classList.toggle('stuck', nav.getBoundingClientRect().top <= 0);
+
+        // The section being read is the last one whose top is in the upper third of the
+        // window (the first, above them all), or the last section once the page can't
+        // scroll any further
+        const line = window.innerHeight / 3;
+        let index = 0;
+        sections.forEach(function(section, i) {
+          if (section.getBoundingClientRect().top <= line) index = i;
+        });
+        if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+          index = sections.length - 1;
+        }
+
+        const link = links[index];
+        if (link === current) return;
+        if (current) current.removeAttribute('aria-current');
+        link.setAttribute('aria-current', 'location');
+        current = link;
+
+        // Where the links scroll sideways, bring the marked one into view
+        if (link.offsetLeft < nav.scrollLeft || link.offsetLeft + link.offsetWidth > nav.scrollLeft + nav.clientWidth) {
+          nav.scrollTo({ left: link.offsetLeft - 8, behavior: 'smooth' });
+        }
+      }
+
+      function queue() {
+        if (!queued) {
+          queued = true;
+          requestAnimationFrame(update);
+        }
+      }
+
+      window.addEventListener('scroll', queue, { passive: true });
+      window.addEventListener('resize', queue);
+      update();
+    });
+  </script>
 </head>
 
 <body>
