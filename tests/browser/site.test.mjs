@@ -607,9 +607,10 @@ test('each card with a problem is marked on its own row under its textarea', asy
     'error 4 Brainstorm: Not legal in Modern',
     'warning 1 Notacard: Couldn\'t recognize this card'
   ]);
+  assert.equal(await page.textContent('#deckmain-check .deckcheck-toggle'), 'Show all 60 cards');
   // The sideboard has no problems, so it lists nothing until asked
   assert.deepEqual(await marked('deckside'), []);
-  assert.equal(await page.textContent('#deckside-check .deckcheck-toggle'), 'The card checks out. Show it as read');
+  assert.equal(await page.textContent('#deckside-check .deckcheck-toggle'), 'No problems found. Show all 15 cards');
   // The status box keeps its messages
   assert.ok((await deck('4 Brainstorm\n56 Island', '15 Island', 'modern')).messages
     .includes('The following cards are not legal in Modern:\nBrainstorm'));
@@ -630,11 +631,12 @@ test('each card with a problem is marked on its own row under its textarea', asy
 
 test('the full list shows each card as it was matched, and hides again', async () => {
   await deck('4 fire ice\n1 Lightning Bolt\n1 Lightning Bolt\n50 Mountain', '15 Mountain', 'legacy');
-  assert.equal(await page.textContent('#deckmain-check .deckcheck-toggle'), 'All 3 cards check out. Show them as read');
+  assert.equal(await page.textContent('#deckmain-check .deckcheck-toggle'), 'No problems found. Show all 56 cards');
   assert.deepEqual(await marked('deckmain'), []);
   await page.click('#deckmain-check .deckcheck-toggle');
   assert.deepEqual(await marked('deckmain'), ['ok 4 Fire // Ice', 'ok 2 Lightning Bolt', 'ok 50 Mountain']);
   assert.equal(await page.getAttribute('#deckmain-check .deckcheck-toggle', 'aria-expanded'), 'true');
+  assert.equal(await page.textContent('#deckmain-check .deckcheck-toggle'), 'Hide the list');
   // It stays open as the deck changes
   await page.fill('#deckmain', '5 Mountain');
   await page.press('#deckmain', 'Escape');  // close the autocomplete over the toggle
