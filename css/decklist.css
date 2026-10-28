@@ -508,14 +508,14 @@ h2 {
   mask: var(--icon-ok) center / contain no-repeat;
 }
 
+/* The problems run down the box's left edge, their icons in a column, however wide the
+   box is; only the one-line prompt and "Ready to print" are centered */
 .status .details {
   color: var(--text-primary);
   list-style-type: none;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   text-align: left;
-  display: inline-block;
-  max-width: 100%;
 }
 
 .details > li {
