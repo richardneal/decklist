@@ -514,30 +514,53 @@ test('Enter and Tab take the highlighted suggestion, and Enter after a full name
   assert.equal(await page.inputValue('#deckmain'), '4 island\n');
 });
 
-test('the suggestions sit at the caret, inside the visible part of the page', async () => {
-  await page.close();
-  await newPage({ viewport: { width: 375, height: 500 }, hasTouch: true, isMobile: true });
-  await page.$eval('#deckmain', box => {
+// The deck box filled to past its height, so the caret's line is its last, with `room`
+// pixels of the window left below it
+async function fillDeckAbove(room) {
+  await page.$eval('#deckmain', (box, room) => {
     box.value = Array.from({ length: 20 }, () => '1 Island').join('\n');
-    // Room below the box for a short list but not a full one
     box.scrollIntoView({ block: 'end' });
-    scrollBy(0, box.getBoundingClientRect().bottom - (innerHeight - 160));
-  });
-  await typeInDeck('\n4 bolt');
-  const measure = () => page.evaluate(() => {
+    scrollBy(0, box.getBoundingClientRect().bottom - (innerHeight - room));
+  }, room);
+}
+
+function measureList() {
+  return page.evaluate(() => {
     const rect = element => element.getBoundingClientRect().toJSON();
     const box = document.querySelector('#deckmain');
     return { list: rect(document.querySelector('.autocomplete-suggestions')), box: rect(box),
       caretLine: box.getBoundingClientRect().bottom, view: innerHeight };
   });
-  const { list, box, caretLine, view } = await measure();
+}
+
+test('the suggestions open under the line when a few rows fit there, not over the lines before', async () => {
+  // Room for most of a full list, but not all of it
+  await fillDeckAbove(190);
+  await typeInDeck('\n4 bolt');
+  const { list, box, view } = await measureList();
+  const padding = await page.$eval('#deckmain', box => parseFloat(getComputedStyle(box).paddingBottom));
+  assert.ok(list.top >= box.bottom - padding, JSON.stringify({ list, box }));
+  assert.ok(list.bottom <= view, JSON.stringify({ list, view }));
+  // Narrowed, it stays below
+  assert.equal((await typeInDeck('w')).length, 2);
+  const narrowed = await measureList();
+  assert.ok(narrowed.list.top >= narrowed.box.bottom - padding, JSON.stringify(narrowed));
+});
+
+test('the suggestions sit at the caret, inside the visible part of the page', async () => {
+  await page.close();
+  await newPage({ viewport: { width: 375, height: 500 }, hasTouch: true, isMobile: true });
+  // Room below the box for a short list but not a few rows of a full one
+  await fillDeckAbove(110);
+  await typeInDeck('\n4 bolt');
+  const { list, box, caretLine, view } = await measureList();
   // The caret is on the box's last line, so the list opens above it rather than below the box
   assert.ok(list.bottom <= caretLine, JSON.stringify({ list, box }));
   assert.ok(list.top >= 0 && list.bottom <= view, JSON.stringify({ list, view }));
   assert.ok(list.height >= 44);
   // Narrowed to a list short enough to fit below, it stays above
   assert.equal((await typeInDeck('w')).length, 2);
-  const narrowed = await measure();
+  const narrowed = await measureList();
   assert.ok(narrowed.list.bottom <= narrowed.caretLine, JSON.stringify(narrowed));
 });
 

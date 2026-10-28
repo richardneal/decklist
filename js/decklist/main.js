@@ -1483,6 +1483,8 @@ function initDeckManagement() {
 function initAutocomplete() {
   const MAX_SUGGESTIONS = 10;
   const MAX_LIST_HEIGHT = 220;
+  // Room for about four rows, three on a touch screen
+  const MIN_ROOM_BELOW = 150;
   const GAP = 4;
 
   // The deck box the list belongs to, its suggestions ({name, rank}), and the highlighted
@@ -1638,10 +1640,12 @@ function initAutocomplete() {
     positionList();
   }
 
-  // Puts the list under the caret's line, or above it when a full list wouldn't fit below
-  // and there's more room above inside what's visible: a phone's keyboard shrinks the
-  // visual viewport, and a list below the box would sit behind it. The side goes by a full
-  // list, not the one shown, so the list doesn't jump across the line as typing narrows it
+  // Puts the list under the caret's line, scrolling if a full one doesn't fit, or above it
+  // when there's room below for only a few rows and more room above inside what's visible:
+  // a phone's keyboard shrinks the visual viewport, and a list below the box would sit
+  // behind it. Above, the list covers the lines before, so it goes there only then. The side
+  // goes by the room, not the list shown, so the list doesn't jump across the line as
+  // typing narrows it
   function positionList() {
     const box = textarea[0];
     const rect = box.getBoundingClientRect();
@@ -1657,7 +1661,7 @@ function initAutocomplete() {
 
     container.css({ maxHeight: 'none', left: rect.left + window.scrollX + 'px', width: rect.width + 'px' });
     const listHeight = Math.min(container.outerHeight(), MAX_LIST_HEIGHT);
-    const below = spaceBelow >= MAX_LIST_HEIGHT || spaceBelow >= spaceAbove;
+    const below = spaceBelow >= MIN_ROOM_BELOW || spaceBelow >= spaceAbove;
     const height = Math.max(Math.min(listHeight, below ? spaceBelow : spaceAbove), 0);
 
     container.css({
