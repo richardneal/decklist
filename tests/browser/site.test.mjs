@@ -225,8 +225,8 @@ async function copyPermalink() {
   return link;
 }
 
-// The sort order radio that is checked
-const sortOrder = () => page.evaluate(() => document.querySelector('input[name=sortorder]:checked').id);
+// The sort order picked
+const sortOrder = () => page.inputValue('#decksort');
 
 test('Copy Permalink copies a link that reopens the deck, and sends it nowhere', async () => {
   await deck("1 Sol Ring\n1 +2 Mace\n1 Fire // Ice\n96 Island", "1 Atraxa, Praetors' Voice", 'commander');
@@ -246,25 +246,25 @@ test('Copy Permalink copies a link that reopens the deck, and sends it nowhere',
 test('a permalink keeps the sort order, and back and forward restore it', async () => {
   await page.fill('#deckmain', '4 Counterspell\n56 Island');
   await page.waitForTimeout(600);
-  await page.click('label[for=sort-manavalue]');
-  await page.click('label[for=sort-color]');
+  await page.selectOption('#decksort', 'manavalue');
+  await page.selectOption('#decksort', 'color');
   const link = await copyPermalink();
   assert.equal(link.search, '?deckmain=4+Counterspell%0A56+Island&decksort=color');
-  // Each radio is a step in the address bar's history
+  // Each pick is a step in the address bar's history
   assert.equal(new URL(page.url()).search, link.search);
 
-  // Going back two steps undoes both clicks at once and keeps the steps ahead
+  // Going back two steps undoes both picks at once and keeps the steps ahead
   await page.evaluate(() => history.go(-2));
   await page.waitForTimeout(200);
-  assert.equal(await sortOrder(), 'sort-type');
+  assert.equal(await sortOrder(), 'type');
   assert.equal(new URL(page.url()).search, '?deckmain=4+Counterspell%0A56+Island');
   await page.evaluate(() => history.go(2));
   await page.waitForTimeout(200);
-  assert.equal(await sortOrder(), 'sort-color');
+  assert.equal(await sortOrder(), 'color');
 
   await page.close();
   await newPage({}, '/index.html' + link.search);
-  assert.equal(await sortOrder(), 'sort-color');
+  assert.equal(await sortOrder(), 'color');
 });
 
 test('an old link naming the SCG sheet opens the WotC sheet', async () => {
@@ -358,6 +358,21 @@ test('Save and Load keep the format, and Clear resets it', async () => {
   assert.equal(await page.inputValue('#deckformat'), 'legacy');
 });
 
+test('Save and Load keep the sort order, and Clear resets it', async () => {
+  await page.fill('#deckmain', '4 Counterspell\n56 Island');
+  await page.selectOption('#decksort', 'manavalue');
+  await page.click('#saveDeck');
+  await page.click('#clearDeck');
+  assert.equal(await sortOrder(), 'type');
+  await page.click('#loadDeck');
+  assert.equal(await sortOrder(), 'manavalue');
+
+  // A deck saved when the sort order was a row of radios names the radio
+  await page.evaluate(() => localStorage.setItem('savedDeck', JSON.stringify({ deckmain: '4 Counterspell', sortorder: 'sort-color' })));
+  await page.click('#loadDeck');
+  assert.equal(await sortOrder(), 'color');
+});
+
 async function importDeck(link) {
   await page.fill('#deckimport', link);
   await page.click('#deckimport-button');
@@ -419,6 +434,13 @@ test('the preview renders a PDF', async () => {
   await deck(...COMMANDER);
   await page.waitForFunction(() => document.querySelector('#decklist')?.getAttribute('src')?.startsWith('data:application/pdf'),
     null, { timeout: 5000 });
+});
+
+test('the preview opens the sheet fitted in its frame, so a scroll over it moves the page', async () => {
+  await deck('4 Lightning Bolt\n56 Mountain');
+  await page.waitForFunction(() => document.querySelector('#decklist')?.getAttribute('src')?.startsWith('data:application/pdf'),
+    null, { timeout: 5000 });
+  assert.ok((await page.getAttribute('#decklist', 'src')).endsWith('#view=Fit&zoom=page-fit'));
 });
 
 test('a phone draws the preview, picks the date natively, and lists deck problems under the deck box', async () => {

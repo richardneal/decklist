@@ -112,12 +112,11 @@ $(document).ready(function() {
   logosReady = loadLogos();
 
   // bind events to all the input fields on the left side, to generate a PDF on change
-  $('div.left input:not([type="checkbox"]), div.left textarea, div.left select').on('input', pdfChangeWait);
+  $('div.left input:not([type="checkbox"]), div.left textarea, div.left select:not(#decksort)').on('input', pdfChangeWait);
   $('#eventdate').change(pdfChangeWait);
-  // radios and checkboxes are single clicks, not typing, so regenerate right away.
-  // The sort order is in the link too; record it once the current event
-  // is done, so a back/forward restore that clicks several radios finishes first
-  $('input[type="radio"], input[type="checkbox"]').change(function() {
+  // the sort order and checkboxes are single choices, not typing, so regenerate right
+  // away. The sort order is in the link too; record it once the current event is done
+  $('#decksort, input[type="checkbox"]').change(function() {
     generateDecklistPDF();
     setTimeout(pushHistoryState);
   });
@@ -134,9 +133,6 @@ $(document).ready(function() {
   // also skin the download and permalink buttons
   $('#download').button();
   $('#permalink').button();
-  $('input[type=radio]').checkboxradio({
-    icon: false
-  });
 
   // initialize field tooltips, replace | with <br /> in tooltip content. In the one-column
   // layout the deck boxes list their problems beneath them, so they open none
@@ -261,15 +257,16 @@ function parseGET() {
     $('#deckformat').val('');
   }
 
+  // the sort order, from the link, or the default when it names none or an unknown one
+  $('#decksort').val($._GET['decksort'] || 'type');
+  if ($('#decksort').val() === null) {
+    $('#decksort').val('type');
+  }
+
   // Generate the preview once the artwork is in the cache
   logosReady.then(function() {
     generateDecklistPDF();
   });
-
-  // process the decksort param, if present
-  if ($._GET['decksort'] !== undefined) {
-    $('#sort-' + $._GET['decksort']).click();
-  }
 }
 
 // The format the deck is checked against: the one chosen, or Auto-detect's guess
@@ -745,10 +742,10 @@ function generatePermalink(includeBlank = false, origin = window.location.origin
   const values = params.map(param => [param, $('#' + param).val()])
     .filter(([, value]) => value !== undefined && (includeBlank || value.length > 0));
 
-  // The sort order is a radio, named as parseGET() clicks it (#sort-color). A link
+  // The sort order is #decksort's value, as parseGET() reads it back. A link
   // leaves it out at its default; the history state keeps it, so going back to a
   // state restores it
-  const sort = $('input[name=sortorder]:checked').prop('id').replace('sort-', '');
+  const sort = $('#decksort').val();
   if (includeBlank || sort !== 'type') values.push(['decksort', sort]);
 
   // + for spaces keeps a long deck's link shorter; parseUrlIntoDict reads both
@@ -820,8 +817,11 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
     var iframe = $('iframe');
     var container = iframe.parent();
     iframe.remove();
-    // Put the DOM into the live preview iframe
-    iframe.attr('src', domdl);
+    // Put the DOM into the live preview iframe, the whole page fitted in the frame:
+    // the browser's PDF viewer opens it as wide as the frame, which with its toolbar is
+    // taller than the frame, so a scroll over it moved the sheet instead of the page.
+    // Chrome reads view=Fit, Firefox zoom=page-fit
+    iframe.attr('src', domdl + '#view=Fit&zoom=page-fit');
     container.append(iframe);
   }
   else {
@@ -1396,7 +1396,7 @@ function initDeckManagement() {
       deckmain: $('#deckmain').val(),
       deckside: $('#deckside').val(),
       deckformat: $('#deckformat').val(),
-      sortorder: $('input[name="sortorder"]:checked').prop('id'),
+      sortorder: $('#decksort').val(),
       separateBasicLands: $('#separate-basic-lands').is(':checked'),
       savedAt: new Date().toISOString()
     };
@@ -1441,10 +1441,9 @@ function initDeckManagement() {
     if ($('#deckformat').val() === null) { $('#deckformat').val(''); }
     $('#separate-basic-lands').prop('checked', deckData.separateBasicLands || false);
 
-    // Restore sort order
-    if (deckData.sortorder) {
-      $('#' + deckData.sortorder).click();
-    }
+    // Restore sort order. Decks saved before it was a menu name its radio (sort-color)
+    $('#decksort').val((deckData.sortorder || 'type').replace(/^sort-/, ''));
+    if ($('#decksort').val() === null) { $('#decksort').val('type'); }
 
     // Trigger PDF regeneration
     pdfChangeWait();
@@ -1470,7 +1469,7 @@ function initDeckManagement() {
     $('#separate-basic-lands').prop('checked', false);
 
     // Reset to default sort order
-    $('#sort-type').click();
+    $('#decksort').val('type');
 
     // Trigger PDF regeneration
     pdfChangeWait();
