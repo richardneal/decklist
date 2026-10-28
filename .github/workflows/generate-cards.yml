@@ -14,13 +14,17 @@ jobs:
   generate-cards:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
           # The site and generated data are published from the default branch.
           ref: main
+          # main requires the Tests checks, which a deploy key may bypass and the
+          # workflow's own token can't. A push with it also runs Tests and Deploy site,
+          # which a push with that token wouldn't.
+          ssh-key: ${{ secrets.CARD_REFRESH_DEPLOY_KEY }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -44,13 +48,3 @@ jobs:
           branch: main
           file_pattern: js/cards/decklist-cards-min.js js/cards/decklist-cards-min.js.map
 
-      - name: Install deployment dependencies
-        run: npm ci --prefix worker
-
-      - name: Build static site
-        run: node hosting/build.mjs
-
-      - name: Deploy to Cloudflare
-        run: worker/node_modules/.bin/wrangler deploy --config hosting/wrangler.jsonc
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
