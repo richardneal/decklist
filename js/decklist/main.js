@@ -1038,7 +1038,7 @@ function markCards(parsedLists, valid) {
 
   both.forEach(function(list) {
     const container = $('#' + list + '-check'),
-      cardCount = parsedLists[list === 'deckmain' ? 'main' : 'side'].length,
+      cardCount = Decklist.count(parsedLists[list === 'deckmain' ? 'main' : 'side']),
       problemCount = rows[list].filter(function(row) { return row.marks.length; }).length;
     if (!rows[list].length) {
       container.prop('hidden', true).find('ul').empty();
@@ -1052,13 +1052,14 @@ function markCards(parsedLists, valid) {
         '<span class="deckcheck-name">' + row.name + '</span>' + reasons + '</li>';
     }).join(''));
 
+    // counted as the status box counts them, by quantity
     const expanded = container.hasClass('expanded'),
-      cards = cardCount === 1 ? '1 card' : cardCount + ' cards';
+      show = cardCount === 1 ? 'Show the card' : 'Show all ' + cardCount + ' cards';
     container.prop('hidden', false).toggleClass('clean', problemCount === 0);
     container.find('.deckcheck-toggle')
       .attr('aria-expanded', String(expanded))
-      .text(expanded ? 'Hide the cards that check out' : (problemCount ? 'Show all ' + cards + ' as read' :
-        cardCount === 1 ? 'The card checks out. Show it as read' : 'All ' + cards + ' check out. Show them as read'));
+      .text(expanded ? (problemCount ? 'Hide the cards with no problems' : 'Hide the list') :
+        problemCount ? show : 'No problems found. ' + show);
   });
 }
 
