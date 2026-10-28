@@ -274,21 +274,35 @@ test('an old link naming the SCG sheet opens the WotC sheet', async () => {
   assert.equal(await page.locator('input[name=decksheetformat]').count(), 0);
 });
 
-test('the preview sidebar is sticky only while it fits in the window', async () => {
-  const sticky = () => page.evaluate(() => getComputedStyle(document.querySelector('.right')).position === 'sticky');
+test('the preview sidebar stays in view as the form scrolls', async () => {
+  // The sidebar's top and bottom in the window once the page has scrolled to y
+  const at = async y => {
+    await page.evaluate(y => window.scrollTo(0, y), y);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    return page.evaluate(() => {
+      const { top, bottom } = document.querySelector('.right').getBoundingClientRect();
+      return { top: Math.round(top), bottom: Math.round(bottom), window: window.innerHeight };
+    });
+  };
   await page.close();
   await newPage({ viewport: { width: 1280, height: 1100 } }, '/index.html?deckmain=4+Counterspell%0A56+Island');
-  assert.equal(await sticky(), true);
+  assert.equal((await at(300)).top, 16);
 
-  // A long status makes it taller than the window, so it scrolls with the page again
-  await page.fill('#deckmain', Array.from({ length: 30 }, (_, i) => '1 Not A Card ' + i).join('\n'));
-  await page.waitForFunction(() => getComputedStyle(document.querySelector('.right')).position !== 'sticky');
-  await page.fill('#deckmain', '4 Counterspell\n56 Island');
-  await page.waitForFunction(() => getComputedStyle(document.querySelector('.right')).position === 'sticky');
-
-  // and so does a window too short for it
+  // One taller than the window shows its bottom scrolling down, then its top scrolling up
   await page.setViewportSize({ width: 1280, height: 700 });
-  await page.waitForFunction(() => getComputedStyle(document.querySelector('.right')).position !== 'sticky');
+  await at(0);
+  let box = await at(600);
+  assert.ok(box.top < 0);
+  assert.equal(box.bottom, box.window - 16);
+  box = await at(100);
+  assert.equal(box.top, 16);
+
+  // and a long status does the same in a taller window
+  await page.setViewportSize({ width: 1280, height: 1100 });
+  await page.fill('#deckmain', Array.from({ length: 30 }, (_, i) => '1 Not A Card ' + i).join('\n'));
+  await page.waitForFunction(() => document.querySelector('.right').offsetHeight > window.innerHeight);
+  box = await at(1000);
+  assert.equal(box.bottom, box.window - 16);
 });
 
 test('clicking the brand scrolls to the top and keeps the deck', async () => {
