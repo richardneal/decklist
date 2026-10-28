@@ -1152,6 +1152,9 @@ button.icon-button[hidden] { display: none; }
 .generator-page #decklistpreview { width: 100%; }
 /* The preview is one letter page tall, so the sheet fills it without padding */
 .generator-page #decklist { display: block; width: 100%; height: auto; aspect-ratio: 8.5 / 11; }
+/* A new sheet loads hidden over the shown one, which it replaces once loaded (main.js) */
+.generator-page #decklistpreview { position: relative; }
+.generator-page #decklist.loading { position: absolute; top: 0; left: 0; right: 0; opacity: 0; pointer-events: none; }
 /* Beside the form, the preview sidebar stays in view as the page scrolls; one taller
    than the window keeps its bottom in view scrolling down and its top scrolling up
    (initStickySidebar sets top) */

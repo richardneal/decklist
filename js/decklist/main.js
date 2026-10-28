@@ -812,23 +812,46 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
   else if (outputtype === 'dataurlstring') {
     const domdl = dl.output('dataurlstring');
 
-    // If we set the 'src' attr while the iframe is still part of the DOM, we generate
-    // a spurious history event.
-    var iframe = $('iframe');
-    var container = iframe.parent();
-    iframe.remove();
-    // Put the DOM into the live preview iframe, the whole page fitted in the frame:
-    // the browser's PDF viewer opens it as wide as the frame, which with its toolbar is
-    // taller than the frame, so a scroll over it moved the sheet instead of the page.
-    // Chrome reads view=Fit, Firefox zoom=page-fit
-    iframe.attr('src', domdl + '#view=Fit&zoom=page-fit');
-    container.append(iframe);
+    // The new sheet loads in a second iframe, hidden over the shown one, which it
+    // replaces once loaded: reloading the shown one blanked the preview while the
+    // browser's PDF viewer started. A newer sheet replaces one still loading
+    if (pendingPreview) {
+      pendingPreview.remove();
+    }
+    const shown = document.getElementById('decklist');
+    const iframe = shown.cloneNode(false);
+    iframe.classList.add('loading');
+    // Chrome's PDF viewer fires load before it has drawn the sheet, about 100-250ms
+    // before in testing, so the swap waits PREVIEW_SWAP_DELAY more
+    iframe.addEventListener('load', function() {
+      setTimeout(function() {
+        if (pendingPreview === iframe) {
+          pendingPreview = null;
+          shown.remove();
+          iframe.classList.remove('loading');
+        }
+      }, PREVIEW_SWAP_DELAY);
+    });
+    // The whole page fitted in the frame: the browser's PDF viewer opens it as wide as
+    // the frame, which with its toolbar is taller than the frame, so a scroll over it
+    // moved the sheet instead of the page. Chrome reads view=Fit, Firefox zoom=page-fit.
+    // The src is set before the iframe joins the DOM, since setting it after
+    // generates a spurious history event
+    iframe.src = domdl + '#view=Fit&zoom=page-fit';
+    pendingPreview = iframe;
+    shown.before(iframe);
   }
   else {
     dl.save('decklist.pdf');
     reportDownload(parsedInput, validate);
   }
 }
+
+// The preview iframe loading the newest sheet, until it replaces the shown one
+var pendingPreview = null;
+
+// How long a loaded preview iframe stays hidden, so the PDF viewer can draw the sheet (ms)
+const PREVIEW_SWAP_DELAY = 400;
 
 // ==================== TOUCH SCREEN PREVIEW ====================
 
