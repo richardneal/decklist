@@ -407,6 +407,13 @@ test('the preview renders a PDF', async () => {
     null, { timeout: 5000 });
 });
 
+test('the preview opens the sheet fitted in its frame, so a scroll over it moves the page', async () => {
+  await deck('4 Lightning Bolt\n56 Mountain');
+  await page.waitForFunction(() => document.querySelector('#decklist')?.getAttribute('src')?.startsWith('data:application/pdf'),
+    null, { timeout: 5000 });
+  assert.ok((await page.getAttribute('#decklist', 'src')).endsWith('#view=Fit&zoom=page-fit'));
+});
+
 test('a phone draws the preview, picks the date natively, and lists deck problems under the deck box', async () => {
   await page.close();
   await newPage({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });

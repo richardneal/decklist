@@ -803,8 +803,11 @@ function generateDecklistPDF(outputtype = 'dataurlstring') {
     var iframe = $('iframe');
     var container = iframe.parent();
     iframe.remove();
-    // Put the DOM into the live preview iframe
-    iframe.attr('src', domdl);
+    // Put the DOM into the live preview iframe, the whole page fitted in the frame:
+    // the browser's PDF viewer opens it as wide as the frame, which with its toolbar is
+    // taller than the frame, so a scroll over it moved the sheet instead of the page.
+    // Chrome reads view=Fit, Firefox zoom=page-fit
+    iframe.attr('src', domdl + '#view=Fit&zoom=page-fit');
     container.append(iframe);
   }
   else {
