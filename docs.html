@@ -133,6 +133,56 @@
       document.getElementById('current-year').textContent = new Date().getFullYear();
     });
   </script>
+
+  <!-- The section links stay at the top of the window (CSS) and mark the section being read -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const nav = document.querySelector('.docs-nav');
+      const links = Array.from(nav.querySelectorAll('a'));
+      const sections = links.map(function(a) { return document.querySelector(a.getAttribute('href')); });
+      let current = null;
+      let queued = false;
+
+      function update() {
+        queued = false;
+        nav.classList.toggle('stuck', nav.getBoundingClientRect().top <= 0);
+
+        // The section being read is the last one whose top is in the upper third of the
+        // window (the first, above them all), or the last section once the page can't
+        // scroll any further
+        const line = window.innerHeight / 3;
+        let index = 0;
+        sections.forEach(function(section, i) {
+          if (section.getBoundingClientRect().top <= line) index = i;
+        });
+        if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+          index = sections.length - 1;
+        }
+
+        const link = links[index];
+        if (link === current) return;
+        if (current) current.removeAttribute('aria-current');
+        link.setAttribute('aria-current', 'location');
+        current = link;
+
+        // Where the links scroll sideways, bring the marked one into view
+        if (link.offsetLeft < nav.scrollLeft || link.offsetLeft + link.offsetWidth > nav.scrollLeft + nav.clientWidth) {
+          nav.scrollTo({ left: link.offsetLeft - 8, behavior: 'smooth' });
+        }
+      }
+
+      function queue() {
+        if (!queued) {
+          queued = true;
+          requestAnimationFrame(update);
+        }
+      }
+
+      window.addEventListener('scroll', queue, { passive: true });
+      window.addEventListener('resize', queue);
+      update();
+    });
+  </script>
 </head>
 
 <body>
@@ -187,7 +237,7 @@
         </svg>
         <span class="brand-text">decklist</span>
       </a>
-      <h1 class="navbar-tagline">No more decklist problems</h1>
+      <p class="navbar-tagline">No more decklist problems</p>
       <div class="navbar-links">
         <a href="/">Decklist</a>
         <a href="https://standings.decklist.app/">Standings</a>
@@ -202,13 +252,14 @@
 
   <div class="wrapper">
     <div class="docs-container">
-      <h2 class="docs-title">Documentation & FAQ</h2>
+      <h1 class="docs-title">Documentation & FAQ</h1>
 
       <nav class="docs-nav">
         <a href="#getting-started">Getting Started</a>
         <a href="#faq">FAQ</a>
         <a href="#formats">Supported Formats</a>
         <a href="#direct-linking">Direct Linking</a>
+        <a href="#standings">Standings</a>
       </nav>
 
       <!-- Getting Started Section -->
@@ -216,8 +267,8 @@
         <h2>Getting Started</h2>
         <p>Welcome to decklist.app! This free tool helps you generate professional tournament registration sheets for Magic: The Gathering events in seconds.</p>
 
-        <div class="docs-subsection">
-          <h3>Quick Start Guide</h3>
+        <div class="docs-subsection" id="quick-start">
+          <h3>Quick Start Guide<a class="docs-anchor" href="#quick-start" aria-label="Link to this section"></a></h3>
           <ol>
             <li><strong>Enter your information:</strong> Fill in your first and last name</li>
             <li><strong>Add event details:</strong> Event name, date, and location</li>
@@ -231,38 +282,38 @@
       <section id="faq" class="docs-section">
         <h2>Frequently Asked Questions</h2>
 
-        <div class="faq-item">
-          <h3>How do I use the MTG decklist generator?</h3>
+        <div class="faq-item" id="how-to-use">
+          <h3>How do I use the MTG decklist generator?<a class="docs-anchor" href="#how-to-use" aria-label="Link to this question"></a></h3>
           <p>Simply paste your deck from MTG Arena, MTGO, Moxfield, MTGGoldfish, TappedOut, or any supported format into the "Main Deck" field. The generator will automatically parse your cards, validate them, and create a tournament-ready WotC registration sheet as a PDF.</p>
         </div>
 
-        <div class="faq-item">
-          <h3>What deck formats are supported?</h3>
+        <div class="faq-item" id="which-deck-formats">
+          <h3>What deck formats are supported?<a class="docs-anchor" href="#which-deck-formats" aria-label="Link to this question"></a></h3>
           <p>Our decklist generator supports MTG Arena, MTGO (Magic Online), Moxfield, MTGGoldfish, TappedOut, MTG Salvation, Deckbox "Print" format, and MWS (Magic Workstation) formats. You can paste decklists directly without needing to separate the sideboard.</p>
         </div>
 
-        <div class="faq-item">
-          <h3>How do I save and share my decklist?</h3>
+        <div class="faq-item" id="save-and-share">
+          <h3>How do I save and share my decklist?<a class="docs-anchor" href="#save-and-share" aria-label="Link to this question"></a></h3>
           <p>Use the "Copy Permalink" button to copy a link that pre-fills all your deck information; on a phone it opens the share sheet instead. The link is built in your browser and carries the whole deck itself, so nothing is stored on a server or sent to a link shortener. You can share this link with others or use it to quickly load your deck later. You can also save decklists locally using the "Save Decklist" button.</p>
         </div>
 
-        <div class="faq-item">
-          <h3>Does the generator validate card legality?</h3>
+        <div class="faq-item" id="card-legality">
+          <h3>Does the generator validate card legality?<a class="docs-anchor" href="#card-legality" aria-label="Link to this question"></a></h3>
           <p>Yes. Choose your format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Old School, Commander, Duel Commander, Pauper Commander, PreDH or Oathbreaker) and the generator flags any card that is banned, not legal or over its copy limit, including the Vintage and Old School restricted lists and the cards Duel Commander bans as a commander. It also checks deck size: 60 cards and a 15-card sideboard for constructed, exactly 100 for Commander and its variants, exactly 60 for Oathbreaker counting the Oathbreaker and its signature spell, at least 40 for Limited. List the commander and any companion, or the Oathbreaker and its signature spell, in the sideboard. A Pauper Commander deck's commander is not checked, since the card data does not record which creatures were printed at uncommon. Left on Auto-detect, it guesses the format from the deck itself: a 100-card deck is Commander, a 40-card deck is Limited, and any other gets the narrowest constructed format it is legal in.</p>
         </div>
 
-        <div class="faq-item">
-          <h3>Is this decklist generator free to use?</h3>
+        <div class="faq-item" id="free">
+          <h3>Is this decklist generator free to use?<a class="docs-anchor" href="#free" aria-label="Link to this question"></a></h3>
           <p>Yes, decklist.app is completely free to use. Generate unlimited tournament registration sheets for Magic: The Gathering events without any cost or registration required.</p>
         </div>
 
-        <div class="faq-item">
-          <h3>Do I need to create an account?</h3>
+        <div class="faq-item" id="account">
+          <h3>Do I need to create an account?<a class="docs-anchor" href="#account" aria-label="Link to this question"></a></h3>
           <p>No! decklist.app works entirely in your browser without any registration. Pasted decks are processed in your browser. Importing a link sends the deck source and ID to our import API; copying a permalink sends nothing anywhere, but the link itself carries the name, event and deck you entered, so share it only with people who should see them.</p>
         </div>
 
         <div class="faq-item" id="what-we-count">
-          <h3>What does decklist.app count?</h3>
+          <h3>What does decklist.app count?<a class="docs-anchor" href="#what-we-count" aria-label="Link to this question"></a></h3>
           <p>To find out when something breaks, the page counts a few outcomes and sends each one to decklist.app itself, with no cookies, IDs or outside services:</p>
           <ul>
             <li><strong>Downloads:</strong> the format, whether the sheet still had a warning or error, the kinds of deck problems (such as "toosmall" or "banned") and whether any cards weren't recognized (none, 1–2, or 3 or more)</li>
@@ -277,8 +328,8 @@
       <section id="formats" class="docs-section">
         <h2>Supported Deck Formats</h2>
 
-        <div class="docs-subsection">
-          <h3>MTGO (Magic Online)</h3>
+        <div class="docs-subsection" id="mtgo">
+          <h3>MTGO (Magic Online)<a class="docs-anchor" href="#mtgo" aria-label="Link to this section"></a></h3>
           <p>Export your deck from Magic Online and paste it directly. The format looks like:</p>
           <pre><code>4 Lightning Bolt
 4 Counterspell
@@ -290,8 +341,8 @@ Sideboard
           <p>Lines marked <code>SB:</code>, as Magic Workstation writes them, go to the sideboard wherever they appear, and lines starting with <code>//</code>, such as its comments, are ignored.</p>
         </div>
 
-        <div class="docs-subsection">
-          <h3>MTG Arena</h3>
+        <div class="docs-subsection" id="mtg-arena">
+          <h3>MTG Arena<a class="docs-anchor" href="#mtg-arena" aria-label="Link to this section"></a></h3>
           <p>Export your deck from MTG Arena, or copy it in Arena's format from a deck site, and paste the whole export into the "Main Deck" field. Its headers sort the cards: <code>Deck</code> is the main deck, <code>Sideboard</code> the sideboard, and a <code>Commander</code> or <code>Companion</code> goes to the sideboard, commander first. The About block that names the deck is skipped, and so are the set code and collector number after each card:</p>
           <pre><code>About
 Name Mono-Red Burn
@@ -310,39 +361,39 @@ Sideboard
           <p>Arena lists a companion in the sideboard as well, and it is counted once. Headers are read in any case, with or without a colon, so <code>MAINBOARD:</code> and <code>Sideboard (15)</code> work too. A <code>Maybeboard</code> section is left out.</p>
         </div>
 
-        <div class="docs-subsection">
-          <h3>MTGGoldfish</h3>
+        <div class="docs-subsection" id="mtggoldfish">
+          <h3>MTGGoldfish<a class="docs-anchor" href="#mtggoldfish" aria-label="Link to this section"></a></h3>
           <p>Paste the deck's address (<code>mtggoldfish.com/deck/…</code>) into "Import a deck", and its name fills in Deck Name. Or copy your deck from MTGGoldfish using the "Export" → "Text" option. Both main deck and sideboard will be parsed automatically.</p>
         </div>
 
-        <div class="docs-subsection">
-          <h3>Moxfield</h3>
+        <div class="docs-subsection" id="moxfield">
+          <h3>Moxfield<a class="docs-anchor" href="#moxfield" aria-label="Link to this section"></a></h3>
           <p>Paste the deck's address (<code>moxfield.com/decks/…</code>) into "Import a deck". Commanders and a companion, or an Oathbreaker and its signature spell, are added to the sideboard, since Commander decks have none and a commander listed there stays easy to find; the maybeboard is ignored, and so is the sideboard of a deck with a commander, where Moxfield players keep their cuts. The deck's format is selected for you when it is one the generator checks, and its name fills in Deck Name.</p>
           <p>You can also paste a deck copied from Moxfield's Export dialog, in plain text or for MTG Arena. Set codes, collector numbers and foil markers such as <code>*F*</code> are ignored, and the Commander, Companion and Sideboard headers are read as they are in an Arena export.</p>
         </div>
 
-        <div class="docs-subsection">
-          <h3>Archidekt</h3>
+        <div class="docs-subsection" id="archidekt">
+          <h3>Archidekt<a class="docs-anchor" href="#archidekt" aria-label="Link to this section"></a></h3>
           <p>Paste the deck's address (<code>archidekt.com/decks/…</code>) into "Import a deck". The deck must be public. Cards in the Sideboard category go to the sideboard, as do the commander and a companion; and the Maybeboard and any other category left out of the deck are ignored, and so is the Sideboard of a deck with a commander, where Archidekt players keep their cuts. Each card is placed by its first category, as Archidekt itself counts it. The deck's format is selected for you when it is one the generator checks, and its name fills in Deck Name.</p>
         </div>
 
-        <div class="docs-subsection">
-          <h3>Scryfall</h3>
+        <div class="docs-subsection" id="scryfall">
+          <h3>Scryfall<a class="docs-anchor" href="#scryfall" aria-label="Link to this section"></a></h3>
           <p>Paste the deck's address (<code>scryfall.com/@you/decks/…</code>) into "Import a deck". The deck must be public. A constructed deck keeps its mainboard and sideboard; a Commander deck's commander and its cards from outside the game, such as a companion, go to the sideboard, as do an Oathbreaker deck's Oathbreaker and signature spell. The maybeboard is ignored. The deck's format is selected for you when it is one the generator checks, and its name fills in Deck Name.</p>
         </div>
 
-        <div class="docs-subsection">
-          <h3>TappedOut</h3>
+        <div class="docs-subsection" id="tappedout">
+          <h3>TappedOut<a class="docs-anchor" href="#tappedout" aria-label="Link to this section"></a></h3>
           <p>Use TappedOut's "Text" export format. Click on your deck, then select the "Text" view and copy everything.</p>
         </div>
 
-        <div class="docs-subsection">
-          <h3>Deck files</h3>
+        <div class="docs-subsection" id="deck-files">
+          <h3>Deck files<a class="docs-anchor" href="#deck-files" aria-label="Link to this section"></a></h3>
           <p>Have your deck saved as a file? Open the "Text file" tab in "Import a deck" and choose it, or drop it on the main deck box. A text list (<code>.txt</code>) from MTG Arena or any deck site, an MTGO <code>.dek</code> and a Cockatrice <code>.cod</code> all work. The file is read in your browser and never uploaded anywhere. "Undo import" puts back the deck it replaced.</p>
         </div>
 
-        <div class="docs-subsection">
-          <h3>Manual Entry</h3>
+        <div class="docs-subsection" id="manual-entry">
+          <h3>Manual Entry<a class="docs-anchor" href="#manual-entry" aria-label="Link to this section"></a></h3>
           <p>You can also manually type your deck in this format:</p>
           <pre><code>Quantity CardName
 4 Lightning Bolt
@@ -360,8 +411,8 @@ Sideboard
           <li>Sharing pre-configured decklists with friends</li>
         </ul>
 
-        <div class="docs-subsection">
-          <h3>Import a Deck from Its Link</h3>
+        <div class="docs-subsection" id="import-from-link">
+          <h3>Import a Deck from Its Link<a class="docs-anchor" href="#import-from-link" aria-label="Link to this section"></a></h3>
           <p>Put <code>decklist.app/</code> in front of a deck's address on MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall, and the generator opens with that deck imported:</p>
           <pre><code>https://decklist.app/https://www.mtggoldfish.com/deck/6837920
 decklist.app/moxfield.com/decks/…
@@ -369,8 +420,8 @@ decklist.app/https://www.mtgtop8.com/event?e=…&amp;d=…&amp;f=MO</code></pre>
           <p>The deck's <code>https://</code> can stay or go, and nothing needs encoding. To combine an import with event or player details, use the <code>deckimport</code> parameter below instead.</p>
         </div>
 
-        <div class="docs-subsection">
-          <h3>Available URL Parameters</h3>
+        <div class="docs-subsection" id="url-parameters">
+          <h3>Available URL Parameters<a class="docs-anchor" href="#url-parameters" aria-label="Link to this section"></a></h3>
           <p>Simply add these parameters to the URL to pre-fill form fields:</p>
 
           <h4>Personal Information</h4>
@@ -403,8 +454,8 @@ decklist.app/https://www.mtgtop8.com/event?e=…&amp;d=…&amp;f=MO</code></pre>
           </ul>
         </div>
 
-        <div class="docs-subsection">
-          <h3>Examples</h3>
+        <div class="docs-subsection" id="examples">
+          <h3>Examples<a class="docs-anchor" href="#examples" aria-label="Link to this section"></a></h3>
 
           <h4>Tournament Organizer - Unregistered Player</h4>
           <pre><code>https://decklist.app/?eventdate=2027-12-31&event=RCQ%20Minneapolis&eventlocation=Minneapolis%20Convention%20Center</code></pre>
@@ -422,6 +473,13 @@ decklist.app/https://www.mtgtop8.com/event?e=…&amp;d=…&amp;f=MO</code></pre>
 
           <p><strong>Important:</strong> When creating links, replace spaces with <code>%20</code> (or <code>+</code>) and use <code>%0A</code> for line breaks in deck lists.</p>
         </div>
+      </section>
+
+      <!-- Standings Section -->
+      <section id="standings" class="docs-section">
+        <h2>Standings</h2>
+        <p><a href="https://standings.decklist.app/">standings.decklist.app</a> works out a player's odds of making the cut at a Magic event run on Melee: Top 8, Top 32, or any place you choose. It plays out the rest of the Swiss thousands of times and counts how often the player finishes there.</p>
+        <p>Its own <a href="https://standings.decklist.app/docs">Docs &amp; FAQ</a> covers how to use it, how the odds are worked out and how to share a result.</p>
       </section>
 
     </div>
