@@ -286,7 +286,7 @@ var Decklist = {
   // If no order is passed, it is read from the sort order input on the page
   // Returns the deck list after being sorted via the given order
   sort: function(deck, sortorder) {
-    let formsortorder = $('#sortorderfloat input[name=sortorder]:checked').prop('id').replace('sort-', '');
+    let formsortorder = $('#decksort').val();
     // to allow the function to be mappable, we force non-string "sortorder" values to default to user-entered sort order
     sortorder = typeof sortorder === 'string' ? sortorder || formsortorder : formsortorder;
 
@@ -368,7 +368,7 @@ var Decklist = {
   // If no section type is passed, it is read from the sort order input on the page
   // Returns a decklist that contains the argument's cards with separators between sections as defined by sectionType
   section: function(deck, sectionType) {
-    let formSectionType = $('#sortorderfloat input[name=sortorder]:checked').prop('id').replace('sort-', '');
+    let formSectionType = $('#decksort').val();
     // to allow the function to be mappable, we force non-string "sectionType" values to default to user-entered sort order
     sectionType = typeof sectionType === 'string' ? sectionType || formSectionType : formSectionType;
 

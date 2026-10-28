@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 // sort() and section() read the checked sort order even when one is passed
-const context = vm.createContext({ $: () => ({ prop: () => 'sort-manavalue' }) });
+const context = vm.createContext({ $: () => ({ val: () => 'manavalue' }) });
 vm.runInContext(fs.readFileSync('js/decklist/decklist.js', 'utf8'), context);
 const decklist = context.Decklist;
 

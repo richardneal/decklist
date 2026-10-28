@@ -203,11 +203,11 @@
             <p class="import-alternative">Have a text export? Paste it below.</p>
           </section>
           <label for="deckname">
-            <span>Deck Name / Archetype (optional):</span>
+            <span>Deck Name / Archetype (optional)</span>
             <input type="text" id="deckname" placeholder="The Deck" autocorrect="off" spellcheck="false">
           </label>
           <label for="deckdesigner">
-            <span>Deck Designer (optional):</span>
+            <span>Deck Designer (optional)</span>
             <input type="text" id="deckdesigner" placeholder="Brian Weissman" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <script>
@@ -219,7 +219,7 @@
             })();
           </script>
           <label for="deckformat">
-            <span>Format (optional):</span>
+            <span>Format (optional)</span>
             <select id="deckformat">
               <option value="" selected>Auto-detect</option>
               <optgroup label="Constructed">
@@ -243,8 +243,19 @@
               <option value="limited">Limited</option>
             </select>
           </label>
+          <label for="decksort">
+            <span>Sort order</span>
+            <select id="decksort">
+              <option value="type" selected>Type (recommended)</option>
+              <option value="alphabetical">Name</option>
+              <option value="manavalue">Mana value</option>
+              <option value="color">Color</option>
+              <option value="numeric">Quantity</option>
+              <option value="original">As entered</option>
+            </select>
+          </label>
           <label for="deckmain">
-            <span>Main Deck:</span>
+            <span>Main Deck</span>
             <textarea id="deckmain" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckmain-messages protip"></textarea>
           </label>
           <ul class="field-messages" id="deckmain-messages"></ul>
@@ -254,7 +265,7 @@
           </div>
           <p id="protip">(Pro tip: You can simply paste in MTG Arena, Moxfield, MTGGoldfish, MTGO, MWS, MTG Salvation, Deckbox "Print", or TappedOut "Text" decks, set codes and all, without separating out the sideboard!)</p>
           <label for="deckside">
-            <span>Sideboard:</span>
+            <span>Sideboard</span>
             <textarea id="deckside" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckside-messages"></textarea>
           </label>
           <ul class="field-messages" id="deckside-messages"></ul>
@@ -269,38 +280,27 @@
 
           <h2>Personal Information</h2>
           <label for="firstname">
-            <span>First Name:</span>
+            <span>First Name</span>
             <input type="text" id="firstname" autocomplete="given-name" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <label for="lastname">
-            <span>Last Name:</span>
+            <span>Last Name</span>
             <input type="text" id="lastname" autocomplete="family-name" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <h2>Event Information</h2>
           <label for="event">
-            <span>Event:</span>
+            <span>Event</span>
             <input type="text" id="event" autocapitalize="words">
           </label>
           <label for="eventdate">
-            <span>Event Date:</span>
+            <span>Event Date</span>
             <input type="text" id="eventdate">
           </label>
           <label for="eventlocation">
-            <span>Event Location:</span>
+            <span>Event Location</span>
             <input type="text" id="eventlocation" autocapitalize="words">
           </label>
-          <h2>Deck Sort Order</h2>
         </form>
-      </div>
-      <div id="sortorderwrapper">
-        <div id="sortorderfloat">
-          <input type="radio" id="sort-type" name="sortorder" checked><label for="sort-type">Type (recommended)</label>
-          <input type="radio" id="sort-alphabetical" name="sortorder"><label for="sort-alphabetical">Alphabetically</label>
-          <input type="radio" id="sort-manavalue" name="sortorder"><label for="sort-manavalue">Mana Value</label>
-          <input type="radio" id="sort-color" name="sortorder"><label for="sort-color">Color</label>
-          <input type="radio" id="sort-numeric" name="sortorder"><label for="sort-numeric">Numerically</label>
-          <input type="radio" id="sort-original" name="sortorder"><label for="sort-original">Original</label>
-        </div>
       </div>
     </div>
 
