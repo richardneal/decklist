@@ -1637,9 +1637,10 @@ function initAutocomplete() {
     positionList();
   }
 
-  // Puts the list under the caret's line, or above it when there's more room there inside
-  // what's visible: a phone's keyboard shrinks the visual viewport, and a list below the
-  // box would sit behind it
+  // Puts the list under the caret's line, or above it when a full list wouldn't fit below
+  // and there's more room above inside what's visible: a phone's keyboard shrinks the
+  // visual viewport, and a list below the box would sit behind it. The side goes by a full
+  // list, not the one shown, so the list doesn't jump across the line as typing narrows it
   function positionList() {
     const box = textarea[0];
     const rect = box.getBoundingClientRect();
@@ -1655,7 +1656,7 @@ function initAutocomplete() {
 
     container.css({ maxHeight: 'none', left: rect.left + window.scrollX + 'px', width: rect.width + 'px' });
     const listHeight = Math.min(container.outerHeight(), MAX_LIST_HEIGHT);
-    const below = spaceBelow >= listHeight || spaceBelow >= spaceAbove;
+    const below = spaceBelow >= MAX_LIST_HEIGHT || spaceBelow >= spaceAbove;
     const height = Math.max(Math.min(listHeight, below ? spaceBelow : spaceAbove), 0);
 
     container.css({

@@ -519,19 +519,26 @@ test('the suggestions sit at the caret, inside the visible part of the page', as
   await newPage({ viewport: { width: 375, height: 500 }, hasTouch: true, isMobile: true });
   await page.$eval('#deckmain', box => {
     box.value = Array.from({ length: 20 }, () => '1 Island').join('\n');
+    // Room below the box for a short list but not a full one
     box.scrollIntoView({ block: 'end' });
+    scrollBy(0, box.getBoundingClientRect().bottom - (innerHeight - 160));
   });
   await typeInDeck('\n4 bolt');
-  const { list, box, caretLine, view } = await page.evaluate(() => {
+  const measure = () => page.evaluate(() => {
     const rect = element => element.getBoundingClientRect().toJSON();
     const box = document.querySelector('#deckmain');
     return { list: rect(document.querySelector('.autocomplete-suggestions')), box: rect(box),
       caretLine: box.getBoundingClientRect().bottom, view: innerHeight };
   });
+  const { list, box, caretLine, view } = await measure();
   // The caret is on the box's last line, so the list opens above it rather than below the box
   assert.ok(list.bottom <= caretLine, JSON.stringify({ list, box }));
   assert.ok(list.top >= 0 && list.bottom <= view, JSON.stringify({ list, view }));
   assert.ok(list.height >= 44);
+  // Narrowed to a list short enough to fit below, it stays above
+  assert.equal((await typeInDeck('w')).length, 2);
+  const narrowed = await measure();
+  assert.ok(narrowed.list.bottom <= narrowed.caretLine, JSON.stringify(narrowed));
 });
 
 test("a Commander deck's sideboard keeps the commander first on the sheet", async () => {
