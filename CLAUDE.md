@@ -113,7 +113,7 @@ This script:
 - terser (install globally: `npm i terser -g`)
 - curl and unzip
 
-After generating the data the workflow runs the Python test gate (see Automated Tests), auto-commits `js/cards/decklist-cards-min.js` and its `.map` to `main` with the message `chore: refresh card data`, then builds and deploys the site to Cloudflare.
+After generating the data the workflow runs the Python test gate (see Automated Tests), auto-commits `js/cards/decklist-cards-min.js` and its `.map` to `main` with the message `chore: refresh card data`. It pushes with the `CARD_REFRESH_DEPLOY_KEY` secret, a deploy key with write access, since `main` requires the Tests checks and a deploy key may bypass that rule while the workflow's own token can't. A push with it starts Tests and Deploy site like any other push, so the refresh doesn't deploy by itself, and a day with no new card data pushes and deploys nothing.
 
 ## Development Workflow
 
@@ -128,7 +128,7 @@ The preview is an iframe on desktop and PDF.js canvases on a touch screen (see `
 
 ### Automated Tests
 
-Eight suites live in `tests/`. The **Tests** workflow (`.github/workflows/tests.yml`) runs them all on every pull request and push to `main`: the Node and Python suites in one job, the browser suite in another. It doesn't gate the deploy, which runs on the same push. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+Eight suites live in `tests/`. The **Tests** workflow (`.github/workflows/tests.yml`) runs them all on every pull request and push to `main`: the Node and Python suites in one job, the browser suite in another. The ruleset **Tests must pass on main** requires both jobs (`unit` and `browser`) before a pull request can merge, so auto-merge (on for the repository) waits for them. Repository admins and deploy keys bypass it, so a direct push to `main` and the card refresh still go through. It doesn't gate the deploy, which runs on the same push. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
 
 ```bash
 npm ci --prefix worker
@@ -183,7 +183,7 @@ The site is served by **Cloudflare Workers Static Assets**, not GitHub Pages. Tw
 
 ### Site
 
-`.github/workflows/deploy-site.yml` deploys on every push to `main`, and on manual dispatch. It runs `npm ci --prefix worker`, `node hosting/build.mjs`, then `wrangler deploy --config hosting/wrangler.jsonc` using the `CLOUDFLARE_API_TOKEN` secret. The daily card refresh ends with those same build-and-deploy steps.
+`.github/workflows/deploy-site.yml` deploys on every push to `main`, and on manual dispatch. It runs `npm ci --prefix worker`, `node hosting/build.mjs`, then `wrangler deploy --config hosting/wrangler.jsonc` using the `CLOUDFLARE_API_TOKEN` secret. The daily card refresh's push starts it too.
 
 `hosting/index.mjs` is the site Worker's script. It runs first for every request (`run_worker_first: true`). On `www.decklist.app` (a custom domain on the same Worker) it 301s to `decklist.app` with the same path and query. On `/` it makes sure a deck permalink unfurls in Discord, Slack or iMessage as that deck: when the query holds `deckname`, `deckmain` or `deckside`, it fetches `index.html` through the `ASSETS` binding and rewrites the `og:`/`twitter:` title, description, image and image alt tags. The title is the deck name (else `Modern decklist` or `MTG decklist`); the description gives the format, the card counts (a Commander variant's or Oathbreaker's total includes its sideboard, whose cards it names as the leaders) and the first eight main deck lines. `countDeck()` follows `Decklist.parse()`'s sections (headers, `SB:` lines, the blank-line sideboard, About and Maybeboard) without the card data, so it counts lines at their quantity. The player's name, the event and the designer never reach the preview, since it is shown to everyone a link is posted to. The rewrite matches the tags' exact `<meta property="og:title" content="…">` / `<meta name="twitter:title" content="…">` shape, so keep it when editing them in `index.html`. The `/` without a deck, and everything else that matches a file, is served as is. The front page's preview image is `images/og-image.png` (1200×630, linked as `?v=2`; bump the number when the image changes, since Discord caches an image by its URL).
 
