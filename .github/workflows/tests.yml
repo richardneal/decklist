@@ -1,0 +1,64 @@
+name: Tests
+
+# Runs the suites in tests/ on every pull request and push to main. The card data and
+# browser tests use the real card data, so a ban list change in the daily refresh can
+# fail them without any change to the code.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+
+      - name: Install worker dependencies
+        run: npm ci --prefix worker
+
+      - name: Node tests
+        run: node --test tests/*.test.*
+
+      - name: Card generation tests
+        run: python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
+
+  browser:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
+
+      - name: Install Playwright
+        run: npm ci --prefix tests/browser
+
+      - name: Install Chromium
+        run: npx --prefix tests/browser playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm test --prefix tests/browser

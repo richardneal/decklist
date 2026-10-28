@@ -128,7 +128,7 @@ The preview is an iframe on desktop and PDF.js canvases on a touch screen (see `
 
 ### Automated Tests
 
-Eight suites live in `tests/`. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+Eight suites live in `tests/`. The **Tests** workflow (`.github/workflows/tests.yml`) runs them all on every pull request and push to `main`: the Node and Python suites in one job, the browser suite in another. It doesn't gate the deploy, which runs on the same push. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
 
 ```bash
 npm ci --prefix worker
