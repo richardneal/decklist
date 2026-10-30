@@ -303,6 +303,22 @@ test('the preview sidebar stays in view as the form scrolls', async () => {
   await page.waitForFunction(() => document.querySelector('.right').offsetHeight > window.innerHeight);
   box = await at(1000);
   assert.equal(box.bottom, box.window - 16);
+
+  // Below the form, in one column, it stays where the page puts it, and a width that
+  // brings it back beside the form keeps it in view again
+  await page.setViewportSize({ width: 375, height: 812 });
+  for (let y = 0; y <= 2000; y += 200) await at(y);
+  assert.equal(await page.evaluate(() => document.querySelector('.right').style.top), '');
+  const covered = await page.evaluate(() => ['#lastname', '#event', '#eventlocation'].filter(id => {
+    const field = document.querySelector(id);
+    field.scrollIntoView({ block: 'center' });
+    const { x, y } = field.getBoundingClientRect();
+    return document.elementFromPoint(x + 10, y + 10) !== field;
+  }));
+  assert.deepEqual(covered, []);
+  await page.setViewportSize({ width: 1280, height: 1100 });
+  await at(800);
+  assert.notEqual(await page.evaluate(() => document.querySelector('.right').style.top), '');
 });
 
 test('clicking the brand scrolls to the top and keeps the deck', async () => {
@@ -650,11 +666,63 @@ test('each card with a problem is marked on its own row under its textarea', asy
   // A card is listed under the textarea it came from, its name shown as typed
   await deck('60 Island', '14 Island\n<b>x', 'constructed');
   assert.deepEqual(await marked('deckside'), ['warning 1 <b>x: Couldn\'t recognize this card']);
+
+  // A problem with the whole sideboard names no card, but it isn't "no problems" either
+  await deck('60 Island', '7 Island', 'modern');
+  assert.deepEqual(await marked('deckside'), []);
+  assert.equal(await page.textContent('#deckside-check .deckcheck-toggle'), 'Show all 7 cards');
+});
+
+test('the status box puts errors first and the blank fields on one line, last', async () => {
+  await page.fill('#deckmain', '5 Lightning Bolt\n4 Brainstorm\n1 Notacard\n50 Mountain');
+  await page.fill('#deckside', '7 Mountain');
+  await page.selectOption('#deckformat', 'modern');
+  await page.fill('#lastname', 'Beleren');
+  await page.waitForTimeout(600);
+  const items = await page.$$eval('.status .details > li', items => items.map(item => item.className + ' ' + item.innerText.trim()));
+  assert.deepEqual(items, [
+    'error The following cards are over their copy limit:\nLightning Bolt (5 copies; limit 4)',
+    'error The following cards are not legal in Modern:\nBrainstorm',
+    'warning Couldn\'t recognize the following cards:\nNotacard',
+    'warning Most sideboards consist of exactly 15 cards',
+    'warning Missing first name, event name, event date and event location'
+  ]);
+  // Each blank field's name still leads to its field
+  await page.click('.status .details label[for="event"]');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'event');
+  await page.fill('#firstname', 'Jace');
+  await page.fill('#event', 'Test Open');
+  await page.fill('#eventdate', '2099-01-01');
+  await page.waitForTimeout(600);
+  assert.equal(await page.$eval('.status .details > li:last-child', item => item.innerText.trim()), 'Missing event location');
+});
+
+test('the import box keeps its height when the tab changes', async () => {
+  const height = () => page.$eval('.deck-import', box => box.offsetHeight);
+  const before = await height();
+  await page.click('#import-tab-file');
+  assert.equal(await height(), before);
+  assert.equal(await page.isVisible('#deckimport'), false);
+  assert.equal(await page.isVisible('#deckfile-button'), true);
+});
+
+test('the deck name and designer examples show only while both fields are empty', async () => {
+  const shown = () => page.evaluate(() => ['#deckname', '#deckdesigner'].map(id =>
+    getComputedStyle(document.querySelector(id), '::placeholder').color !== 'rgba(0, 0, 0, 0)'));
+  assert.deepEqual(await shown(), [true, true]);
+  // A filled field shows its value, and the other field's example is hidden
+  await page.fill('#deckname', 'Burn');
+  assert.equal((await shown())[1], false);
+  await page.fill('#deckname', '');
+  assert.deepEqual(await shown(), [true, true]);
+  await page.fill('#deckdesigner', 'Patrick Chapin');
+  assert.equal((await shown())[0], false);
 });
 
 test('the full list shows each card as it was matched, and hides again', async () => {
   await deck('4 fire ice\n1 Lightning Bolt\n1 Lightning Bolt\n50 Mountain', '15 Mountain', 'legacy');
-  assert.equal(await page.textContent('#deckmain-check .deckcheck-toggle'), 'No problems found. Show all 56 cards');
+  // 56 cards is a deck problem, so not "No problems found", but no card has one
+  assert.equal(await page.textContent('#deckmain-check .deckcheck-toggle'), 'Show all 56 cards');
   assert.deepEqual(await marked('deckmain'), []);
   await page.click('#deckmain-check .deckcheck-toggle');
   assert.deepEqual(await marked('deckmain'), ['ok 4 Fire // Ice', 'ok 2 Lightning Bolt', 'ok 50 Mountain']);

@@ -59,7 +59,8 @@ const STICKY_MARGIN = 16;
 // far end is in view and then stays: its bottom while scrolling down, its top while
 // scrolling up, so every part of it can be reached without leaving the form. Its
 // status grows and shrinks with the deck's problems, so it is rechecked whenever the
-// sidebar or the window changes size
+// sidebar or the window changes size. In the one-column layout the sidebar follows the
+// form instead, and a top left over from scrolling would slide it up over the form
 function initStickySidebar() {
   const sidebar = document.querySelector('.generator-page .right');
   if (!sidebar) return;
@@ -68,6 +69,12 @@ function initStickySidebar() {
   let queued = false;
   const update = function() {
     queued = false;
+    if (oneColumn.matches) {
+      top = STICKY_MARGIN;
+      lastY = window.scrollY;
+      sidebar.style.top = '';
+      return;
+    }
     const lowest = Math.min(STICKY_MARGIN, window.innerHeight - sidebar.offsetHeight - STICKY_MARGIN);
     top = Math.max(lowest, Math.min(STICKY_MARGIN, top - (window.scrollY - lastY)));
     lastY = window.scrollY;
@@ -782,7 +789,7 @@ async function sharePermalink() {
     button.classList.add('done');
   } catch (error) {
     console.error('Error while copying:', error);
-    button.textContent = 'Failed to Copy';
+    button.textContent = 'Failed to copy';
   }
   setTimeout(() => {
     button.textContent = label;
@@ -1075,14 +1082,16 @@ function markCards(parsedLists, valid) {
         '<span class="deckcheck-name">' + row.name + '</span>' + reasons + '</li>';
     }).join(''));
 
-    // counted as the status box counts them, by quantity
+    // counted as the status box counts them, by quantity. A problem with the whole deck,
+    // such as its size, names no card, so it isn't on a row; it still isn't "no problems"
     const expanded = container.hasClass('expanded'),
-      show = cardCount === 1 ? 'Show the card' : 'Show all ' + cardCount + ' cards';
+      show = cardCount === 1 ? 'Show the card' : 'Show all ' + cardCount + ' cards',
+      deckProblems = $('#' + list + '-messages').children().length;
     container.prop('hidden', false).toggleClass('clean', problemCount === 0);
     container.find('.deckcheck-toggle')
       .attr('aria-expanded', String(expanded))
       .text(expanded ? (problemCount ? 'Hide the cards with no problems' : 'Hide the list') :
-        problemCount ? show : 'No problems found. ' + show);
+        problemCount || deckProblems ? show : 'No problems found. ' + show);
   });
 }
 
@@ -1098,7 +1107,8 @@ function statusAndTooltips(valid) {
   //   for: [[message, level], [message, level], ...],
   //   ...
   // }
-  // a message listing cards adds a third entry, 'cards'
+  // a message listing cards adds a third entry, 'cards'; a blank player or event field
+  // adds 'missing' and the field's name, so the status box can list them on one line
   // in this case, the key 'for' represents the input element id, and
   // the value 'level' represents the string 'warning' or 'error'
   const notifications = {};
@@ -1136,23 +1146,23 @@ function statusAndTooltips(valid) {
 
       if (prop === 'firstname') {
         if (validationObject['warning'] === 'blank') {
-          notifications.push(prop, ['Missing first name', validType]);
+          notifications.push(prop, ['Missing first name', validType, 'missing', 'first name']);
         } else if (validationObject['error'] === 'toolarge') {
           notifications.push(prop, ['First name too long', validType]);
         }
       } else if (prop === 'lastname') {
         if (validationObject['warning'] === 'blank') {
-          notifications.push(prop, ['Missing last name', validType]);
+          notifications.push(prop, ['Missing last name', validType, 'missing', 'last name']);
         } else if (validationObject['error'] === 'toolarge') {
           notifications.push(prop, ['Last name too long', validType]);
         }
       } else if (prop === 'event') {
         if (validationObject['warning'] === 'blank') {
-          notifications.push(prop, ['Missing event name', validType]);
+          notifications.push(prop, ['Missing event name', validType, 'missing', 'event name']);
         }
       } else if (prop === 'eventdate') {
         if (validationObject['warning'] === 'blank') {
-          notifications.push(prop, ['Missing event date', validType]);
+          notifications.push(prop, ['Missing event date', validType, 'missing', 'event date']);
         } else if (validationObject['warning'] === 'futuredate') {
           notifications.push(prop, ['Event date is set in the past', validType]);
         } else if (validationObject['error'] === 'unrecognized') {
@@ -1160,7 +1170,7 @@ function statusAndTooltips(valid) {
         }
       } else if (prop === 'eventlocation') {
         if (validationObject['warning'] === 'blank') {
-          notifications.push(prop, ['Missing event location', validType]);
+          notifications.push(prop, ['Missing event location', validType, 'missing', 'event location']);
         }
       } else if (prop === 'deckmain') {
         if (validationObject['warning'] === 'size') {
@@ -1192,7 +1202,7 @@ function statusAndTooltips(valid) {
         } else if (validationObject['warning'] === 'unrecognized') {
           // include a list of unrecognized card names
           const unrecognizedCardsHtml = '<ul><li>' + validationObject['data'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['Couldn\'t recognize the following card(s):' + unrecognizedCardsHtml, validType, 'cards']);
+          notifications.push(prop, ['Couldn\'t recognize the following cards:' + unrecognizedCardsHtml, validType, 'cards']);
         } else if (validationObject['warning'] === 'unparseable') {
           // include a list of unparseable lines
           const unparseableCardsHtml = '<ul><li>' + validationObject['data'].join('</li><li>') + '</li></ul>';
@@ -1236,8 +1246,11 @@ function statusAndTooltips(valid) {
     errorLevel = 0x001;
   }
 
-  // compose new notifications HTML fragment, set new tooltips, and set input field classes
-  let statusBoxHtml = '';
+  // compose new notifications HTML fragment, set new tooltips, and set input field classes.
+  // Errors lead the status box, then warnings, then the blank fields on one line, which
+  // stay blank while the deck is being entered and would otherwise push its problems down
+  const statusItems = { error: '', warning: '' },
+    missing = [];
   for (const key in notifications) {
     // exclude any functions of the object, and stay quiet until something is entered
     if (!allEmpty && typeof notifications[key] !== 'function') {
@@ -1247,9 +1260,12 @@ function statusAndTooltips(valid) {
       let fieldClass = 'warning';
       for (let i = 0; i < notificationsLength; i++) {
         // create status box HTML fragment
-        statusBoxHtml += '<li class=\'' + notifications[key][i][1] + '\'>';
-        statusBoxHtml += '<label for=\'' + key + '\'>';
-        statusBoxHtml += notifications[key][i][0] + '</label></li>';
+        if (notifications[key][i][2] === 'missing') {
+          missing.push('<label for=\'' + key + '\'>' + notifications[key][i][3] + '</label>');
+        } else {
+          statusItems[notifications[key][i][1]] += '<li class=\'' + notifications[key][i][1] + '\'>' +
+            '<label for=\'' + key + '\'>' + notifications[key][i][0] + '</label></li>';
+        }
 
         // determine field class
         if (notifications[key][i][1] === 'error') {
@@ -1278,6 +1294,11 @@ function statusAndTooltips(valid) {
     }
   }
 
+  let statusBoxHtml = statusItems.error + statusItems.warning;
+  if (missing.length) {
+    statusBoxHtml += '<li class=\'warning\'><span class=\'missing\'>Missing ' + (missing.length === 1 ? missing[0] :
+      missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]) + '</span></li>';
+  }
   if (allEmpty) {
     statusBoxHtml = STATUS_PROMPT_HTML;
   }
@@ -1434,7 +1455,7 @@ function initDeckManagement() {
     saveButton.textContent = 'Saved!';
     saveButton.classList.add('done');
     setTimeout(() => {
-      saveButton.textContent = 'Save Decklist';
+      saveButton.textContent = 'Save decklist';
       saveButton.classList.remove('done');
     }, 2000);
 
@@ -1476,7 +1497,7 @@ function initDeckManagement() {
     loadButton.textContent = 'Loaded!';
     loadButton.classList.add('done');
     setTimeout(() => {
-      loadButton.textContent = 'Load Decklist';
+      loadButton.textContent = 'Load decklist';
       loadButton.classList.remove('done');
     }, 2000);
 
