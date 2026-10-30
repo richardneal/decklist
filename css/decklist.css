@@ -81,6 +81,13 @@ body.dark-mode {
   opacity: 1;
 }
 
+/* They come as a pair, so once either field is filled the other's example would read
+   as belonging to the player's deck */
+form:has(#deckname:not(:placeholder-shown)) #deckdesigner::placeholder,
+form:has(#deckdesigner:not(:placeholder-shown)) #deckname::placeholder {
+  color: transparent;
+}
+
 .wrapper {
   width: 95%;
   max-width: 1400px;
@@ -377,8 +384,6 @@ h2 {
   background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
   border: none;
   color: var(--on-accent);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 #download:hover {
@@ -495,7 +500,7 @@ h2 {
   text-align: center;
 }
 
-.details label {
+.details label, .details .missing {
   /* a block, so the icon below stays on the first line when the text wraps:
      Safari places an absolute box hung off a wrapped inline between its lines */
   display: block;
@@ -503,8 +508,12 @@ h2 {
   color: var(--text-primary);
 }
 
-.details .warning label:before,
-.details .error label:before {
+/* The blank fields share one line, each name a label for its field */
+.details .missing { cursor: default; }
+.details .missing label { display: inline; }
+
+.details .warning > label:before, .details .warning > .missing:before,
+.details .error > label:before, .details .error > .missing:before {
   content: "";
   display: block;
   height: 20px;
@@ -517,13 +526,13 @@ h2 {
   mask: center / contain no-repeat;
 }
 
-.details .warning label:before {
+.details .warning > label:before, .details .warning > .missing:before {
   background-color: var(--warning);
   -webkit-mask-image: var(--icon-warning);
   mask-image: var(--icon-warning);
 }
 
-.details .error label:before {
+.details .error > label:before, .details .error > .missing:before {
   background-color: var(--error);
   -webkit-mask-image: var(--icon-error);
   mask-image: var(--icon-error);
@@ -537,13 +546,9 @@ h2 {
   color: var(--error);
 }
 
-.details ul {
-  padding-left: 30px;
-  color: var(--text-primary);
-}
-
-.details ul li {
-  color: var(--text-primary);
+/* A count of cards leads to their rows under the deck boxes */
+.details label[data-problem]:hover {
+  text-decoration: underline;
 }
 
 #deckliststatuses {
@@ -1099,6 +1104,14 @@ button.icon-button[hidden] { display: none; }
 #deckimport-button:focus-visible, #deckfile-button:focus-visible, #deckimport-undo:focus-visible, .import-tabs [role="tab"]:focus-visible { outline: 3px solid var(--accent-color); outline-offset: 3px; }
 .import-help, .import-alternative { font-size: 12px; color: var(--text-secondary); margin: 10px 0 0; }
 .import-alternative { border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 14px; }
+/* Both panels share one cell, so the box keeps the taller one's height and the form
+   below doesn't jump when the tab changes; the other is kept but invisible. Its fields
+   transition `all`, which would hold their visibility through the change, so they
+   transition the rest */
+.import-panels { display: grid; }
+.import-panels > [role="tabpanel"] { grid-area: 1 / 1; }
+.import-panels > [role="tabpanel"][hidden] { display: block; visibility: hidden; }
+.import-panels > [role="tabpanel"] * { transition-property: border-color, box-shadow, background-color, color, opacity, transform; }
 .import-tabs { display: flex; gap: 4px; margin: 0 0 14px; border-bottom: 1px solid var(--border-color); }
 .import-tabs [role="tab"] { border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 12px; background: none; color: var(--text-secondary); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .import-tabs [role="tab"]:hover { color: var(--text-primary); }
@@ -1173,7 +1186,9 @@ button.icon-button[hidden] { display: none; }
 @media (max-width: 600px) {
   .generator-page .wrapper { width: calc(100% - 24px); }
   .page-intro { margin: 20px 4px 24px; }
-  .generator-page .wrapleft, .generator-page .right { padding: 18px; }
+  .generator-page .wrapleft, .generator-page .right { padding: 16px; }
+  /* Inside the panel's padding, its own would leave the import's text a narrow column */
+  .generator-page .deck-import { padding: 14px 12px; }
   .generator-page .left form { grid-template-columns: 1fr; gap: 16px; }
   .generator-page .left input, .generator-page .left textarea { font-size: 16px; }
   .generator-page .left .deck-import #deckimport { width: 100%; }
@@ -1265,6 +1280,9 @@ body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
 .deckcheck-q { min-width: 1.6em; text-align: right; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .deckcheck-name { font-weight: 600; overflow-wrap: anywhere; }
 .deckcheck-reason { flex-basis: 100%; padding-left: calc(1.6em + 8px); font-size: 12px; }
+/* A row the status box scrolled to, marked for a moment */
+.deckcheck li { transition: background-color 0.4s; }
+.deckcheck li.flash { background-color: color-mix(in srgb, var(--accent-color) 14%, transparent); }
 .deckcheck li.warning .deckcheck-reason { color: var(--warning); }
 .deckcheck li.error .deckcheck-reason { color: var(--error); }
 .deckcheck-toggle { border: 0; background: none; color: var(--accent-color); padding: 4px 0; font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }

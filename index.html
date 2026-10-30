@@ -171,29 +171,31 @@
       <div class="wrapleft">
       <div class="left">
         <form>
-          <h2>Deck Information</h2>
+          <h2>Deck information</h2>
           <section class="deck-import" aria-labelledby="deckimport-title">
             <h3 id="deckimport-title">Import a deck</h3>
             <div class="import-tabs" role="tablist" aria-label="Import from">
               <button type="button" role="tab" id="import-tab-link" aria-controls="import-panel-link" aria-selected="true">Deck link</button>
               <button type="button" role="tab" id="import-tab-file" aria-controls="import-panel-file" aria-selected="false" tabindex="-1">Text file</button>
             </div>
-            <div role="tabpanel" id="import-panel-link" aria-labelledby="import-tab-link">
-              <p class="import-description">Paste a deck link from MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall. We’ll fill in the main deck and sideboard.</p>
-              <label for="deckimport" class="import-label">Deck link</label>
-              <div class="import-controls">
-                <input type="url" id="deckimport" placeholder="Paste your deck URL" autocomplete="off" spellcheck="false" aria-describedby="deckimport-help deckimport-status">
-                <button type="button" id="deckimport-button" class="icon-button" disabled>Import deck</button>
+            <div class="import-panels">
+              <div role="tabpanel" id="import-panel-link" aria-labelledby="import-tab-link">
+                <p class="import-description">Paste a deck link from MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall. We’ll fill in the main deck and sideboard.</p>
+                <label for="deckimport" class="import-label">Deck link</label>
+                <div class="import-controls">
+                  <input type="url" id="deckimport" placeholder="Paste your deck URL" autocomplete="off" spellcheck="false" aria-describedby="deckimport-help deckimport-status">
+                  <button type="button" id="deckimport-button" class="icon-button" disabled>Import deck</button>
+                </div>
+                <p id="deckimport-help" class="import-help">Open a deck on any of those sites, then copy its address here.</p>
+                <p class="import-help">Shortcut: put <strong>decklist.app/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
               </div>
-              <p id="deckimport-help" class="import-help">Open a deck on any of those sites, then copy its address here.</p>
-              <p class="import-help">Shortcut: put <strong>decklist.app/</strong> in front of a deck’s address in your browser, and it opens here already imported.</p>
-            </div>
-            <div role="tabpanel" id="import-panel-file" aria-labelledby="import-tab-file" hidden>
-              <p class="import-description">Upload a deck file exported from MTG Arena, MTGO, Cockatrice or any deck site: a text list (.txt), an MTGO .dek or a Cockatrice .cod.</p>
-              <div id="deckfile-drop" class="import-drop">
-                <input type="file" id="deckfile" accept=".txt,.dek,.dec,.cod,.mwdeck,text/plain" hidden>
-                <button type="button" id="deckfile-button" class="icon-button" aria-describedby="deckimport-status">Choose file</button>
-                <span>or drop it here, or on a deck box below</span>
+              <div role="tabpanel" id="import-panel-file" aria-labelledby="import-tab-file" hidden>
+                <p class="import-description">Upload a deck file exported from MTG Arena, MTGO, Cockatrice or any deck site: a text list (.txt), an MTGO .dek or a Cockatrice .cod.</p>
+                <div id="deckfile-drop" class="import-drop">
+                  <input type="file" id="deckfile" accept=".txt,.dek,.dec,.cod,.mwdeck,text/plain" hidden>
+                  <button type="button" id="deckfile-button" class="icon-button" aria-describedby="deckimport-status">Choose file</button>
+                  <span>or drop it here, or on a deck box below</span>
+                </div>
               </div>
             </div>
             <div class="import-result">
@@ -203,11 +205,11 @@
             <p class="import-alternative">Have a text export? Paste it below.</p>
           </section>
           <label for="deckname">
-            <span>Deck Name / Archetype (optional)</span>
+            <span>Deck name / archetype (optional)</span>
             <input type="text" id="deckname" placeholder="The Deck" autocorrect="off" spellcheck="false">
           </label>
           <label for="deckdesigner">
-            <span>Deck Designer (optional)</span>
+            <span>Deck designer (optional)</span>
             <input type="text" id="deckdesigner" placeholder="Brian Weissman" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <script>
@@ -255,13 +257,13 @@
             </select>
           </label>
           <label for="deckmain">
-            <span>Main Deck</span>
+            <span>Main deck</span>
             <textarea id="deckmain" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckmain-messages protip"></textarea>
           </label>
           <ul class="field-messages" id="deckmain-messages"></ul>
           <div class="deckcheck" id="deckmain-check" aria-label="Main deck cards" role="region" hidden>
-            <ul></ul>
-            <button type="button" class="deckcheck-toggle" aria-expanded="false"></button>
+            <ul id="deckmain-check-list"></ul>
+            <button type="button" class="deckcheck-toggle" aria-expanded="false" aria-controls="deckmain-check-list"></button>
           </div>
           <p id="protip">Paste a deck from Arena, Moxfield, MTGO or most deck sites, sideboard and all.</p>
           <label for="deckside">
@@ -270,34 +272,34 @@
           </label>
           <ul class="field-messages" id="deckside-messages"></ul>
           <div class="deckcheck" id="deckside-check" aria-label="Sideboard cards" role="region" hidden>
-            <ul></ul>
-            <button type="button" class="deckcheck-toggle" aria-expanded="false"></button>
+            <ul id="deckside-check-list"></ul>
+            <button type="button" class="deckcheck-toggle" aria-expanded="false" aria-controls="deckside-check-list"></button>
           </div>
           <label for="separate-basic-lands" class="checkbox-label">
             <span>Separate basic lands</span>
             <input type="checkbox" id="separate-basic-lands" name="separate-basic-lands">
           </label>
 
-          <h2>Personal Information</h2>
+          <h2>Personal information</h2>
           <label for="firstname">
-            <span>First Name</span>
+            <span>First name</span>
             <input type="text" id="firstname" autocomplete="given-name" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
           <label for="lastname">
-            <span>Last Name</span>
+            <span>Last name</span>
             <input type="text" id="lastname" autocomplete="family-name" autocapitalize="words" autocorrect="off" spellcheck="false">
           </label>
-          <h2>Event Information</h2>
+          <h2>Event information</h2>
           <label for="event">
             <span>Event</span>
             <input type="text" id="event" autocapitalize="words">
           </label>
           <label for="eventdate">
-            <span>Event Date</span>
+            <span>Event date</span>
             <input type="text" id="eventdate">
           </label>
           <label for="eventlocation">
-            <span>Event Location</span>
+            <span>Event location</span>
             <input type="text" id="eventlocation" autocapitalize="words">
           </label>
         </form>
@@ -306,10 +308,10 @@
 
     <div class="right">
       <h2>
-        Decklist Preview
+        Decklist preview
       </h2>
       <div id="decklistpreview">
-        <iframe id="decklist" name="decklist" height="580" width="440" title="Decklist Preview"></iframe>
+        <iframe id="decklist" name="decklist" height="580" width="440" title="Decklist preview"></iframe>
       </div>
       <div id="deckliststatuses">
         <div class="deckliststatus" id="dle1"><span class="status-icon error" role="img" aria-label="Error"></span>Decklist contains &lt;60 cards.</div>
@@ -317,14 +319,14 @@
       </div>
       <form>
         <button type="button" id="download" class="icon-button" onclick="generateDecklistPDF('dataurlnewwindow');">Download PDF</button>
-        <button type="button" id="permalink" class="icon-button" onclick="sharePermalink()">Copy Permalink</button>
+        <button type="button" id="permalink" class="icon-button" onclick="sharePermalink()">Copy permalink</button>
       </form>
 
       <!-- Deck management actions -->
       <div class="deck-actions">
-        <button type="button" id="saveDeck" class="icon-button">Save Decklist</button>
-        <button type="button" id="loadDeck" class="icon-button">Load Decklist</button>
-        <button type="button" id="clearDeck" class="icon-button">Clear All</button>
+        <button type="button" id="saveDeck" class="icon-button">Save decklist</button>
+        <button type="button" id="loadDeck" class="icon-button">Load decklist</button>
+        <button type="button" id="clearDeck" class="icon-button">Clear all</button>
       </div>
       <h2>Status</h2>
       <div class="status default">
