@@ -84,8 +84,9 @@ async function open(path) {
 }
 
 // Fills the deck and format, waits out the 400ms validation debounce, and returns
-// the Auto-detect option's text with the deck messages from the status box. The
-// player and event fields are filled, so their warnings stay out of the way.
+// the Auto-detect option's text with the deck messages from the status box, and the
+// cards with a problem as their rows under the deck boxes name them. The player and
+// event fields are filled, so their warnings stay out of the way.
 async function deck(main, side = '', format = '') {
   await page.fill('#firstname', 'Jace');
   await page.fill('#lastname', 'Beleren');
@@ -98,7 +99,10 @@ async function deck(main, side = '', format = '') {
   await page.waitForTimeout(600);
   return {
     label: await page.$eval('#deckformat option[value=""]', option => option.textContent),
-    messages: await page.$$eval('.status .details > li', items => items.map(item => item.innerText.trim()))
+    messages: await page.$$eval('.status .details > li', items => items.map(item => item.innerText.trim())),
+    rows: await page.$$eval('.deckcheck li[data-problems]', items => items.map(item =>
+      item.querySelector('.deckcheck-name').textContent + ': ' +
+      [...item.querySelectorAll('.deckcheck-reason')].map(reason => reason.textContent).join('; ')))
   };
 }
 
@@ -137,7 +141,7 @@ test('an Arena export with a companion pasted into the main deck fills both sect
     'Deck\n4 Lightning Bolt (2X2) 117\n1 Fire // Ice (MH2) 290 *F*\n55 Mountain (ANA) 1\n\n' +
     'Sideboard\n1 Jegantha, the Wellspring (IKO) 222\n2 Blood Moon (DMR) 123\n12 Mountain (ANA) 1';
   // No unrecognized cards, and a 15-card sideboard: the companion is counted once
-  assert.deepEqual(await deck(arena), { label: 'Auto-detect (Legacy)', messages: [] });
+  assert.deepEqual(await deck(arena), { label: 'Auto-detect (Legacy)', messages: [], rows: [] });
   const sections = await page.evaluate(() => {
     const parsed = Decklist.parse();
     return [parsed.main, parsed.side].map(list => list.map(card => card.q + ' ' + card.n));
@@ -147,25 +151,29 @@ test('an Arena export with a companion pasted into the main deck fills both sect
 });
 
 test('a chosen format lists its banned and restricted cards', async () => {
-  assert.deepEqual((await deck(...LEGACY, 'modern')).messages,
-    ['The following cards are not legal in Modern:\nBrainstorm\nForce of Will']);
-  assert.deepEqual((await deck(...LEGACY, 'vintage')).messages,
-    ['The following cards are restricted in Vintage, so a deck may hold only one copy:\nBrainstorm']);
+  let checked = await deck(...LEGACY, 'modern');
+  assert.deepEqual(checked.messages, ['2 cards not legal in Modern']);
+  assert.deepEqual(checked.rows, ['Brainstorm: Not legal in Modern', 'Force of Will: Not legal in Modern']);
+  checked = await deck(...LEGACY, 'vintage');
+  assert.deepEqual(checked.messages, ['1 card restricted in Vintage with more than one copy']);
+  assert.deepEqual(checked.rows, ['Brainstorm: Restricted in Vintage, so a deck may hold only one copy']);
 });
 
 test('each card over its copy limit shows its count and limit', async () => {
-  assert.deepEqual((await deck('8 Seven Dwarves\n52 Mountain', '15 Mountain', 'modern')).messages,
-    ['The following cards are over their copy limit:\nSeven Dwarves (8 copies; limit 7)']);
+  let checked = await deck('8 Seven Dwarves\n52 Mountain', '15 Mountain', 'modern');
+  assert.deepEqual(checked.messages, ['1 card over its copy limit']);
+  assert.deepEqual(checked.rows, ['Seven Dwarves: Over its copy limit (8 copies; limit 7)']);
   assert.deepEqual((await deck('7 Seven Dwarves\n53 Mountain', '15 Mountain', 'modern')).messages, []);
-  assert.deepEqual((await deck('5 Lightning Bolt\n55 Mountain', '15 Mountain')).messages,
-    ['The following cards are over their copy limit:\nLightning Bolt (5 copies; limit 4)']);
+  checked = await deck('5 Lightning Bolt\n55 Mountain', '15 Mountain');
+  assert.deepEqual(checked.messages, ['1 card over its copy limit']);
+  assert.deepEqual(checked.rows, ['Lightning Bolt: Over its copy limit (5 copies; limit 4)']);
 });
 
 test('a Commander deck is held to 100 singleton cards legal in Commander', async () => {
-  assert.deepEqual((await deck('2 Sol Ring\n1 Dockside Extortionist\n96 Island', COMMANDER[1])).messages, [
-    'The following cards are over their copy limit:\nSol Ring (2 copies; limit 1)',
-    'The following cards are not legal in Commander:\nDockside Extortionist'
-  ]);
+  const checked = await deck('2 Sol Ring\n1 Dockside Extortionist\n96 Island', COMMANDER[1]);
+  assert.deepEqual(checked.messages, ['1 card over its copy limit', '1 card not legal in Commander']);
+  assert.deepEqual(checked.rows,
+    ['Sol Ring: Over its copy limit (2 copies; limit 1)', 'Dockside Extortionist: Not legal in Commander']);
   assert.deepEqual((await deck('1 Sol Ring\n97 Island', COMMANDER[1], 'commander')).messages,
     ['Commander decks consist of exactly 100 cards, counting the commander (this one has 99)']);
   assert.deepEqual((await deck("1 Atraxa, Praetors' Voice\n1 Sol Ring\n98 Island", '')).messages,
@@ -173,20 +181,19 @@ test('a Commander deck is held to 100 singleton cards legal in Commander', async
 });
 
 test('each added format shows its own status messages', async () => {
-  assert.deepEqual((await deck('4 Brainstorm\n4 Swords to Plowshares\n52 Island', '15 Island', 'premodern')).messages,
-    ['The following cards are not legal in Premodern:\nBrainstorm']);
-  assert.deepEqual((await deck('2 Sol Ring\n58 Island', '15 Island', 'oldschool')).messages,
-    ['The following cards are restricted in Old School, so a deck may hold only one copy:\nSol Ring']);
+  assert.deepEqual(await deck('4 Brainstorm\n4 Swords to Plowshares\n52 Island', '15 Island', 'premodern'),
+    { label: 'Auto-detect', messages: ['1 card not legal in Premodern'], rows: ['Brainstorm: Not legal in Premodern'] });
+  assert.deepEqual((await deck('2 Sol Ring\n58 Island', '15 Island', 'oldschool')).rows,
+    ['Sol Ring: Restricted in Old School, so a deck may hold only one copy']);
   // Sol Ring is legal in Commander, but not in Duel Commander
-  assert.deepEqual((await deck(...COMMANDER, 'duel')).messages,
-    ['The following cards are not legal in Duel Commander:\nSol Ring']);
+  assert.deepEqual((await deck(...COMMANDER, 'duel')).rows, ['Sol Ring: Not legal in Duel Commander']);
   assert.deepEqual((await deck('97 Island', COMMANDER[1], 'duel')).messages,
     ['Duel Commander decks consist of exactly 100 cards, counting the commander (this one has 98)']);
-  assert.deepEqual((await deck('99 Island', '1 Derevi, Empyrial Tactician', 'duel')).messages,
-    ['The following cards may not be your commander in Duel Commander:\nDerevi, Empyrial Tactician']);
+  assert.deepEqual(await deck('99 Island', '1 Derevi, Empyrial Tactician', 'duel'), { label: 'Auto-detect',
+    messages: ['1 card may not be your commander in Duel Commander'],
+    rows: ['Derevi, Empyrial Tactician: May not be your commander in Duel Commander'] });
   assert.deepEqual((await deck('1 Counterspell\n98 Island', '1 Tatyova, Benthic Druid', 'paupercommander')).messages, []);
-  assert.deepEqual((await deck(...COMMANDER, 'predh')).messages,
-    ["The following cards are not legal in PreDH:\nAtraxa, Praetors' Voice"]);
+  assert.deepEqual((await deck(...COMMANDER, 'predh')).rows, ["Atraxa, Praetors' Voice: Not legal in PreDH"]);
   assert.deepEqual((await deck('58 Mountain', '1 Chandra, Torch of Defiance\n1 Lightning Bolt', 'oathbreaker')).messages, []);
   assert.deepEqual((await deck('58 Mountain', '1 Chandra, Torch of Defiance', 'oathbreaker')).messages, [
     'Oathbreaker decks consist of exactly 60 cards, counting the Oathbreaker and its signature spell (this one has 59)',
@@ -296,13 +303,6 @@ test('the preview sidebar stays in view as the form scrolls', async () => {
   assert.equal(box.bottom, box.window - 16);
   box = await at(100);
   assert.equal(box.top, 16);
-
-  // and a long status does the same in a taller window
-  await page.setViewportSize({ width: 1280, height: 1100 });
-  await page.fill('#deckmain', Array.from({ length: 30 }, (_, i) => '1 Not A Card ' + i).join('\n'));
-  await page.waitForFunction(() => document.querySelector('.right').offsetHeight > window.innerHeight);
-  box = await at(1000);
-  assert.equal(box.bottom, box.window - 16);
 
   // Below the form, in one column, it stays where the page puts it, and a width that
   // brings it back beside the form keeps it in view again
@@ -443,7 +443,7 @@ test('an import selects a paper variant it names, and checks the deck against it
   importReply = { body: '4 Brainstorm\n56 Island\nSideboard\n15 Island', format: null };
   await importDeck('https://www.mtgtop8.com/event?e=1&d=2&f=PREM');
   assert.equal(await page.inputValue('#deckformat'), 'premodern');
-  assert.deepEqual(await messages(), ['The following cards are not legal in Premodern:\nBrainstorm']);
+  assert.deepEqual(await messages(), ['1 card not legal in Premodern']);
 });
 
 test('the preview renders a PDF', async () => {
@@ -652,7 +652,7 @@ test('each card with a problem is marked on its own row under its textarea', asy
   assert.equal(await page.textContent('#deckside-check .deckcheck-toggle'), 'No problems found. Show all 15 cards');
   // The status box keeps its messages
   assert.ok((await deck('4 Brainstorm\n56 Island', '15 Island', 'modern')).messages
-    .includes('The following cards are not legal in Modern:\nBrainstorm'));
+    .includes('1 card not legal in Modern'));
 
   await deck('2 Brainstorm\n58 Island', '15 Island', 'vintage');
   assert.deepEqual(await marked('deckmain'),
@@ -681,12 +681,21 @@ test('the status box puts errors first and the blank fields on one line, last', 
   await page.waitForTimeout(600);
   const items = await page.$$eval('.status .details > li', items => items.map(item => item.className + ' ' + item.innerText.trim()));
   assert.deepEqual(items, [
-    'error The following cards are over their copy limit:\nLightning Bolt (5 copies; limit 4)',
-    'error The following cards are not legal in Modern:\nBrainstorm',
-    'warning Couldn\'t recognize the following cards:\nNotacard',
+    'error 1 card over its copy limit',
+    'error 1 card not legal in Modern',
+    'warning Couldn\'t recognize 1 card',
     'warning Most sideboards consist of exactly 15 cards',
     'warning Missing first name, event name, event date and event location'
   ]);
+  // A count of cards leads to the first of them, on its row under the deck box
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.click('.status .details label[data-problem="illegal"]');
+  await page.waitForFunction(() => {
+    const { top, bottom } = document.querySelector('.deckcheck li.flash').getBoundingClientRect();
+    return top >= 0 && bottom <= window.innerHeight;
+  });
+  assert.equal(await page.textContent('.deckcheck li.flash .deckcheck-name'), 'Brainstorm');
+  assert.notEqual(await page.evaluate(() => document.activeElement.id), 'deckmain');
   // Each blank field's name still leads to its field
   await page.click('.status .details label[for="event"]');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'event');

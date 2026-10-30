@@ -546,13 +546,9 @@ h2 {
   color: var(--error);
 }
 
-.details ul {
-  padding-left: 30px;
-  color: var(--text-primary);
-}
-
-.details ul li {
-  color: var(--text-primary);
+/* A count of cards leads to their rows under the deck boxes */
+.details label[data-problem]:hover {
+  text-decoration: underline;
 }
 
 #deckliststatuses {
@@ -1284,6 +1280,9 @@ body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
 .deckcheck-q { min-width: 1.6em; text-align: right; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .deckcheck-name { font-weight: 600; overflow-wrap: anywhere; }
 .deckcheck-reason { flex-basis: 100%; padding-left: calc(1.6em + 8px); font-size: 12px; }
+/* A row the status box scrolled to, marked for a moment */
+.deckcheck li { transition: background-color 0.4s; }
+.deckcheck li.flash { background-color: color-mix(in srgb, var(--accent-color) 14%, transparent); }
 .deckcheck li.warning .deckcheck-reason { color: var(--warning); }
 .deckcheck li.error .deckcheck-reason { color: var(--error); }
 .deckcheck-toggle { border: 0; background: none; color: var(--accent-color); padding: 4px 0; font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }

@@ -164,6 +164,19 @@ $(document).ready(function() {
     validateInput(Decklist.parse());
   });
 
+  // the status box counts the cards with each problem; a click shows the first of them
+  // on its row under the deck box, rather than focusing the main deck box
+  $('.status .details').on('click', 'label[data-problem]', function(event) {
+    const row = $('.deckcheck li[data-problems~="' + $(this).attr('data-problem') + '"]').first();
+    if (!row.length) return;
+    event.preventDefault();
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    row[0].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    $('.deckcheck li.flash').removeClass('flash');
+    row.addClass('flash');
+    setTimeout(function() { row.removeClass('flash'); }, 1600);
+  });
+
   // parse the GET parameters and set them, also generates preview (via event)
   parseGET();
 
@@ -1016,10 +1029,10 @@ function reportDownload(parsedInput, validate) {
 function markCards(parsedLists, valid) {
   // problems by card name, for the main deck list and the sideboard list
   const problems = { deckmain: new Map(), deckside: new Map() },
-    mark = function(lists, name, level, message) {
+    mark = function(lists, name, level, message, type) {
       lists.forEach(function(list) {
         const marks = problems[list].get(name) || [];
-        marks.push([message, level]);
+        marks.push([message, level, type]);
         problems[list].set(name, marks);
       });
     },
@@ -1031,20 +1044,20 @@ function markCards(parsedLists, valid) {
       data = validationObject['data'];
     if (type === 'quantity') {
       data['copies'].forEach(function(card) {
-        mark(both, card['n'], level, 'Over its copy limit (' + Decklist.copiesNote(card) + ')');
+        mark(both, card['n'], level, 'Over its copy limit (' + Decklist.copiesNote(card) + ')', type);
       });
     } else if (type === 'restricted') {
       data['cards'].forEach(function(name) {
-        mark(both, name, level, 'Restricted in ' + data['format'] + ', so a deck may hold only one copy');
+        mark(both, name, level, 'Restricted in ' + data['format'] + ', so a deck may hold only one copy', type);
       });
     } else if (type === 'illegal') {
-      data['cards'].forEach(function(name) { mark(both, name, level, 'Not legal in ' + data['format']); });
+      data['cards'].forEach(function(name) { mark(both, name, level, 'Not legal in ' + data['format'], type); });
     } else if (type === 'notcommander') {
       data['cards'].forEach(function(name) {
-        mark(['deckside'], name, level, 'May not be your commander in ' + data['format']);
+        mark(['deckside'], name, level, 'May not be your commander in ' + data['format'], type);
       });
     } else if (type === 'unrecognized') {
-      data.forEach(function(name) { mark(both, name, level, 'Couldn\'t recognize this card'); });
+      data.forEach(function(name) { mark(both, name, level, 'Couldn\'t recognize this card', type); });
     }
   });
 
@@ -1063,7 +1076,7 @@ function markCards(parsedLists, valid) {
   });
   parsedLists['unparseable'].forEach(function(line) {
     const list = sideLines.has(line) ? 'deckside' : 'deckmain';
-    rows[list].push({ q: '', name: line, marks: [['Couldn\'t parse this line', 'warning']] });
+    rows[list].push({ q: '', name: line, marks: [['Couldn\'t parse this line', 'warning', 'unparseable']] });
   });
 
   both.forEach(function(list) {
@@ -1077,8 +1090,10 @@ function markCards(parsedLists, valid) {
 
     container.find('ul').html(rows[list].map(function(row) {
       const level = row.marks.some(function(m) { return m[1] === 'error'; }) ? 'error' : row.marks.length ? 'warning' : 'ok',
-        reasons = row.marks.map(function(m) { return '<span class="deckcheck-reason">' + m[0] + '</span>'; }).join('');
-      return '<li class="' + level + '"><span class="deckcheck-q">' + row.q + '</span>' +
+        reasons = row.marks.map(function(m) { return '<span class="deckcheck-reason">' + m[0] + '</span>'; }).join(''),
+        // the problems' types, which the status box's counts scroll to
+        types = row.marks.length ? ' data-problems="' + row.marks.map(function(m) { return m[2]; }).join(' ') + '"' : '';
+      return '<li class="' + level + '"' + types + '><span class="deckcheck-q">' + row.q + '</span>' +
         '<span class="deckcheck-name">' + row.name + '</span>' + reasons + '</li>';
     }).join(''));
 
@@ -1099,6 +1114,11 @@ function markCards(parsedLists, valid) {
 // shown in the status box until the user enters something; matches the markup in index.html
 const STATUS_PROMPT_HTML = '<li class="prompt">Fill in the form to check your decklist.</li>';
 
+// "1 card", "3 cards"
+function countCards(count) {
+  return count + (count === 1 ? ' card' : ' cards');
+}
+
 // Change tooltips and status box to reflect current errors/warnings (or lack thereof)
 function statusAndTooltips(valid) {
   // notifications are stored as the following:
@@ -1107,8 +1127,10 @@ function statusAndTooltips(valid) {
   //   for: [[message, level], [message, level], ...],
   //   ...
   // }
-  // a message listing cards adds a third entry, 'cards'; a blank player or event field
-  // adds 'missing' and the field's name, so the status box can list them on one line
+  // a message counting cards adds a third entry, 'cards', and the problem's type: the
+  // cards themselves are named on their rows under the deck boxes (markCards), which the
+  // message scrolls to. A blank player or event field adds 'missing' and the field's
+  // name, so the status box can list them on one line
   // in this case, the key 'for' represents the input element id, and
   // the value 'level' represents the string 'warning' or 'error'
   const notifications = {};
@@ -1188,25 +1210,22 @@ function statusAndTooltips(valid) {
           notifications.push(prop, ['The first page has room for 44 rows (including spaces), so the main deck continues on ' +
             (extraPages === 1 ? 'a second page' : extraPages + ' more pages'), validType]);
         } else if (validationObject['error'] === 'quantity') {
-          // include a list of cards over their limit across the main/side, each with its count and limit
-          const excessCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['The following cards are over their copy limit:' + excessCardsHtml, validType, 'cards']);
+          const count = validationObject['data']['cards'].length;
+          notifications.push(prop, [countCards(count) + (count === 1 ? ' over its' : ' over their') + ' copy limit',
+            validType, 'cards', 'quantity']);
         } else if (validationObject['error'] === 'restricted') {
-          const restrictedCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['The following cards are restricted in ' + validationObject['data']['format'] +
-            ', so a deck may hold only one copy:' + restrictedCardsHtml, validType, 'cards']);
+          notifications.push(prop, [countCards(validationObject['data']['cards'].length) + ' restricted in ' +
+            validationObject['data']['format'] + ' with more than one copy', validType, 'cards', 'restricted']);
         } else if (validationObject['error'] === 'illegal') {
-          const illegalCardsHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['The following cards are not legal in ' + validationObject['data']['format'] + ':' +
-            illegalCardsHtml, validType, 'cards']);
+          notifications.push(prop, [countCards(validationObject['data']['cards'].length) + ' not legal in ' +
+            validationObject['data']['format'], validType, 'cards', 'illegal']);
         } else if (validationObject['warning'] === 'unrecognized') {
-          // include a list of unrecognized card names
-          const unrecognizedCardsHtml = '<ul><li>' + validationObject['data'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['Couldn\'t recognize the following cards:' + unrecognizedCardsHtml, validType, 'cards']);
+          notifications.push(prop, ['Couldn\'t recognize ' + countCards(validationObject['data'].length),
+            validType, 'cards', 'unrecognized']);
         } else if (validationObject['warning'] === 'unparseable') {
-          // include a list of unparseable lines
-          const unparseableCardsHtml = '<ul><li>' + validationObject['data'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['Couldn\'t parse the following lines:' + unparseableCardsHtml, validType, 'cards']);
+          const count = validationObject['data'].length;
+          notifications.push(prop, ['Couldn\'t parse ' + count + (count === 1 ? ' line' : ' lines'),
+            validType, 'cards', 'unparseable']);
         }
       } else if (prop === 'deckside') {
         if (validationObject['warning'] === 'toosmall') {
@@ -1218,9 +1237,8 @@ function statusAndTooltips(valid) {
         } else if (validationObject['warning'] === 'commanderside') {
           notifications.push(prop, ['A Commander deck\'s sideboard holds only its commander and any companion', validType]);
         } else if (validationObject['error'] === 'notcommander') {
-          const notCommanderHtml = '<ul><li>' + validationObject['data']['cards'].join('</li><li>') + '</li></ul>';
-          notifications.push(prop, ['The following cards may not be your commander in ' + validationObject['data']['format'] + ':' +
-            notCommanderHtml, validType, 'cards']);
+          notifications.push(prop, [countCards(validationObject['data']['cards'].length) + ' may not be your commander in ' +
+            validationObject['data']['format'], validType, 'cards', 'notcommander']);
         } else if (validationObject['warning'] === 'nooathbreaker') {
           notifications.push(prop, ['List your Oathbreaker and its signature spell in the sideboard', validType]);
         } else if (validationObject['warning'] === 'oathbreakerside') {
@@ -1263,8 +1281,9 @@ function statusAndTooltips(valid) {
         if (notifications[key][i][2] === 'missing') {
           missing.push('<label for=\'' + key + '\'>' + notifications[key][i][3] + '</label>');
         } else {
+          const problem = notifications[key][i][2] === 'cards' ? ' data-problem=\'' + notifications[key][i][3] + '\'' : '';
           statusItems[notifications[key][i][1]] += '<li class=\'' + notifications[key][i][1] + '\'>' +
-            '<label for=\'' + key + '\'>' + notifications[key][i][0] + '</label></li>';
+            '<label for=\'' + key + '\'' + problem + '>' + notifications[key][i][0] + '</label></li>';
         }
 
         // determine field class
