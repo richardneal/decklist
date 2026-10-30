@@ -17,7 +17,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # The site and generated data are published from the default branch.
           ref: main
@@ -27,7 +27,7 @@ jobs:
           ssh-key: ${{ secrets.CARD_REFRESH_DEPLOY_KEY }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
