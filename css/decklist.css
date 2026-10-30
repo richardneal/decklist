@@ -315,16 +315,6 @@ h2 {
   line-height: 1.5;
 }
 
-.left #protip {
-  color: var(--text-secondary);
-  font-size: 12px;
-  display: block;
-  margin-left: 14em;
-  margin-top: -15px;
-  margin-bottom: 15px;
-  font-style: italic;
-}
-
 .tooltip {
   border: 2px solid var(--border-color);
   box-shadow: var(--shadow-lg);
@@ -748,14 +738,6 @@ button.icon-button[hidden] { display: none; }
     min-height: 100px;
   }
 
-  .left #protip {
-    margin-left: 0;
-    margin-top: 5px;
-    font-size: 12px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
   .right {
     position: relative;
     top: 0;
@@ -869,12 +851,6 @@ button.icon-button[hidden] { display: none; }
     width: 100%;
     margin: 0 0 18px 0;
     box-sizing: border-box;
-  }
-
-  .left #protip {
-    margin-left: 0;
-    margin-top: 5px;
-    width: 100%;
   }
 
   #decklist {
@@ -1149,7 +1125,8 @@ button.icon-button[hidden] { display: none; }
 .generator-page .left textarea { height: 180px; font-size: 13px; }
 .generator-page .left #deckside { height: 105px; }
 .generator-page .left form > .deckcheck { grid-column: 1 / -1; margin-top: -8px; }
-.generator-page .left #protip { margin: 0; font-style: normal; line-height: 1.5; font-size: 11px; }
+/* The paste tip, between the Main deck label and its box */
+.generator-page .left #protip { margin-top: -4px; color: var(--text-secondary); line-height: 1.5; font-size: 12px; }
 .generator-page .left form > .checkbox-label { flex-direction: row-reverse; justify-content: flex-end; align-items: center; }
 .generator-page .left form > .checkbox-label { min-height: 32px; gap: 10px; cursor: pointer; }
 .generator-page .left .checkbox-label > span:first-child { margin: 0; line-height: 20px; }
@@ -1215,7 +1192,6 @@ body.dark-mode .ui-datepicker .ui-icon { filter: invert(1); }
 .field-messages > li.warning::before { background-color: var(--warning); -webkit-mask-image: var(--icon-warning); mask-image: var(--icon-warning); }
 .field-messages > li.error::before { background-color: var(--error); -webkit-mask-image: var(--icon-error); mask-image: var(--icon-error); }
 .field-messages ul { margin: 4px 0 0; padding-left: 18px; }
-.generator-page .left #protip { grid-column: 1 / -1; }
 
 /* The native date picker on touch screens: iOS gives a date input a minimum width that
    overflows the form, and centers its value */
