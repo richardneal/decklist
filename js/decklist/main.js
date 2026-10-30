@@ -1119,6 +1119,11 @@ function countCards(count) {
   return count + (count === 1 ? ' card' : ' cards');
 }
 
+// " (this one has 52)" after a deck size message; nothing for an empty deck or sideboard
+function thisOneHas(count) {
+  return count ? ' (this one has ' + count + ')' : '';
+}
+
 // Change tooltips and status box to reflect current errors/warnings (or lack thereof)
 function statusAndTooltips(valid) {
   // notifications are stored as the following:
@@ -1196,9 +1201,10 @@ function statusAndTooltips(valid) {
         }
       } else if (prop === 'deckmain') {
         if (validationObject['warning'] === 'size') {
-          notifications.push(prop, ['Most decks consist of exactly 60 cards', validType]); }
+          notifications.push(prop, ['Most decks consist of exactly 60 cards' + thisOneHas(validationObject['data']), validType]); }
         else if (validationObject['error'] === 'toosmall') {
-          notifications.push(prop, ['Decks may not consist of less than ' + validationObject['data'] + ' cards', validType]);
+          notifications.push(prop, ['Decks may not consist of fewer than ' + validationObject['data']['min'] + ' cards' +
+            thisOneHas(validationObject['data']['count']), validType]);
         } else if (validationObject['error'] === 'commandertoosmall' || validationObject['error'] === 'commandertoolarge') {
           notifications.push(prop, [validationObject['data']['format'] + ' decks consist of exactly 100 cards, counting the commander (this one has ' +
             validationObject['data']['count'] + ')', validType]);
@@ -1229,9 +1235,9 @@ function statusAndTooltips(valid) {
         }
       } else if (prop === 'deckside') {
         if (validationObject['warning'] === 'toosmall') {
-          notifications.push(prop, ['Most sideboards consist of exactly 15 cards', validType]);
+          notifications.push(prop, ['Most sideboards consist of exactly 15 cards' + thisOneHas(validationObject['data']), validType]);
         } else if (validationObject['error'] === 'toolarge') {
-          notifications.push(prop, ['Sideboards may not consist of more than 15 cards', validType]);
+          notifications.push(prop, ['Sideboards may not consist of more than 15 cards' + thisOneHas(validationObject['data']), validType]);
         } else if (validationObject['warning'] === 'nocommander') {
           notifications.push(prop, ['List your commander in the sideboard', validType]);
         } else if (validationObject['warning'] === 'commanderside') {

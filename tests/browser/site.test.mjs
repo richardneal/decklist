@@ -131,7 +131,7 @@ test('a deck auto-detect reads correctly has no deck messages', async () => {
 test('a 59-card deck is still a card short', async () => {
   const { label, messages } = await deck('4 Counterspell\n55 Island', '15 Island');
   assert.equal(label, 'Auto-detect (Pauper)');
-  assert.deepEqual(messages, ['Decks may not consist of less than 60 cards']);
+  assert.deepEqual(messages, ['Decks may not consist of fewer than 60 cards (this one has 59)']);
   // Beside the status box, the deck box doesn't list its problems again
   assert.equal(await page.isVisible('#deckmain-messages'), false);
 });
@@ -204,7 +204,7 @@ test('each added format shows its own status messages', async () => {
 test('a Limited deck has no copy or sideboard limits', async () => {
   assert.deepEqual((await deck('6 Grizzly Bears\n34 Forest', '30 Lightning Bolt', 'limited')).messages, []);
   assert.deepEqual((await deck('6 Grizzly Bears\n33 Forest', '', 'limited')).messages,
-    ['Decks may not consist of less than 40 cards']);
+    ['Decks may not consist of fewer than 40 cards (this one has 39)']);
 });
 
 test('the format rides in the URL and falls back to Auto-detect when unknown', async () => {
@@ -465,7 +465,7 @@ test('a phone draws the preview, picks the date natively, and lists deck problem
   assert.equal(await page.getAttribute('#eventdate', 'type'), 'date');
   await deck('4 Lightning Bolt\n4 Not A Card\n51 Mountain', '15 Mountain');
   const messages = await page.$$eval('#deckmain-messages > li', items => items.map(item => item.innerText));
-  assert.deepEqual(messages, ['Decks may not consist of less than 60 cards']);
+  assert.deepEqual(messages, ['Decks may not consist of fewer than 60 cards (this one has 59)']);
   assert.ok(await page.isVisible('#deckmain-messages'));
   // A problem with a named card is on that card's own row instead, just below
   assert.deepEqual(await marked('deckmain'), ['warning 4 Not A Card: Couldn\'t recognize this card']);
@@ -684,7 +684,7 @@ test('the status box puts errors first and the blank fields on one line, last', 
     'error 1 card over its copy limit',
     'error 1 card not legal in Modern',
     'warning Couldn\'t recognize 1 card',
-    'warning Most sideboards consist of exactly 15 cards',
+    'warning Most sideboards consist of exactly 15 cards (this one has 7)',
     'warning Missing first name, event name, event date and event location'
   ]);
   // A count of cards leads to the first of them, on its row under the deck box
