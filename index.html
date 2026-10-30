@@ -257,15 +257,15 @@
             </select>
           </label>
           <label for="deckmain">
-            <span>Main deck</span>
-            <textarea id="deckmain" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckmain-messages protip"></textarea>
+            <span id="deckmain-label">Main deck</span>
+            <span id="protip">Paste a deck from Arena, Moxfield, MTGO or most deck sites, sideboard and all.</span>
+            <textarea id="deckmain" aria-labelledby="deckmain-label" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckmain-messages protip"></textarea>
           </label>
           <ul class="field-messages" id="deckmain-messages"></ul>
           <div class="deckcheck" id="deckmain-check" aria-label="Main deck cards" role="region" hidden>
             <ul id="deckmain-check-list"></ul>
             <button type="button" class="deckcheck-toggle" aria-expanded="false" aria-controls="deckmain-check-list"></button>
           </div>
-          <p id="protip">Paste a deck from Arena, Moxfield, MTGO or most deck sites, sideboard and all.</p>
           <label for="deckside">
             <span>Sideboard</span>
             <textarea id="deckside" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="deckside-messages"></textarea>
