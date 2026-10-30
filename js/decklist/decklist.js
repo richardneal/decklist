@@ -548,13 +548,13 @@ var Decklist = {
       if (side < 2)      { result.deckside.push({ warning: 'nooathbreaker' });   }
       else if (side > 2) { result.deckside.push({ warning: 'oathbreakerside' }); }
     } else if (definition.rules === 'limited') {
-      if (main < 40) { result.deckmain.push({ error: 'toosmall', data: 40 }); }
+      if (main < 40) { result.deckmain.push({ error: 'toosmall', data: { min: 40, count: main } }); }
       return result;
     } else {
-      if ((main === 0) || (main > 60)) { result.deckmain.push({ warning: 'size' });             }
-      else if (main < 60)              { result.deckmain.push({ error: 'toosmall', data: 60 }); }
-      if (side > 15) { result.deckside.push({ error: 'toolarge' });   }
-      if (side < 15) { result.deckside.push({ warning: 'toosmall' }); }
+      if ((main === 0) || (main > 60)) { result.deckmain.push({ warning: 'size', data: main });                     }
+      else if (main < 60)              { result.deckmain.push({ error: 'toosmall', data: { min: 60, count: main } }); }
+      if (side > 15) { result.deckside.push({ error: 'toolarge', data: side });   }
+      if (side < 15) { result.deckside.push({ warning: 'toosmall', data: side }); }
     }
 
     // copies across the main deck and sideboard: a card's own text (x) beats the

@@ -239,6 +239,16 @@ test('checks Limited decks for size alone', () => {
   // Constructed would also hold the Bears to 4 copies
   assert.deepEqual(errors(deckOf('6 Grizzly Bears\n33 Forest'), 'constructed'), ['toosmall', 'quantity', 'toosmall']);
 });
+test('gives each size problem the deck\'s count', () => {
+  const short = decklist.check(deckOf('6 Grizzly Bears\n33 Forest'), 'limited').deckmain;
+  assert.deepEqual({ ...short[0].data }, { min: 40, count: 39 });
+  const constructed = decklist.check(deckOf('4 Grizzly Bears\n48 Forest', '17 Forest'), 'constructed');
+  assert.deepEqual({ ...constructed.deckmain[0].data }, { min: 60, count: 52 });
+  assert.deepEqual([...constructed.deckside].map(problem => [problem.error, problem.data]), [['toolarge', 17]]);
+  const long = decklist.check(deckOf('4 Grizzly Bears\n60 Forest', '9 Forest'), 'constructed');
+  assert.deepEqual([long.deckmain[0].warning, long.deckmain[0].data], ['size', 64]);
+  assert.deepEqual([long.deckside[0].warning, long.deckside[0].data], ['toosmall', 9]);
+});
 test('checks Premodern and Old School against their own card pools and lists', () => {
   // Brainstorm is banned in Premodern, and Tarmogoyf (2007) came after its card pool
   const premodern = decklist.check(deckOf('4 Brainstorm\n4 Tarmogoyf\n4 Swords to Plowshares\n48 Island', '15 Island'), 'premodern').deckmain;
