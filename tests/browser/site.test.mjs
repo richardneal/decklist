@@ -786,7 +786,7 @@ test("a site's bot challenge says imports from it don't work, keeps the deck, an
   await page.click('#deckimport-button');
   await page.waitForSelector('#deckimport-status[data-state="error"]');
   assert.equal(await page.textContent('#deckimport-status'), 'MTGGoldfish is checking visitors for bots, so its decks can\u2019t be ' +
-    'imported right now. Open the deck on MTGGoldfish, copy its text export and paste it below. Your deck hasn\u2019t changed.');
+    'imported right now. Open the deck on MTGGoldfish, copy its text export and paste it below.');
   assert.equal(await page.inputValue('#deckmain'), '4 Lightning Bolt\n56 Mountain');
   assert.deepEqual(await reports(1), [['import', 'mtggoldfish', 'challenge']]);
 });

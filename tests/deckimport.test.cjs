@@ -129,12 +129,13 @@ test('reports a failed import by source and kind, and a link it cannot read by s
   $('#deckimport').val('https://moxfield.com/decks/abcdefghijklmnopqrstuv');
   ui.fetch = async () => ({ ok: false, status: 502, headers: new Map(), text: async () => '' });
   await $('#deckimport-button').trigger('click');
+  assert.equal($('#deckimport-status').message, 'The deck download failed (HTTP 502). Try again, or paste an exported deck below.');
   $('#deckimport').val('https://mtggoldfish.com/deck/123');
   ui.fetch = async () => ({ ok: false, status: 502, headers: new Map([['X-Deck-Error', 'challenge']]), text: async () => '' });
   await $('#deckimport-button').trigger('click');
   // A bot challenge says so, without asking to try again
   assert.equal($('#deckimport-status').message, 'MTGGoldfish is checking visitors for bots, so its decks can\u2019t be imported right now. ' +
-    'Open the deck on MTGGoldfish, copy its text export and paste it below. Your deck hasn\u2019t changed.');
+    'Open the deck on MTGGoldfish, copy its text export and paste it below.');
   $('#deckimport').val('https://tappedout.net/mtg-decks/my-secret-deck/');
   await $('#deckimport-button').trigger('click');
   // The same failure is reported once
