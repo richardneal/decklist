@@ -160,7 +160,7 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
   npm test --prefix tests/browser
   ```
 
-  Keep `playwright` pinned to a version whose Chromium is installed; a Claude Code cloud session ships the browsers for 1.56.1 in `/opt/pw-browsers`. Like `decklist.test.cjs` it uses the real card data, so a ban list change can break a test
+  Keep `playwright` pinned to a version whose Chromium is installed; a Claude Code cloud session ships the browsers for 1.56.1 in `/opt/pw-browsers`. 1.56.1 can't install Chromium on Ubuntu 26.04, so the `browser` job runs on `ubuntu-24.04` rather than `ubuntu-latest`; move it back with the next Playwright upgrade. Like `decklist.test.cjs` it uses the real card data, so a ban list change can break a test
 - `tests/health.test.mjs` - Covers `hosting/health.mjs`: which day's counts cross a threshold (a source's import failures, load failures, script errors, preview failures, failed imports in the browser), the notes on a quiet day, and the probe imports (stubbed fetch)
 - `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved, and checks the legality, restriction and copy-limit fields. The card-refresh workflow runs it, with the card-data Node suites, before committing.
 

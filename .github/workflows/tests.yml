@@ -43,7 +43,10 @@ jobs:
         run: python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 
   browser:
-    runs-on: ubuntu-latest
+    # Playwright 1.56.1 (pinned to the Chromium a Claude Code cloud session ships)
+    # can't install Chromium on Ubuntu 26.04, which ubuntu-latest now is. Move this to
+    # ubuntu-latest again with the next Playwright upgrade.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
