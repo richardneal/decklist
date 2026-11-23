@@ -83,6 +83,8 @@ function importerUI() {
   function $(selector) {
     if (typeof selector === 'function') { selector(); return; }
     if (typeof selector !== 'string') return selector;
+    // A new element, as its tag and properties
+    if (selector.startsWith('<')) return { tag: selector, ...(arguments[1] || {}) };
     const ids = selector.split(',').map(id => id.trim());
     if (ids.length > 1) return { on(event, handler) { ids.forEach(id => $(id).on(event, handler)); return this; } };
     if (!elements.has(selector)) elements.set(selector, {
@@ -90,7 +92,15 @@ function importerUI() {
       val(value) { if (value === undefined) return this.value; this.value = value; return this; },
       prop(key, value) { if (value === undefined) return this.properties[key]; this.properties[key] = value; return this; },
       attr(key, value) { return this.prop(key, value); },
-      text(value) { this.message = value; return this; },
+      text(value) { this.message = value; this.links = []; return this; },
+      // Text and elements added after the message; a link is kept, and its text read
+      append(...parts) {
+        for (const part of parts) {
+          if (typeof part !== 'string') this.links.push(part);
+          this.message += typeof part === 'string' ? part : part.text;
+        }
+        return this;
+      },
       on(event, handler) { this.handlers[event] = handler; return this; },
       trigger(event) { if (event === 'input') this.inputs++; return this.handlers[event]?.call(this); }
     });
@@ -133,15 +143,24 @@ test('reports a failed import by source and kind, and a link it cannot read by s
   $('#deckimport').val('https://mtggoldfish.com/deck/123');
   ui.fetch = async () => ({ ok: false, status: 502, headers: new Map([['X-Deck-Error', 'challenge']]), text: async () => '' });
   await $('#deckimport-button').trigger('click');
-  // A bot challenge says so, without asking to try again
-  assert.equal($('#deckimport-status').message, 'MTGGoldfish is checking visitors for bots, so its decks can\u2019t be imported right now. ' +
-    'Open the deck on MTGGoldfish, copy its text export and paste it below.');
+  // A bot challenge says so, without asking to try again, and links the export the
+  // player's own browser can save
+  assert.equal($('#deckimport-status').message, 'MTGGoldfish is checking visitors for bots, so its decks can\u2019t be imported ' +
+    'from a link right now. Download the deck from MTGGoldfish, then drop the file on a deck box below, or choose it under Text file.');
+  assert.deepEqual($('#deckimport-status').links.map(({ tag, href, target, rel }) => [tag, href, target, rel]),
+    [['<a>', 'https://www.mtggoldfish.com/deck/download/123', '_blank', 'noopener noreferrer']]);
+  // A site with no file to save says to paste its export
+  $('#deckimport').val('https://moxfield.com/decks/abcdefghijklmnopqrstuv');
+  await $('#deckimport-button').trigger('click');
+  assert.equal($('#deckimport-status').message, 'Moxfield is checking visitors for bots, so its decks can\u2019t be imported right now. ' +
+    'Open the deck on Moxfield, copy its text export and paste it below.');
+  assert.deepEqual($('#deckimport-status').links, []);
   $('#deckimport').val('https://tappedout.net/mtg-decks/my-secret-deck/');
   await $('#deckimport-button').trigger('click');
   // The same failure is reported once
   await $('#deckimport-button').trigger('click');
   assert.deepEqual(await reports(), [['import', 'mtggoldfish', 'network'], ['import', 'mtggoldfish', 'timeout'],
-    ['import', 'moxfield', 'failed'], ['import', 'mtggoldfish', 'challenge'], ['badlink', 'tappedout.net']]);
+    ['import', 'moxfield', 'failed'], ['import', 'mtggoldfish', 'challenge'], ['import', 'moxfield', 'challenge'], ['badlink', 'tappedout.net']]);
 });
 
 test('button updates textareas, refreshes the preview, and preserves edits during a request', async () => {
@@ -369,5 +388,16 @@ test('reads Cockatrice .cod files and their deck name, dropping tokens', () => {
 test('rejects deck files that hold no decklist', () => {
   for (const text of ['', 'just some notes', '<html><body>4 Island</body></html>', 'PK\u0003\u0004\u0000', '<?xml version="1.0"?><Deck></Deck>']) {
     assert.throws(() => importer.fromFile(text), /decklist/);
+  }
+});
+
+test('gives a saveable export for the sites that have one, and names a deck from the file MTGGoldfish saves', () => {
+  assert.equal(importer.parse('https://www.mtggoldfish.com/deck/123#paper').download, 'https://www.mtggoldfish.com/deck/download/123');
+  assert.equal(importer.parse('https://www.mtgtop8.com/event?e=1&d=345&f=MO').download, 'https://www.mtgtop8.com/mtgo?d=345');
+  assert.equal(importer.parse('https://archidekt.com/decks/123456/atraxa').download, undefined);
+  assert.equal(importer.fileDeckName('Deck - Mono-Red Aggro.txt'), 'Mono-Red Aggro');
+  assert.equal(importer.fileDeckName('Deck - Æther “Flux” (1).txt'), 'Æther “Flux”');
+  for (const name of ['deck.txt', 'mtgtop8_deck.txt', 'Deck - .txt', 'Deck - Burn.dek', '']) {
+    assert.equal(importer.fileDeckName(name), '', name);
   }
 });

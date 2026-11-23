@@ -31,7 +31,8 @@ var DeckImport = {
     }
   },
 
-  // Describes a recognized deck link as {source, label, id, url}, or returns null.
+  // Describes a recognized deck link as {source, label, id, url}, or returns null. A
+  // site whose export is a text file a browser can save also gives it as `download`.
   parse: function(value) {
     var url;
     try { url = new URL(value.trim().replace(/^(www\.)?(mtggoldfish\.com|mtgtop8\.com|moxfield\.com|archidekt\.com|scryfall\.com)\//i, 'https://$1$2/')); } catch (_) { return null; }
@@ -40,12 +41,13 @@ var DeckImport = {
     if (host === 'mtggoldfish.com') {
       var match = url.pathname.match(/^\/deck\/(?:download\/)?(\d+)\/?$/);
       return match ? { source: 'mtggoldfish', label: 'MTGGoldfish', id: match[1],
-        url: 'https://www.mtggoldfish.com/deck/download/' + match[1] } : null;
+        url: 'https://www.mtggoldfish.com/deck/download/' + match[1],
+        download: 'https://www.mtggoldfish.com/deck/download/' + match[1] } : null;
     }
     if (host === 'mtgtop8.com' && /^\/(event|mtgo)\/?$/.test(url.pathname)) {
       var id = url.searchParams.get('d'), code = url.searchParams.get('f');
       return /^\d+$/.test(id || '') ? { source: 'mtgtop8', label: 'MTGTop8', id: id,
-        url: 'https://www.mtgtop8.com/mtgo?d=' + id,
+        url: 'https://www.mtgtop8.com/mtgo?d=' + id, download: 'https://www.mtgtop8.com/mtgo?d=' + id,
         format: Object.prototype.hasOwnProperty.call(this.mtgtop8Formats, code) ? this.mtgtop8Formats[code] : '' } : null;
     }
     if (host === 'moxfield.com') {
@@ -103,6 +105,13 @@ var DeckImport = {
   // The largest deck file read. A 250-card text list is under 10 KB, and an MTGO .dek
   // under 50 KB.
   maxFileSize: 1024 * 1024,
+
+  // The deck name in a saved file's name: MTGGoldfish saves a deck as "Deck - <name>.txt",
+  // which a browser may number (" (1)") when the file is already there.
+  fileDeckName: function(filename) {
+    var match = /^Deck - (.+?)(?: \(\d+\))?\.txt$/i.exec(filename || '');
+    return match ? match[1].trim() : '';
+  },
 
   // Reads an uploaded deck file into {main, side, name}: an MTGO .dek or Cockatrice .cod
   // (both XML), or a text export. A plain list is split into the two deck boxes like an
@@ -212,8 +221,13 @@ $(function() {
   var revision = 0, busy = false, undo = null;
   var button = $('#deckimport-button'), status = $('#deckimport-status');
 
-  function message(text, state) {
+  // A link, if given, follows the text: {href, text, after}
+  function message(text, state, link) {
     status.text(text).attr('data-state', state || 'info');
+    if (link) {
+      status.append(' ', $('<a>', { href: link.href, text: link.text, target: '_blank', rel: 'noopener noreferrer' }),
+        link.after || '');
+    }
   }
   function refresh() {
     var value = $('#deckimport').val().trim();
@@ -270,6 +284,7 @@ $(function() {
     try {
       if (file.size > DeckImport.maxFileSize) throw new Error('That file is too big to be a decklist.');
       var deck = DeckImport.fromFile(await file.text());
+      if (!deck.name) deck.name = DeckImport.fileDeckName(file.name);
       if (revision !== requestRevision) return;
       apply(deck, originals, 'Loaded ' + file.name);
       Report.event('upload', fileType(file), 'ok');
@@ -289,6 +304,9 @@ $(function() {
     });
   }
   tabs.on('click', function() { selectTab(this); });
+  // A download link in the status leaves the player a file to bring back: the Text file
+  // tab is waiting when they do.
+  status.on('click', 'a', function() { selectTab(document.getElementById('import-tab-file')); });
   tabs.on('keydown', function(event) {
     var index = tabs.index(this), next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1 }[event.key];
     if (next === undefined) return;
@@ -367,7 +385,15 @@ $(function() {
       var detail = timedOut ? 'The import timed out.' :
         error instanceof TypeError ? 'Couldn’t reach the import service.' : error.message;
       Report.event('import', target.source, Report.kind(error));
-      message(error.challenge ? detail : detail + ' Try again, or paste an exported deck below.', 'error');
+      if (error.challenge && target.download) {
+        // The site turns our import away, but not the player's own browser: it can save
+        // the export, and the file reads in here.
+        message(source + ' is checking visitors for bots, so its decks can\u2019t be imported from a link right now.', 'error',
+          { href: target.download, text: 'Download the deck from ' + source,
+            after: ', then drop the file on a deck box below, or choose it under Text file.' });
+      } else {
+        message(error.challenge ? detail : detail + ' Try again, or paste an exported deck below.', 'error');
+      }
     } finally {
       busy = false;
       refresh();

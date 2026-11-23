@@ -779,16 +779,30 @@ test('a failed import reports its source and kind, and a link it cannot read onl
   assert.deepEqual(await reports(3), [['import', 'moxfield', 'failed'], ['badlink', 'tappedout.net'], ['badlink', 'other']]);
 });
 
-test("a site's bot challenge says imports from it don't work, keeps the deck, and is reported as one", async () => {
+test("a site's bot challenge links the file the player's browser can save, which then reads in with its name", async () => {
   await deck('4 Lightning Bolt\n56 Mountain');
   importReply = { status: 502, error: 'challenge', body: 'MTGGoldfish is checking visitors for bots.' };
   await page.fill('#deckimport', 'https://www.mtggoldfish.com/deck/6837920');
   await page.click('#deckimport-button');
   await page.waitForSelector('#deckimport-status[data-state="error"]');
   assert.equal(await page.textContent('#deckimport-status'), 'MTGGoldfish is checking visitors for bots, so its decks can\u2019t be ' +
-    'imported right now. Open the deck on MTGGoldfish, copy its text export and paste it below.');
+    'imported from a link right now. Download the deck from MTGGoldfish, then drop the file on a deck box below, or choose it under Text file.');
   assert.equal(await page.inputValue('#deckmain'), '4 Lightning Bolt\n56 Mountain');
   assert.deepEqual(await reports(1), [['import', 'mtggoldfish', 'challenge']]);
+  const link = page.locator('#deckimport-status a');
+  assert.deepEqual(await link.evaluate(a => [a.href, a.target, a.rel]),
+    ['https://www.mtggoldfish.com/deck/download/6837920', '_blank', 'noopener noreferrer']);
+  // Following it opens the site in a tab of its own (dropped here, to stay offline) and
+  // leaves the Text file tab ready for the file
+  await page.context().route(() => true, route => route.abort());
+  const [popup] = await Promise.all([page.waitForEvent('popup'), link.click()]);
+  await popup.close();
+  assert.equal(await page.getAttribute('#import-tab-file', 'aria-selected'), 'true');
+  await page.setInputFiles('#deckfile', { name: 'Deck - Mono-Red Burn.txt', mimeType: 'text/plain',
+    buffer: Buffer.from('4 Lightning Bolt\r\n20 Mountain\r\n\r\n2 Smash to Smithereens\r\n') });
+  await page.waitForSelector('#deckimport-status[data-state="success"]');
+  assert.equal(await page.inputValue('#deckname'), 'Mono-Red Burn');
+  assert.equal(await page.inputValue('#deckside'), '2 Smash to Smithereens');
 });
 
 test('nothing is reported while the browser sends Global Privacy Control', async () => {
