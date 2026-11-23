@@ -13,11 +13,12 @@ concurrency:
 jobs:
   generate-cards:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The site and generated data are published from the default branch.
           ref: main
@@ -27,12 +28,12 @@ jobs:
           ssh-key: ${{ secrets.CARD_REFRESH_DEPLOY_KEY }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install minifier
-        run: npm install --global terser@5
+        run: npm install --global terser@5.51.4
 
       - name: Download and generate card data
         run: ./generatecards.sh
@@ -41,8 +42,13 @@ jobs:
       - name: Validate card filtering
         run: python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 
+      # The refresh's push bypasses the Tests ruleset and Deploy site doesn't wait for
+      # Tests, so check the new data against the parser before it is committed.
+      - name: Check the new data with the parser
+        run: node --test tests/decklist.test.cjs tests/decklist-sort.test.cjs
+
       - name: Commit refreshed card data
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
         with:
           commit_message: "chore: refresh card data"
           branch: main

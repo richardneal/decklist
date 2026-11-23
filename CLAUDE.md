@@ -95,6 +95,10 @@ The card database is refreshed daily by the **Refresh card data** workflow (`.gi
 
 GitHub only runs scheduled workflows from the default branch, so the workflow lives on `main` and checks out `ref: main`. The site and the generated card data are published from that one branch.
 
+### Workflow conventions
+
+Every workflow pins its actions to a full commit SHA with the version in a comment (`actions/checkout@<sha> # v7.0.1`), since the card refresh runs a third-party action with a deploy key that can push to `main`. `.github/dependabot.yml` keeps those SHAs current, and wrangler with them, in monthly grouped PRs; `tests/browser` is left out because Playwright stays pinned. Each job sets its own least-privilege `permissions` and a `timeout-minutes`, and the jobs run Node 24.
+
 ### Manual Card Data Update
 
 To manually regenerate the card database:
@@ -115,7 +119,7 @@ This script:
 - terser (install globally: `npm i terser -g`)
 - curl and unzip
 
-After generating the data the workflow runs the Python test gate (see Automated Tests), auto-commits `js/cards/decklist-cards-min.js` and its `.map` to `main` with the message `chore: refresh card data`. It pushes with the `CARD_REFRESH_DEPLOY_KEY` secret, a deploy key with write access, since `main` requires the Tests checks and a deploy key may bypass that rule while the workflow's own token can't. A push with it starts Tests and Deploy site like any other push, so the refresh doesn't deploy by itself, and a day with no new card data pushes and deploys nothing.
+After generating the data the workflow runs the Python test gate and the two card-data Node suites, `decklist.test.cjs` and `decklist-sort.test.cjs` (see Automated Tests), since its push bypasses the Tests ruleset and Deploy site doesn't wait for Tests. Then it auto-commits `js/cards/decklist-cards-min.js` and its `.map` to `main` with the message `chore: refresh card data`. It pushes with the `CARD_REFRESH_DEPLOY_KEY` secret, a deploy key with write access, since `main` requires the Tests checks and a deploy key may bypass that rule while the workflow's own token can't. A push with it starts Tests and Deploy site like any other push, so the refresh doesn't deploy by itself, and a day with no new card data pushes and deploys nothing.
 
 ## Development Workflow
 
@@ -130,7 +134,7 @@ The preview is an iframe on desktop and PDF.js canvases on a touch screen (see `
 
 ### Automated Tests
 
-Eight suites live in `tests/`. The **Tests** workflow (`.github/workflows/tests.yml`) runs them all on every pull request and push to `main`: the Node and Python suites in one job, the browser suite in another. The ruleset **Tests must pass on main** requires both jobs (`unit` and `browser`) before a pull request can merge, so auto-merge (on for the repository) waits for them. Repository admins and deploy keys bypass it, so a direct push to `main` and the card refresh still go through. It doesn't gate the deploy, which runs on the same push. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
+Eight suites live in `tests/`. The **Tests** workflow (`.github/workflows/tests.yml`) runs them all on every pull request and push to `main`: the Node and Python suites in one job, the browser suite in another. A newer push cancels a pull request's run, but every run on `main` finishes, so each commit there gets a result. The ruleset **Tests must pass on main** requires both jobs (`unit` and `browser`) before a pull request can merge, so auto-merge (on for the repository) waits for them. Repository admins and deploy keys bypass it, so a direct push to `main` and the card refresh still go through. It doesn't gate the deploy, which runs on the same push. Install the worker dependencies once first (`wrangler` is the only one, and `worker.test.mjs` imports from `worker/`):
 
 ```bash
 npm ci --prefix worker
@@ -158,7 +162,7 @@ python3 -m unittest discover --start-directory tests --pattern 'test_*.py'
 
   Keep `playwright` pinned to a version whose Chromium is installed; a Claude Code cloud session ships the browsers for 1.56.1 in `/opt/pw-browsers`. Like `decklist.test.cjs` it uses the real card data, so a ban list change can break a test
 - `tests/health.test.mjs` - Covers `hosting/health.mjs`: which day's counts cross a threshold (a source's import failures, load failures, script errors, preview failures, failed imports in the browser), the notes on a quiet day, and the probe imports (stubbed fetch)
-- `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved, and checks the legality, restriction and copy-limit fields. This is the gate the card-refresh workflow runs before committing.
+- `tests/test_card_generation.py` - Drives `js/cards/parsecards.py` via subprocess; asserts digital-only cards (Alchemy `A-` prefixes, Arena-only printings) are excluded while paper cards are preserved, and checks the legality, restriction and copy-limit fields. The card-refresh workflow runs it, with the card-data Node suites, before committing.
 
 ### Common Modifications
 
