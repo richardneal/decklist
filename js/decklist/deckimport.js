@@ -275,7 +275,7 @@ $(function() {
       Report.event('upload', fileType(file), 'ok');
     } catch (error) {
       Report.event('upload', fileType(file), Report.scrub(error.message));
-      message(error.message + ' Your deck hasn’t changed.', 'error');
+      message(error.message, 'error');
     }
   }
 
@@ -367,8 +367,7 @@ $(function() {
       var detail = timedOut ? 'The import timed out.' :
         error instanceof TypeError ? 'Couldn’t reach the import service.' : error.message;
       Report.event('import', target.source, Report.kind(error));
-      message(error.challenge ? detail :
-        detail + ' Your deck hasn’t changed. Try again, or paste an exported deck below.', 'error');
+      message(error.challenge ? detail : detail + ' Try again, or paste an exported deck below.', 'error');
     } finally {
       busy = false;
       refresh();
