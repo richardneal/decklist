@@ -367,8 +367,8 @@ $(function() {
       var detail = timedOut ? 'The import timed out.' :
         error instanceof TypeError ? 'Couldn’t reach the import service.' : error.message;
       Report.event('import', target.source, Report.kind(error));
-      message(detail + (error.challenge ? ' Your deck hasn’t changed.' :
-        ' Your deck hasn’t changed. Try again, or paste an exported deck below.'), 'error');
+      message(error.challenge ? detail :
+        detail + ' Your deck hasn’t changed. Try again, or paste an exported deck below.', 'error');
     } finally {
       busy = false;
       refresh();

@@ -134,7 +134,7 @@ test('reports a failed import by source and kind, and a link it cannot read by s
   await $('#deckimport-button').trigger('click');
   // A bot challenge says so, without asking to try again
   assert.equal($('#deckimport-status').message, 'MTGGoldfish is checking visitors for bots, so its decks can\u2019t be imported right now. ' +
-    'Open the deck on MTGGoldfish, copy its text export and paste it below. Your deck hasn\u2019t changed.');
+    'Open the deck on MTGGoldfish, copy its text export and paste it below.');
   $('#deckimport').val('https://tappedout.net/mtg-decks/my-secret-deck/');
   await $('#deckimport-button').trigger('click');
   // The same failure is reported once
