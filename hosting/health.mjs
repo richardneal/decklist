@@ -20,6 +20,13 @@ export const PROBES = [
   { source: 'archidekt', id: '7031486' }
 ];
 
+// Sites that put a Cloudflare challenge in front of every request, which only a browser
+// can solve, so no import from them works until they lift it. MTGGoldfish has since
+// November 2026. The check still imports their test deck, to see when that changes, but
+// a challenge from one of these is a note rather than a problem, since nothing on our
+// side gets past it. A challenge from any other site is still a problem.
+export const CHALLENGED = new Set(['mtggoldfish']);
+
 // How much of a kind of trouble in a day is worth a look. One-off failures happen
 // (a phone loses signal halfway through the 2 MB card data), so each needs a few.
 export const LIMITS = {
@@ -29,23 +36,28 @@ export const LIMITS = {
   load: 3, error: 3, preview: 3, clientImport: 5
 };
 
-// Imports each probe deck through the Worker as the site would. Returns a problem per
-// deck that didn't come back as a decklist.
+// Imports each probe deck through the Worker as the site would. Returns {problems,
+// notes}: a problem per deck that didn't come back as a decklist, and a note for a
+// CHALLENGED site's deck, whether it was turned away or came back.
 export async function probe(fetcher = fetch) {
-  const problems = [];
+  const problems = [], notes = [];
   for (const { source, id } of PROBES) {
     try {
       const response = await fetcher(`${API}?source=${source}&id=${id}`, {
         headers: { Origin: 'https://decklist.app' }, signal: AbortSignal.timeout(25000)
       });
       const text = await response.text();
-      if (!response.ok) problems.push(`Importing the ${source} test deck ${id} failed with HTTP ${response.status}: ${text.slice(0, 200)}`);
+      if (CHALLENGED.has(source) && response.headers.get('X-Deck-Error') === 'challenge') {
+        notes.push(`${source} still turns imports away with a bot challenge`);
+      } else if (CHALLENGED.has(source) && response.ok && /^\d+x?\s+\S/m.test(text)) {
+        notes.push(`${source} imports work again: take it out of CHALLENGED in hosting/health.mjs`);
+      } else if (!response.ok) problems.push(`Importing the ${source} test deck ${id} failed with HTTP ${response.status}: ${text.slice(0, 200)}`);
       else if (!/^\d+x?\s+\S/m.test(text)) problems.push(`The ${source} test deck ${id} came back without a decklist.`);
     } catch (error) {
       problems.push(`Importing the ${source} test deck ${id} failed: ${error.name} ${error.message}`);
     }
   }
-  return problems;
+  return { problems, notes };
 }
 
 // Weighs a day's counts (the rows SQL.events and SQL.imports return) against LIMITS.
@@ -60,10 +72,13 @@ export function assess(events, imports) {
   }, new Map());
 
   // Imports, by source: ok and cached are successes; a bad request or a rate limit is
-  // the visitor's doing, not the source's
+  // the visitor's doing, not the source's, and a CHALLENGED site's challenge is noted
   const failed = ['upstream', 'timeout', 'invalid'];
+  const challenged = row => CHALLENGED.has(row.source) && row.outcome === 'upstream' && row.detail === 'challenge';
   for (const source of new Set(imports.map(row => row.source))) {
-    const rows = imports.filter(row => row.source === source);
+    const turnedAway = count(imports.filter(row => row.source === source && challenged(row)));
+    if (turnedAway) notes.push(`${source}: ${turnedAway} imports turned away by its bot challenge`);
+    const rows = imports.filter(row => row.source === source && !challenged(row));
     const failures = count(rows.filter(row => failed.includes(row.outcome)));
     const tries = failures + count(rows.filter(row => row.outcome === 'ok' || row.outcome === 'cached'));
     if (tries) notes.push(`${source}: ${tries - failures} of ${tries} imports worked`);
@@ -86,6 +101,9 @@ export function assess(events, imports) {
     if (n >= LIMITS.preview) problems.push(`The phone preview failed ${n} times: ${error}`);
   }
   for (const [kind, n] of kinds('import', row => row.code1 + ' ' + row.code2)) {
+    // The Worker's counts above already note a CHALLENGED site's challenges
+    const [source, why] = kind.split(' ');
+    if (why === 'challenge' && CHALLENGED.has(source)) continue;
     if (n >= LIMITS.clientImport) problems.push(`Imports failed in the browser ${n} times: ${kind}`);
   }
 
@@ -113,8 +131,7 @@ export function report(problems, notes) {
 }
 
 async function main() {
-  const problems = await probe();
-  const notes = [];
+  const { problems, notes } = await probe();
   const token = analyticsToken();
   if (!token) {
     problems.push('No analytics token: set CLOUDFLARE_ANALYTICS_TOKEN (Account Analytics: Read).');

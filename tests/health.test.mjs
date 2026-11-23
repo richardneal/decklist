@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assess, probe, report, PROBES } from '../hosting/health.mjs';
+import { assess, probe, report, CHALLENGED, PROBES } from '../hosting/health.mjs';
 
 // Rows as the SQL API returns them, with counts as strings
 const event = (event, code1 = '', code2 = '', code3 = '', count = 1) =>
@@ -39,7 +39,7 @@ test("the page's load failures, script errors, preview failures and failed impor
 
 test('each probe deck is imported through the Worker as the site would, and a failure is reported', async () => {
   const calls = [];
-  const problems = await probe(async (url, init) => {
+  const { problems, notes } = await probe(async (url, init) => {
     calls.push([url, init.headers.Origin]);
     if (url.includes('mtgtop8')) return new Response('The deck source returned HTTP 503.', { status: 502 });
     if (url.includes('archidekt')) return new Response('<html></html>');
@@ -49,6 +49,25 @@ test('each probe deck is imported through the Worker as the site would, and a fa
   assert.ok(calls.every(([url, origin]) => url.startsWith('https://import.decklist.app/api/import?source=') && origin === 'https://decklist.app'));
   assert.deepEqual(problems, ['Importing the mtgtop8 test deck 902543 failed with HTTP 502: The deck source returned HTTP 503.',
     'The archidekt test deck 7031486 came back without a decklist.']);
+  assert.deepEqual(notes, ['mtggoldfish imports work again: take it out of CHALLENGED in hosting/health.mjs']);
+});
+
+test("a CHALLENGED site's bot challenge is a note, and any other site's is a problem", async () => {
+  assert.ok(CHALLENGED.has('mtggoldfish'));
+  const challenge = () => new Response('MTGGoldfish is checking visitors for bots.', { status: 502, headers: { 'X-Deck-Error': 'challenge' } });
+  const probed = await probe(async url => url.includes('mtgtop8') || url.includes('mtggoldfish') ? challenge() : new Response('4 Island'));
+  assert.deepEqual(probed.notes, ['mtggoldfish still turns imports away with a bot challenge']);
+  assert.deepEqual(probed.problems, ['Importing the mtgtop8 test deck 902543 failed with HTTP 502: MTGGoldfish is checking visitors for bots.']);
+  // An MTGGoldfish failure that isn't its challenge is still a problem
+  const broken = await probe(async url => url.includes('mtggoldfish') ? new Response('The deck source returned HTTP 500.', { status: 502 }) : new Response('4 Island'));
+  assert.deepEqual(broken.problems, ['Importing the mtggoldfish test deck 6837920 failed with HTTP 502: The deck source returned HTTP 500.']);
+
+  const day = assess([event('import', 'mtggoldfish', 'challenge', '', 9), event('import', 'moxfield', 'challenge', '', 5)],
+    [imported('mtggoldfish', 'upstream', 9, 'challenge'), imported('mtggoldfish', 'upstream', 1, '404'),
+      imported('moxfield', 'upstream', 4, 'challenge'), imported('moxfield', 'ok', 4)]);
+  assert.deepEqual(day.problems, ['moxfield imports failed 4 of 8 times (4× upstream challenge)',
+    'Imports failed in the browser 5 times: moxfield challenge']);
+  assert.deepEqual(day.notes, ['mtggoldfish: 9 imports turned away by its bot challenge', 'mtggoldfish: 0 of 1 imports worked', 'moxfield: 4 of 8 imports worked']);
 });
 
 test('the report leads with what needs a look', () => {

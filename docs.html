@@ -317,7 +317,7 @@
           <p>To find out when something breaks, the page counts a few outcomes and sends each one to decklist.app itself, with no cookies, IDs or outside services:</p>
           <ul>
             <li><strong>Downloads:</strong> the format, whether the sheet still had a warning or error, the kinds of deck problems (such as "toosmall" or "banned") and whether any cards weren't recognized (none, 1–2, or 3 or more)</li>
-            <li><strong>Imports and uploads that fail:</strong> the deck site and the kind of failure (timeout, network or failed), the site of a link the importer can't read when it's one of a fixed list of deck sites ("other" otherwise), and an uploaded file's extension</li>
+            <li><strong>Imports and uploads that fail:</strong> the deck site and the kind of failure (timeout, network, the site's bot check, or failed), the site of a link the importer can't read when it's one of a fixed list of deck sites ("other" otherwise), and an uploaded file's extension</li>
             <li><strong>Errors:</strong> a script error in the site's own code (its file, line and message, with any quoted text removed), a site file that failed to load, or a preview that couldn't be drawn</li>
           </ul>
           <p>Each count also records the browser family (Chrome, Safari, Firefox…) and whether it came from a phone. Nothing you type is sent: not your name, event, deck name, cards or links. No IP address is stored. Importing a link also counts the import's outcome at our import API, without the deck's ID. If your browser sends Global Privacy Control, nothing is counted. The site is hosted on Cloudflare, whose Web Analytics also counts page loads, without cookies.</p>
@@ -363,7 +363,8 @@ Sideboard
 
         <div class="docs-subsection" id="mtggoldfish">
           <h3>MTGGoldfish<a class="docs-anchor" href="#mtggoldfish" aria-label="Link to this section"></a></h3>
-          <p>Paste the deck's address (<code>mtggoldfish.com/deck/…</code>) into "Import a deck", and its name fills in Deck name. Or copy your deck from MTGGoldfish using the "Export" → "Text" option. Both main deck and sideboard will be parsed automatically.</p>
+          <p>Copy your deck from MTGGoldfish using the "Export" → "Text" option and paste it into Main deck. Both main deck and sideboard will be parsed automatically.</p>
+          <p>Importing an MTGGoldfish link (<code>mtggoldfish.com/deck/…</code>) doesn't work at the moment: MTGGoldfish asks every visitor to prove they aren't a bot, which our import service can't do, so the import says so and leaves your deck as it was. We keep trying, so links will import again, with the deck's name, as soon as MTGGoldfish lets them through.</p>
         </div>
 
         <div class="docs-subsection" id="moxfield">
@@ -414,7 +415,7 @@ Sideboard
         <div class="docs-subsection" id="import-from-link">
           <h3>Import a Deck from Its Link<a class="docs-anchor" href="#import-from-link" aria-label="Link to this section"></a></h3>
           <p>Put <code>decklist.app/</code> in front of a deck's address on MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall, and the generator opens with that deck imported:</p>
-          <pre><code>https://decklist.app/https://www.mtggoldfish.com/deck/6837920
+          <pre><code>https://decklist.app/https://archidekt.com/decks/7031486
 decklist.app/moxfield.com/decks/…
 decklist.app/https://www.mtgtop8.com/event?e=…&amp;d=…&amp;f=MO</code></pre>
           <p>The deck's <code>https://</code> can stay or go, and nothing needs encoding. To combine an import with event or player details, use the <code>deckimport</code> parameter below instead.</p>

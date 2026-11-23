@@ -183,6 +183,14 @@ var DeckImport = {
     if (!deck) throw new Error('Enter a valid MTGGoldfish, MTGTop8, Moxfield, Archidekt or Scryfall deck URL.');
     var response = await fetch(this.apiURL + '?source=' + deck.source + '&id=' + encodeURIComponent(deck.id), { signal: AbortSignal.timeout(20000) });
     if (!response.ok) {
+      // A site that puts a bot challenge in front of its decks (MTGGoldfish does) turns
+      // every import away, so this says so rather than asking to try again.
+      if (response.headers && response.headers.get('X-Deck-Error') === 'challenge') {
+        var challenged = new Error(deck.label + ' is checking visitors for bots, so its decks can\u2019t be imported right now. ' +
+          'Open the deck on ' + deck.label + ', copy its text export and paste it below.');
+        challenged.challenge = true;
+        throw challenged;
+      }
       var message = response.headers && response.headers.get('Content-Type')?.includes('text/plain')
         ? (await response.text()).slice(0, 300) : '';
       throw new Error(message || 'The deck download failed (HTTP ' + response.status + ').');
@@ -359,7 +367,8 @@ $(function() {
       var detail = timedOut ? 'The import timed out.' :
         error instanceof TypeError ? 'Couldn’t reach the import service.' : error.message;
       Report.event('import', target.source, Report.kind(error));
-      message(detail + ' Your deck hasn’t changed. Try again, or paste an exported deck below.', 'error');
+      message(detail + (error.challenge ? ' Your deck hasn’t changed.' :
+        ' Your deck hasn’t changed. Try again, or paste an exported deck below.'), 'error');
     } finally {
       busy = false;
       refresh();

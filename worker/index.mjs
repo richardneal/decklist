@@ -3,6 +3,7 @@ const MAX_BYTES = 64 * 1024;
 
 const SOURCES = {
   mtggoldfish: {
+    label: 'MTGGoldfish',
     id: /^[1-9]\d{0,11}$/,
     url: id => 'https://www.mtggoldfish.com/deck/download/' + id,
     accept: 'text/plain',
@@ -10,11 +11,13 @@ const SOURCES = {
     name: headers => goldfishName(headers.get('Content-Disposition'))
   },
   mtgtop8: {
+    label: 'MTGTop8',
     id: /^[1-9]\d{0,11}$/,
     url: id => 'https://www.mtgtop8.com/mtgo?d=' + id,
     accept: 'text/plain'
   },
   moxfield: {
+    label: 'Moxfield',
     // Public deck IDs are base64url-encoded GUIDs, so 22 characters in practice. The
     // lower bound keeps route names such as /decks/public from reading as a deck ID.
     id: /^[A-Za-z0-9_-]{16,32}$/,
@@ -29,6 +32,7 @@ const SOURCES = {
     agent: env => env.MOXFIELD_USER_AGENT
   },
   archidekt: {
+    label: 'Archidekt',
     id: /^[1-9]\d{0,11}$/,
     url: id => 'https://archidekt.com/api/decks/' + id + '/',
     accept: 'application/json',
@@ -37,6 +41,7 @@ const SOURCES = {
     convert: archidektDeck
   },
   scryfall: {
+    label: 'Scryfall',
     // Deck IDs are UUIDs; the frontend lowercases them so a deck caches only once.
     id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     url: id => 'https://api.scryfall.com/decks/' + id + '/export/json',
@@ -67,6 +72,8 @@ const ARCHIDEKT_FORMATS = new Map([[1, 'standard'], [2, 'modern'], [3, 'commande
 
 // The headers that describe a deck beside its text, cached with it.
 const DECK_HEADERS = ['X-Deck-Format', 'X-Deck-Name'];
+// The page reads these as well: X-Deck-Error names a failure it words for itself.
+const EXPOSED_HEADERS = DECK_HEADERS.concat('X-Deck-Error');
 
 // A deck's name is whatever its author typed, so this folds runs of whitespace and
 // control characters into single spaces and caps its length; a name that is blank
@@ -222,7 +229,7 @@ export async function handle(request, env, ctx, services = {}) {
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Vary': 'Origin',
-      ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Expose-Headers': DECK_HEADERS.join(', ') } : {}),
+      ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Expose-Headers': EXPOSED_HEADERS.join(', ') } : {}),
       ...extra
     } });
   }
@@ -274,6 +281,13 @@ export async function handle(request, env, ctx, services = {}) {
     });
     if (!response.ok) {
       await response.body?.cancel();
+      // A Cloudflare challenge (MTGGoldfish puts one in front of every page) needs a
+      // browser to solve it, so no request a Worker can make gets past it.
+      if (response.headers.get('cf-mitigated') === 'challenge') {
+        record('upstream', 'challenge');
+        return reply(definition.label + ' is checking visitors for bots, so its decks can\u2019t be imported right now. ' +
+          'Export the deck as text on ' + definition.label + ' and paste it instead.', 502, { 'X-Deck-Error': 'challenge' });
+      }
       record('upstream', response.status);
       return reply('The deck source returned HTTP ' + response.status + '. Try exporting and pasting the deck text.', 502);
     }
