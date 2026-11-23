@@ -53,6 +53,8 @@ var Report = {
     if (error.name === 'TimeoutError' || error.name === 'AbortError') return 'timeout';
     // fetch rejects with a TypeError when it can't reach the server
     if (error.name === 'TypeError') return 'network';
+    // The deck site put a bot challenge in front of the import
+    if (error.challenge) return 'challenge';
     return 'failed';
   }
 };

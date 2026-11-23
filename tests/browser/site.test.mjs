@@ -65,7 +65,8 @@ async function newPage(options = {}, path = '/index.html') {
     if (!route.request().url().startsWith(API)) return route.abort();
     return route.fulfill({ status: importReply.status || 200, body: importReply.body, headers: {
       'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*',
-      'Access-Control-Expose-Headers': 'X-Deck-Format, X-Deck-Name',
+      'Access-Control-Expose-Headers': 'X-Deck-Format, X-Deck-Name, X-Deck-Error',
+      ...(importReply.error ? { 'X-Deck-Error': importReply.error } : {}),
       ...(importReply.format ? { 'X-Deck-Format': importReply.format } : {}),
       ...(importReply.name ? { 'X-Deck-Name': encodeURIComponent(importReply.name) } : {})
     } });
@@ -776,6 +777,18 @@ test('a failed import reports its source and kind, and a link it cannot read onl
   await page.fill('#deckimport', 'https://example.com/jace/deck');
   await page.click('#deckimport-button');
   assert.deepEqual(await reports(3), [['import', 'moxfield', 'failed'], ['badlink', 'tappedout.net'], ['badlink', 'other']]);
+});
+
+test("a site's bot challenge says imports from it don't work, keeps the deck, and is reported as one", async () => {
+  await deck('4 Lightning Bolt\n56 Mountain');
+  importReply = { status: 502, error: 'challenge', body: 'MTGGoldfish is checking visitors for bots.' };
+  await page.fill('#deckimport', 'https://www.mtggoldfish.com/deck/6837920');
+  await page.click('#deckimport-button');
+  await page.waitForSelector('#deckimport-status[data-state="error"]');
+  assert.equal(await page.textContent('#deckimport-status'), 'MTGGoldfish is checking visitors for bots, so its decks can\u2019t be ' +
+    'imported right now. Open the deck on MTGGoldfish, copy its text export and paste it below. Your deck hasn\u2019t changed.');
+  assert.equal(await page.inputValue('#deckmain'), '4 Lightning Bolt\n56 Mountain');
+  assert.deepEqual(await reports(1), [['import', 'mtggoldfish', 'challenge']]);
 });
 
 test('nothing is reported while the browser sends Global Privacy Control', async () => {

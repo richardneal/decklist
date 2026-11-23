@@ -129,12 +129,18 @@ test('reports a failed import by source and kind, and a link it cannot read by s
   $('#deckimport').val('https://moxfield.com/decks/abcdefghijklmnopqrstuv');
   ui.fetch = async () => ({ ok: false, status: 502, headers: new Map(), text: async () => '' });
   await $('#deckimport-button').trigger('click');
+  $('#deckimport').val('https://mtggoldfish.com/deck/123');
+  ui.fetch = async () => ({ ok: false, status: 502, headers: new Map([['X-Deck-Error', 'challenge']]), text: async () => '' });
+  await $('#deckimport-button').trigger('click');
+  // A bot challenge says so, without asking to try again
+  assert.equal($('#deckimport-status').message, 'MTGGoldfish is checking visitors for bots, so its decks can\u2019t be imported right now. ' +
+    'Open the deck on MTGGoldfish, copy its text export and paste it below. Your deck hasn\u2019t changed.');
   $('#deckimport').val('https://tappedout.net/mtg-decks/my-secret-deck/');
   await $('#deckimport-button').trigger('click');
   // The same failure is reported once
   await $('#deckimport-button').trigger('click');
   assert.deepEqual(await reports(), [['import', 'mtggoldfish', 'network'], ['import', 'mtggoldfish', 'timeout'],
-    ['import', 'moxfield', 'failed'], ['badlink', 'tappedout.net']]);
+    ['import', 'moxfield', 'failed'], ['import', 'mtggoldfish', 'challenge'], ['badlink', 'tappedout.net']]);
 });
 
 test('button updates textareas, refreshes the preview, and preserves edits during a request', async () => {

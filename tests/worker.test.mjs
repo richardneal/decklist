@@ -93,7 +93,7 @@ test('reports the format of a JSON deck, from the cache too, and exposes it to t
   for (let i = 0; i < 2; i++) {
     const response = await s.run('?source=moxfield&id=' + MOXFIELD_ID);
     assert.equal(response.headers.get('X-Deck-Format'), 'commander');
-    assert.equal(response.headers.get('Access-Control-Expose-Headers'), 'X-Deck-Format, X-Deck-Name');
+    assert.equal(response.headers.get('Access-Control-Expose-Headers'), 'X-Deck-Format, X-Deck-Name, X-Deck-Error');
   }
   assert.equal(s.calls.length, 1);
   // Formats the page cannot check, and the text exports, report none
@@ -381,4 +381,18 @@ test('counts rate limits, upstream refusals and bad exports', async () => {
   const failed = setup({ throws: true });
   await failed.run();
   assert.deepEqual(failed.outcomes(), [['mtggoldfish', 'invalid', 'Network failure']]);
+});
+
+test("names a site's bot challenge, which no request from a Worker gets past, and doesn't cache it", async () => {
+  const challenged = setup({ status: 403, body: '<html>Just a moment...</html>', headers: { 'cf-mitigated': 'challenge' } });
+  const response = await challenged.run();
+  assert.equal(response.status, 502);
+  assert.equal(response.headers.get('X-Deck-Error'), 'challenge');
+  assert.match(await response.text(), /^MTGGoldfish is checking visitors for bots, so its decks can’t be imported right now\. Export the deck as text on MTGGoldfish/);
+  assert.deepEqual(challenged.outcomes(), [['mtggoldfish', 'upstream', 'challenge']]);
+  assert.equal(challenged.entries.size, 0);
+  // A refusal without a challenge is still reported by its status
+  const refused = await setup({ status: 403 }).run();
+  assert.equal(refused.headers.get('X-Deck-Error'), null);
+  assert.match(await refused.text(), /returned HTTP 403/);
 });
