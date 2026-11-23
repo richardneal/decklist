@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # The workflows pin each action to a commit SHA; this keeps those SHAs current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # wrangler, used by the import Worker and to deploy the site. tests/browser is left
+  # out on purpose: playwright stays pinned to a version whose Chromium is installed.
+  - package-ecosystem: npm
+    directory: /worker
+    schedule:
+      interval: monthly
+    groups:
+      worker:
+        patterns: ["*"]
